@@ -2,15 +2,18 @@ using System;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 
 using Button = System.Windows.Controls.Button;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
-using CheckBox = System.Windows.Controls.CheckBox;
+using CheckBox = OsuCursorWin.OsuCheckbox;
 using Color = System.Windows.Media.Color;
 using FontFamily = System.Windows.Media.FontFamily;
 using HorizontalAlignment = System.Windows.HorizontalAlignment;
+using Point = System.Windows.Point;
 
 namespace OsuCursorWin;
 
@@ -122,6 +125,7 @@ internal sealed class SettingsWindow : Window
             Padding = new Thickness(12, 6, 12, 6)
         };
         resetButton.Click += (_, _) => _sizeSlider.Value = 30;
+        AttachElasticButton(resetButton);
 
         cursorSection.Children.Add(cursorValuePanel);
         cursorSection.Children.Add(_sizeSlider);
@@ -222,6 +226,30 @@ internal sealed class SettingsWindow : Window
         root.Children.Add(CreateSection("系统", systemSection));
 
         Content = root;
+
+        Opacity = 0;
+        var entranceTransform = new TranslateTransform(0, 24);
+        root.RenderTransform = entranceTransform;
+        Loaded += (_, _) =>
+        {
+            BeginAnimation(
+                OpacityProperty,
+                new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(280))
+                {
+                    EasingFunction = new QuinticEase { EasingMode = EasingMode.EaseOut }
+                });
+
+            entranceTransform.BeginAnimation(
+                TranslateTransform.YProperty,
+                new DoubleAnimation(24, 0, TimeSpan.FromMilliseconds(380))
+                {
+                    EasingFunction = new BackEase
+                    {
+                        EasingMode = EasingMode.EaseOut,
+                        Amplitude = 0.25
+                    }
+                });
+        };
 
         StateChanged += OnStateChanged;
         Closing += OnClosing;
@@ -401,5 +429,32 @@ internal sealed class SettingsWindow : Window
         slider.Foreground = AccentBrush;
         slider.MinHeight = 24;
         slider.Margin = new Thickness(0, 4, 0, 0);
+    }
+
+    private static void AttachElasticButton(Button button)
+    {
+        var scale = new ScaleTransform(1, 1);
+        button.RenderTransform = scale;
+        button.RenderTransformOrigin = new Point(0.5, 0.5);
+
+        button.MouseEnter += (_, _) =>
+            AnimateScale(scale, 1.04, 120, new QuinticEase { EasingMode = EasingMode.EaseOut });
+        button.MouseLeave += (_, _) =>
+            AnimateScale(scale, 1.0, 180, new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.2 });
+        button.PreviewMouseLeftButtonDown += (_, _) =>
+            AnimateScale(scale, 0.96, 90, new QuinticEase { EasingMode = EasingMode.EaseOut });
+        button.PreviewMouseLeftButtonUp += (_, _) =>
+            AnimateScale(scale, 1.0, 160, new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.3 });
+    }
+
+    private static void AnimateScale(ScaleTransform transform, double to, int milliseconds, IEasingFunction? easing)
+    {
+        var animation = new DoubleAnimation(to, TimeSpan.FromMilliseconds(milliseconds))
+        {
+            EasingFunction = easing
+        };
+
+        transform.BeginAnimation(ScaleTransform.ScaleXProperty, animation);
+        transform.BeginAnimation(ScaleTransform.ScaleYProperty, animation);
     }
 }
