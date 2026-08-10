@@ -113,7 +113,7 @@ internal static class NativeMethods
 
     internal static void MoveTopmost(IntPtr hwnd, int x, int y, int width, int height)
     {
-        SetWindowPos(hwnd, HwndTop, x, y, width, height, SwpNoActivate | SwpShowWindow);
+        SetWindowPos(hwnd, HwndTopmost, x, y, width, height, SwpNoActivate | SwpShowWindow);
     }
 
     internal static void BringAbove(IntPtr hwnd, IntPtr insertAfter)
