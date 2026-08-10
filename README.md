@@ -16,11 +16,7 @@ Windows 全局光标覆盖层：
 
 ## 运行
 
-直接运行发布版：
-
-```text
-publish\OsuCursorWin.exe
-```
+双击exe程序，不需要安装。
 
 或使用源码运行：
 
