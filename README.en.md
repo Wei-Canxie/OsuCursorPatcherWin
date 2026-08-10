@@ -12,7 +12,6 @@ Windows global cursor overlay:
 - Restores the original system cursor on exit.
 - Sound effect support.
 
-At runtime, it uses a 160px window that follows the mouse instead of a full-screen overlay. Topmost updates are triggered by mouse movement, clicks, Win key presses, or system cursor state changes, avoiding non-mouse-triggered top-level windows such as the Start menu covering the cursor.
 
 ## Run
 
