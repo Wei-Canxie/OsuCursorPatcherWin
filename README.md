@@ -1,5 +1,7 @@
 # osu! Cursor for Windows
 
+[English](README.en.md) | 中文
+
 注意：部分代码由AI生成
 
 Windows 全局光标覆盖层：
@@ -34,7 +36,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install-uiaccess.ps1
 
 首次启动会自动打开设置窗口；之后右键托盘图标选择“设置”可重新打开。修改会实时生效并保存到 `%APPDATA%\OsuCursorWin\settings.json`。最小化或关闭设置窗口只会隐藏到后台，不会退出程序。
 
-敲击音效使用 `音效\cursor-tap.wav`，按下和抬起都会播放；悬停音效使用 `音效\default-hover.wav`，进入可点击元素时播放，并使用 osu 20ms 去抖。所有音频通过独立音频线程和 NAudio 低延迟 WaveOut 通道池播放。
+敲击音效使用 `音效\cursor-tap.wav`，按下和抬起都会播放；悬停音效使用 `音效\default-hover.wav`，进入可点击元素时播放，并使用 osu 20ms 去抖。所有音频通过独立音频线程和 NAudio 低延迟 WaveOut 通道池播放，UI 线程只负责排队，不会因为音效生成或播放而卡顿。
 
 程序默认请求管理员权限，并带有 `uiAccess="true"`，首次启动会弹出 UAC 提示。普通 `SetWindowPos` 只能改变桌面窗口带内的顺序，无法覆盖开始菜单等沉浸式 Shell 窗口；`uiAccess` 会把覆盖窗口放到更高的 `ZBID_UIACCESS` 窗口带。
 
