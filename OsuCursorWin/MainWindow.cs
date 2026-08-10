@@ -73,6 +73,7 @@ internal sealed class MainWindow : Window
     private bool _wasResizePrompt;
     private IntPtr _baselineNormalHandle;
     private double _lastHoverSoundTime = double.NegativeInfinity;
+    private long _lastHookInvalidateTicks;
     private bool _cursorInstalled;
     private bool _closing;
     private bool _forceTopmost = true;
@@ -168,6 +169,7 @@ internal sealed class MainWindow : Window
             if (_hwnd != IntPtr.Zero && !_closing)
             {
                 _cursorLayer.InvalidateVisual();
+                TryBringAboveTaskbarPreview();
             }
         };
         _topmostTimer.Start();
@@ -317,10 +319,6 @@ internal sealed class MainWindow : Window
             {
                 case NativeMethods.WmMouseMove:
                     _cursorPoint = data.pt;
-                    if (_hwnd != IntPtr.Zero)
-                    {
-                        UpdateWindowPosition();
-                    }
                     break;
                 case NativeMethods.WmLButtonDown:
                 case NativeMethods.WmRButtonDown:
@@ -336,7 +334,7 @@ internal sealed class MainWindow : Window
                     break;
             }
 
-            _cursorLayer.InvalidateVisual();
+            InvalidateCursorVisualFromHook();
         }
 
         return NativeMethods.CallNextHookEx(_mouseHook, nCode, wParam, lParam);
@@ -359,7 +357,6 @@ internal sealed class MainWindow : Window
 
         UpdateMouseState();
         UpdateAnimation(dt);
-        TryBringAboveTaskbarPreview();
         UpdateVisual();
     }
 
@@ -412,10 +409,6 @@ internal sealed class MainWindow : Window
         {
             _lastCursorHandle = info.hCursor;
             _forceTopmost = true;
-            Program.Log(
-                $"Cursor handle changed: current={info.hCursor.ToInt64():X} " +
-                $"hand={handHandle.ToInt64():X} " +
-                $"normal={normalHandle.ToInt64():X}");
         }
 
         _pointerHover = info.hCursor != IntPtr.Zero
@@ -545,8 +538,7 @@ internal sealed class MainWindow : Window
             targetScale = 0.9;
             var targetAngle = _dragActive ? CalculateDragAngle() : 0.0;
             var angleDelta = NormalizeAngle(targetAngle - _angle);
-            _angleVelocity += (240.0 * angleDelta - 20.0 * _angleVelocity) * dt;
-            _angle += _angleVelocity * dt;
+            _angle += angleDelta * Math.Clamp(dt * 8.0, 0.0, 1.0);
         }
         else if (_elasticReturning)
         {
@@ -874,6 +866,16 @@ internal sealed class MainWindow : Window
         var virtualWidth = SystemParameters.VirtualScreenWidth;
         var xDip = _cursorPoint.X / _dpiScaleX;
         return Math.Clamp(((xDip - virtualLeft) / virtualWidth) * 2.0 - 1.0, -0.6, 0.6);
+    }
+
+    private void InvalidateCursorVisualFromHook()
+    {
+        var now = _clock.ElapsedTicks;
+        if (now - _lastHookInvalidateTicks >= TimeSpan.TicksPerMillisecond * 8)
+        {
+            _lastHookInvalidateTicks = now;
+            _cursorLayer.InvalidateVisual();
+        }
     }
 
     private bool IsResizeCursor()
