@@ -16,11 +16,7 @@ At runtime, it uses a 160px window that follows the mouse instead of a full-scre
 
 ## Run
 
-Run the published build directly:
-
-```text
-publish\OsuCursorWin.exe
-```
+No installation needed—just double-click the EXE to run.
 
 Or run from source:
 
@@ -84,5 +80,5 @@ powershell -ExecutionPolicy Bypass -File scripts\restore-cursor.ps1
 
 - The cursor may be covered and disappear when a taskbar app thumbnail preview is open.
 - Games that draw their own cursor may show two cursors at the same time.
-- In unknown cases, cursor rotation may stutter while dragging and return to normal on release.
+- ~~In unknown cases, cursor rotation may stutter while dragging and return to normal on release.~~
 - Fast cursor movement in File Explorer may cause hover preview tearing.
