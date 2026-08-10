@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>OsuCursorWin</AssemblyName>
+    <RootNamespace>OsuCursorWin</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>1.ico</ApplicationIcon>
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="1.ico">
+      <LogicalName>OsuCursorWin.Images.AppIcon.ico</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="cursor-tap.wav">
+      <LogicalName>OsuCursorWin.Audio.cursorTap.wav</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="default-hover.wav">
+      <LogicalName>OsuCursorWin.Audio.defaultHover.wav</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\cursor.png">
+      <LogicalName>OsuCursorWin.Images.cursor.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\cursor-additive.png">
+      <LogicalName>OsuCursorWin.Images.cursorAdditive.png</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.3.0" />
+  </ItemGroup>
+
+</Project>
