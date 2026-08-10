@@ -2,7 +2,11 @@
 
 [English](README.en.md) | 中文
 
-<video src="https://github.com/xyc-233/OsuCursirWin/demo.MP4"></video>
+
+
+https://github.com/user-attachments/assets/4e4088e9-9a9e-4c97-8205-bad2f7645db5
+
+
 
 注意：部分代码由AI生成
 
