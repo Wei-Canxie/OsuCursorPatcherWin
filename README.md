@@ -2,6 +2,8 @@
 
 [English](README.en.md) | 中文
 
+<video src="https://github.com/xyc-233/OsuCursirWin/demo.MP4"></video>
+
 注意：部分代码由AI生成
 
 Windows 全局光标覆盖层：
