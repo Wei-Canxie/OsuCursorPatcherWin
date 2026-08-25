@@ -70,6 +70,38 @@ internal static class NativeMethods
     internal const uint WmXButtonUp = 0x020C;
 
     [StructLayout(LayoutKind.Sequential)]
+    internal struct BITMAPINFOHEADER
+    {
+        internal uint biSize;
+        internal int biWidth;
+        internal int biHeight;
+        internal ushort biPlanes;
+        internal ushort biBitCount;
+        internal uint biCompression;
+        internal uint biSizeImage;
+        internal int biXPelsPerMeter;
+        internal int biYPelsPerMeter;
+        internal uint biClrUsed;
+        internal uint biClrImportant;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct BITMAPINFO
+    {
+        internal BITMAPINFOHEADER bmiHeader;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct ICONINFO
+    {
+        internal bool fIcon;
+        internal int xHotspot;
+        internal int yHotspot;
+        internal IntPtr hbmMask;
+        internal IntPtr hbmColor;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     internal struct POINT
     {
         internal int X;
@@ -276,6 +308,18 @@ internal static class NativeMethods
 
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern bool DestroyCursor(IntPtr hCursor);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern IntPtr CreateIconIndirect(ref ICONINFO piconinfo);
+
+    [DllImport("gdi32.dll", SetLastError = true)]
+    internal static extern IntPtr CreateBitmap(int nWidth, int nHeight, uint nPlanes, uint nBitCount, IntPtr lpBits);
+
+    [DllImport("gdi32.dll", SetLastError = true)]
+    internal static extern IntPtr CreateDIBSection(IntPtr hdc, ref BITMAPINFO pbmi, uint iUsage, out IntPtr ppvBits, IntPtr hSection, uint dwOffset);
+
+    [DllImport("gdi32.dll", SetLastError = true)]
+    internal static extern int SetDIBits(IntPtr hdc, IntPtr hbm, uint start, uint cLines, IntPtr lpBits, ref BITMAPINFO lpbmi, uint colorUse);
 
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern bool SystemParametersInfo(uint uiAction, uint uiParam, IntPtr pvParam, uint fWinIni);

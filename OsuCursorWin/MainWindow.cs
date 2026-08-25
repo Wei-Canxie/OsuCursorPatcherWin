@@ -222,7 +222,13 @@ internal sealed class MainWindow : Window
 
         if (!_cursorInstalled)
         {
-            if (!CursorReplacer.Install())
+            // Build an osu-style system cursor (a white ring) from the embedded
+            // cursor image so the pointer stays visible over DirectComposition
+            // surfaces (Start menu, Action Center, volume/clipboard flyouts)
+            // that the animated overlay cannot cover.
+            using var osuImage = LoadBitmapResource("OsuCursorWin.Images.cursor.png");
+            var osuSizePx = (int)Math.Clamp(Math.Round(BaseCursorWidth * _dpiScaleX), 24, 96);
+            if (!CursorReplacer.Install(osuImage, osuSizePx))
             {
                 CursorReplacer.Restore();
                 Program.Log("Unable to install system cursor replacement.");
@@ -559,6 +565,17 @@ internal sealed class MainWindow : Window
             && !NativeMethods.IsStandardCursor(info.hCursor);
         var visible = cursorShowing && !_suppressCursor;
         SetCursorVisible(visible);
+
+        // Detect whether the pointer is over a DirectComposition XAML surface
+        // (Start menu, Action Center, clipboard/volume flyouts) that the animated
+        // overlay cannot composite above.  When it is, a system surface window
+        // sits ABOVE our overlay in the Z-order — swap the system cursor to the
+        // static osu ring so the pointer stays visible; otherwise keep it blank
+        // and let the overlay provide the animated cursor.
+        var useOsuSystemCursor = _overlayInitialized && _overlay != null
+            && visible
+            && IsWindowAboveCursor(_overlay.Handle, _cursorPoint);
+        CursorReplacer.SetMode(useOsuSystemCursor);
 
         if (DateTime.UtcNow >= _dbgNextLog)
         {
@@ -1140,6 +1157,41 @@ internal sealed class MainWindow : Window
             || _cursorPoint.Y >= rect.Bottom - borderY;
     }
 
+    /// <summary>
+    /// True when a visible window sits ABOVE our overlay in the Z-order at the
+    /// cursor position — i.e. a DirectComposition XAML surface (Start menu,
+    /// Action Center, volume/clipboard flyout) that the animated overlay cannot
+    /// composite above.  We walk upward from the overlay (GW_HWNDPREV) and check
+    /// whether any window there is visible and covers the cursor point.  This is
+    /// more reliable than WindowFromPoint, whose result is ambiguous because the
+    /// cursor lands in the ring's hollow centre (outside the overlay's clip
+    /// region), so it can report the window below even in ordinary scenes.
+    /// </summary>
+    private bool IsWindowAboveCursor(IntPtr overlayHandle, NativeMethods.POINT pt)
+    {
+        var hwnd = overlayHandle;
+        for (var i = 0; i < 40 && hwnd != IntPtr.Zero; i++)
+        {
+            hwnd = NativeMethods.GetWindow(hwnd, NativeMethods.GwHwndPrev);
+            if (hwnd == IntPtr.Zero)
+            {
+                break;
+            }
+
+            if (!NativeMethods.IsWindowVisible(hwnd))
+            {
+                continue;
+            }
+
+            if (NativeMethods.GetWindowRect(hwnd, out var rect) && PointInRect(pt, rect))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void TryBringAboveTaskbarPreview()
     {
         if (_hwnd == IntPtr.Zero)
@@ -1198,6 +1250,13 @@ internal sealed class MainWindow : Window
         using var buffer = new MemoryStream();
         stream.CopyTo(buffer);
         return buffer.ToArray();
+    }
+
+    private static System.Drawing.Bitmap LoadBitmapResource(string resourceName)
+    {
+        var bytes = LoadResourceBytes(resourceName);
+        using var ms = new MemoryStream(bytes);
+        return new System.Drawing.Bitmap(ms);
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
