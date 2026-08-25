@@ -24,6 +24,9 @@ internal static class NativeMethods
     internal const int GWL_EXSTYLE = -20;
     internal const int GwlStyle = -16;
     internal const long WS_EX_TRANSPARENT = 0x00000020L;
+    internal const int RgnOr = 2;
+    internal const int RgnAnd = 1;
+    internal const int RgnDiff = 4;
     internal const long WS_EX_TOOLWINDOW = 0x00000080L;
     internal const long WS_EX_LAYERED = 0x00080000L;
     internal const long WS_EX_TOPMOST = 0x00000008L;
@@ -32,17 +35,28 @@ internal static class NativeMethods
     internal const long WsMaximize = 0x01000000L;
     internal const int SmCxSizeFrame = 32;
     internal const int SmCySizeFrame = 33;
+    internal const int SmXVirtualScreen = 76;
+    internal const int SmCxVirtualScreen = 78;
 
     internal static readonly IntPtr HwndTopmost = new(-1);
     internal static readonly IntPtr HwndTop = IntPtr.Zero;
 
     internal const int GwHwndNext = 2;
+    internal const int GwHwndPrev = 3;
     internal const int GaRoot = 2;
 
     internal const uint SwpNoMove = 0x0002;
     internal const uint SwpNoSize = 0x0001;
     internal const uint SwpNoActivate = 0x0010;
     internal const uint SwpShowWindow = 0x0040;
+    internal const uint SwpHideWindow = 0x0080;
+    internal const uint CursorShowing = 0x0001;
+    internal const uint WmQuit = 0x0012;
+    internal const int WmHotkey = 0x0312;
+    internal const uint ModAlt = 0x0001;
+    internal const uint ModControl = 0x0002;
+    internal const uint ModNoRepeat = 0x4000;
+    internal const byte VkH = 0x48;
 
     internal const int WhMouseLl = 14;
     internal const uint WmMouseMove = 0x0200;
@@ -90,6 +104,17 @@ internal static class NativeMethods
         internal int Bottom;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct MSG
+    {
+        internal IntPtr hwnd;
+        internal uint message;
+        internal IntPtr wParam;
+        internal IntPtr lParam;
+        internal uint time;
+        internal POINT pt;
+    }
+
     internal delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
 
     internal static bool GetCursorInfo(out CURSORINFO info)
@@ -98,10 +123,66 @@ internal static class NativeMethods
         return GetCursorInfoNative(ref info);
     }
 
+    private static readonly IntPtr[] StandardCursorHandles = BuildStandardCursorHandles();
+
+    private static IntPtr[] BuildStandardCursorHandles()
+    {
+        uint[] ids =
+        {
+            OCR_NORMAL, OCR_IBEAM, OCR_WAIT, OCR_CROSS, OCR_UP,
+            OCR_SIZENWSE, OCR_SIZENESW, OCR_SIZEWE, OCR_SIZENS,
+            OCR_SIZEALL, OCR_NO, OCR_HAND, OCR_APPSTARTING, OCR_HELP
+        };
+        var result = new IntPtr[ids.Length];
+        for (var i = 0; i < ids.Length; i++)
+        {
+            result[i] = LoadCursor(IntPtr.Zero, new IntPtr((long)ids[i]));
+        }
+        return result;
+    }
+
+    /// <summary>True when the handle is one of the standard Windows system
+    /// cursors (arrow, I-beam, hand, resize, crosshair, ...). GetCursorInfo
+    /// reports the handle the app requested, so a custom cursor (Snipaste
+    /// tools, games) yields a handle that matches none of these.</summary>
+    internal static bool IsStandardCursor(IntPtr handle)
+    {
+        if (handle == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        foreach (var h in StandardCursorHandles)
+        {
+            if (h == handle)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    internal static void SetOverlayVisible(IntPtr hwnd, bool visible)
+    {
+        SetWindowPos(hwnd, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | (visible ? SwpShowWindow : SwpHideWindow));
+    }
+
+    internal static bool SetTopmost(IntPtr hwnd)
+    {
+        return SetWindowPos(hwnd, HwndTopmost, 0, 0, 0, 0,
+            SwpNoMove | SwpNoSize | SwpNoActivate | SwpShowWindow);
+    }
+
     internal static void SetClickThrough(IntPtr hwnd)
     {
         long exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
-        exstyle |= WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_LAYERED | WS_EX_TOPMOST;
+        // NOTE: do NOT add WS_EX_LAYERED here. WPF layered windows (via
+        // AllowsTransparency=true) fail to composite over Windows 11
+        // DirectComposition surfaces (Start menu, Action Center, clipboard,
+        // volume flyout). The overlay must be a normal window clipped with
+        // SetWindowRgn instead (see MainWindow.UpdateCursorRegion).
+        exstyle |= WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST;
         SetWindowLongPtr(hwnd, GWL_EXSTYLE, new IntPtr(exstyle));
         SetWindowPos(hwnd, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpShowWindow);
     }
@@ -111,15 +192,53 @@ internal static class NativeMethods
         return GetWindowLongPtr(hwnd, GwlStyle).ToInt64();
     }
 
-    internal static void MoveTopmost(IntPtr hwnd, int x, int y, int width, int height)
+    internal static void MoveTopmost(IntPtr hwnd, int x, int y, int width, int height, bool visible = true)
     {
-        SetWindowPos(hwnd, HwndTopmost, x, y, width, height, SwpNoActivate | SwpShowWindow);
+        SetWindowPos(hwnd, HwndTopmost, x, y, width, height, SwpNoActivate | (visible ? SwpShowWindow : SwpHideWindow));
+    }
+
+    internal static void MoveAbove(IntPtr hwnd, IntPtr insertAfter, int x, int y, int width, int height, bool visible = true)
+    {
+        SetWindowPos(hwnd, insertAfter, x, y, width, height, SwpNoActivate | (visible ? SwpShowWindow : SwpHideWindow));
     }
 
     internal static void BringAbove(IntPtr hwnd, IntPtr insertAfter)
     {
         SetWindowPos(hwnd, insertAfter, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
     }
+
+    internal static bool SetWindowRegion(IntPtr hwnd, IntPtr region)
+    {
+        // SetWindowRgn takes ownership of the region; the system frees it.
+        return SetWindowRgn(hwnd, region, true);
+    }
+
+    internal static IntPtr CreateRectRgn(int left, int top, int right, int bottom)
+    {
+        return CreateRectRgnNative(left, top, right, bottom);
+    }
+
+    internal static int CombineRgn(IntPtr dest, IntPtr src1, IntPtr src2, int mode)
+    {
+        return CombineRgnNative(dest, src1, src2, mode);
+    }
+
+    internal static bool DeleteObject(IntPtr ho)
+    {
+        return DeleteObjectNative(ho);
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
+
+    [DllImport("gdi32.dll", EntryPoint = "CreateRectRgn")]
+    private static extern IntPtr CreateRectRgnNative(int nLeftRect, int nTopRect, int nRightRect, int nBottomRect);
+
+    [DllImport("gdi32.dll", EntryPoint = "CombineRgn")]
+    private static extern int CombineRgnNative(IntPtr hrgnDst, IntPtr hrgnSrc1, IntPtr hrgnSrc2, int fnCombineMode);
+
+    [DllImport("gdi32.dll", EntryPoint = "DeleteObject")]
+    private static extern bool DeleteObjectNative(IntPtr ho);
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
@@ -193,4 +312,34 @@ internal static class NativeMethods
 
     [DllImport("user32.dll")]
     internal static extern int GetSystemMetrics(int nIndex);
-}
+
+    [DllImport("user32.dll")]
+    internal static extern bool GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
+
+    [DllImport("user32.dll")]
+    internal static extern bool TranslateMessage(ref MSG lpMsg);
+
+    [DllImport("user32.dll")]
+    internal static extern IntPtr DispatchMessage(ref MSG lpMsg);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern bool PostThreadMessage(uint idThread, uint Msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("kernel32.dll")]
+    internal static extern uint GetCurrentThreadId();
+
+
+    [DllImport("user32.dll")]
+    internal static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    internal static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    internal static extern int GetWindowThreadProcessId(IntPtr hWnd, out int lpdwProcessId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern bool UnregisterHotKey(IntPtr hWnd, int id);}

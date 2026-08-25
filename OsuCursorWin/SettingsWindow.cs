@@ -290,13 +290,12 @@ internal sealed class SettingsWindow : Window
     }
 
     private void OnSizeSliderChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-    {
-        var width = Math.Round(e.NewValue);
-        _settings.CursorWidth = width;
-        _sizeValueText.Text = $"{width:0} px";
-        _settings.Save();
-        CursorSizeChanged?.Invoke(width);
-    }
+        {
+            var width = Math.Round(e.NewValue);
+            _settings.CursorWidth = width;
+            _sizeValueText.Text = $"{width:0} px";
+            CursorSizeChanged?.Invoke(width);
+        }
 
     private void OnAutoStartChecked(object? sender, RoutedEventArgs e)
     {
