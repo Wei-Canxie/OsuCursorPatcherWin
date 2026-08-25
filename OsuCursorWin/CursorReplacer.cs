@@ -67,6 +67,28 @@ internal static class CursorReplacer
         return BlankHandles.TryGetValue(cursorId, out var handle) ? handle : IntPtr.Zero;
     }
 
+    /// <summary>True when the given cursor handle is one of the blank cursors we
+    /// installed to hide the native pointer. When an app shows its own custom
+    /// cursor (Snipaste, games, etc.), the handle is foreign and we should step
+    /// aside so the osu overlay doesn't double-draw over it.</summary>
+    internal static bool IsInstalledCursor(IntPtr handle)
+    {
+        if (handle == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        foreach (var value in BlankHandles.Values)
+        {
+            if (value == handle)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     internal static void Restore()
     {
         if (!_installed)
@@ -81,8 +103,17 @@ internal static class CursorReplacer
         if (!restored)
         {
             RestoreDefaultCursors();
+            // Broadcast the change so every window picks up the restored cursors.
+            NativeMethods.SystemParametersInfo(SpiSetCursors, 0, IntPtr.Zero, SpifSendChange);
         }
 
+        // Release the blank cursor handles we created, otherwise every
+        // install/restore cycle (e.g. toggling the cursor from the tray)
+        // leaks GDI handles.
+        foreach (var handle in BlankHandles.Values)
+        {
+            NativeMethods.DestroyCursor(handle);
+        }
         BlankHandles.Clear();
         _installed = false;
     }

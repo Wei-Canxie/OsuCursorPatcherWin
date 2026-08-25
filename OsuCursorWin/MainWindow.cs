@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Input;
@@ -32,22 +33,19 @@ internal sealed class MainWindow : Window
     private const double MaxCursorWidth = 64.0;
 
     private readonly AppSettings _settings;
-    private readonly Canvas _cursorLayer;
-    private readonly Grid _cursorRotate;
-    private readonly Grid _cursorScale;
-    private readonly RotateTransform _rotate;
-    private readonly ScaleTransform _scale;
-    private readonly Image _cursorImage;
-    private readonly Image _additiveImage;
+    private readonly GdiCursorOverlay _overlay;
     private readonly NotifyIcon _trayIcon;
+    private bool _overlayInitialized;
     private readonly TapSoundPlayer _tapSoundPlayer;
     private readonly TapSoundPlayer _hoverSoundPlayer;
     private SettingsWindow? _settingsWindow;
     private ToolStripMenuItem? _cursorToggleItem;
     private bool _cursorEnabled = true;
+    private bool _cursorVisible = true;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly DispatcherTimer _topmostTimer;
-    private DispatcherTimer? _fallbackTimer;
+    private readonly DispatcherTimer _renderTimer;
+    private readonly DispatcherTimer _settingsSaveDebounce;
 
     private NativeMethods.POINT _cursorPoint;
     private NativeMethods.POINT _downStart;
@@ -68,10 +66,12 @@ internal sealed class MainWindow : Window
     private bool _mouseDown;
     private bool _dragActive;
     private bool _pointerHover;
-    private bool _wasHovering;
     private bool _wasHoverCandidate;
     private bool _wasResizePrompt;
-    private IntPtr _baselineNormalHandle;
+    private readonly Stopwatch _uiaThrottle = Stopwatch.StartNew();
+    private IntPtr _lastUiaWindow = IntPtr.Zero;
+    private IntPtr _lastUiaCursorHandle = IntPtr.Zero;
+    private bool _lastUiaClickable;
     private double _lastHoverSoundTime = double.NegativeInfinity;
     private long _lastHookInvalidateTicks;
     private bool _cursorInstalled;
@@ -82,9 +82,23 @@ internal sealed class MainWindow : Window
     private int _lastWindowY = int.MinValue;
     private int _lastWindowWidth;
     private int _lastWindowHeight;
-    private IntPtr _mouseHook;
+    private volatile IntPtr _mouseHook;
     private NativeMethods.LowLevelMouseProc? _mouseHookProc;
-    private bool _mouseHookActive;
+    private volatile bool _mouseHookActive;
+    private Thread? _hookThread;
+    private volatile bool _hookThreadRunning;
+    private volatile uint _hookNativeThreadId;
+    private int _hookPosX;
+    private int _hookPosY;
+    private int _hookDownX;
+    private int _hookDownY;
+    private int _hookPressPending;
+    private int _hookReleasePending;
+    private IntPtr _lastZForegroundWindow = IntPtr.Zero;
+    private IntPtr _hostileWindow = IntPtr.Zero;
+    private bool _suppressCursor;
+    private DateTime _dbgNextLog = DateTime.MinValue;
+    private const int HotkeyToggleCursor = 1;
     private double _cursorWidth;
     private double _cursorHeight;
     private double _cursorWindowSize;
@@ -98,50 +112,19 @@ internal sealed class MainWindow : Window
         _cursorWidth = Math.Clamp(_settings.CursorWidth, MinCursorWidth, MaxCursorWidth);
         ApplyCursorDimensions(_cursorWidth);
 
-        Width = _cursorWindowSize;
-        Height = _cursorWindowSize;
-        Left = 0;
-        Top = 0;
+        Width = 1;
+        Height = 1;
+        Left = -32000;
+        Top = -32000;
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
-        AllowsTransparency = true;
-        Background = Brushes.Transparent;
-        Topmost = true;
+        AllowsTransparency = false;
+        Background = Brushes.Black;
+        Topmost = false;
         ShowInTaskbar = false;
         ShowActivated = false;
         Focusable = false;
-        _cursorScale = new Grid
-        {
-            Width = _cursorWidth,
-            Height = _cursorHeight,
-            RenderTransformOrigin = new Point(0, 0)
-        };
-        _scale = new ScaleTransform(1.0, 1.0);
-        _cursorScale.RenderTransform = _scale;
-
-        _cursorImage = LoadImageResource("OsuCursorWin.Images.cursor.png");
-        _cursorScale.Children.Add(_cursorImage);
-
-        _additiveImage = LoadImageResource("OsuCursorWin.Images.cursorAdditive.png");
-        _additiveImage.Opacity = 0.0;
-        _cursorScale.Children.Add(_additiveImage);
-
-        _cursorRotate = new Grid
-        {
-            Width = _cursorWidth,
-            Height = _cursorHeight,
-            RenderTransformOrigin = new Point(0, 0)
-        };
-        _rotate = new RotateTransform(0.0);
-        _cursorRotate.RenderTransform = _rotate;
-        _cursorRotate.Children.Add(_cursorScale);
-
-        _cursorLayer = new Canvas
-        {
-            IsHitTestVisible = false
-        };
-        _cursorLayer.Children.Add(_cursorRotate);
-        Content = _cursorLayer;
+        _overlay = new GdiCursorOverlay();
 
         _tapSoundPlayer = new TapSoundPlayer(LoadResourceBytes("OsuCursorWin.Audio.cursorTap.wav"))
         {
@@ -166,13 +149,38 @@ internal sealed class MainWindow : Window
         _topmostTimer.Tick += (_, _) =>
         {
             _forceTopmost = true;
-            if (_hwnd != IntPtr.Zero && !_closing)
+            if (_overlayInitialized && !_closing)
             {
-                _cursorLayer.InvalidateVisual();
+                _overlay.Invalidate();
+                // Force the overlay back to the top of the topmost Z-order.  The
+                // WinForms TopMost=true property only pins it once at creation;
+                // Start menu / Action Center / clipboard / volume flyouts are
+                // themselves topmost and would otherwise stack above the cursor.
+                _overlay.BringToTopmost();
                 TryBringAboveTaskbarPreview();
             }
         };
         _topmostTimer.Start();
+
+        // Drive the render loop with a DispatcherTimer.  The WPF host window is
+        // hidden, so CompositionTarget.Rendering no longer fires; a timer keeps
+        // the overlay animating regardless.
+        _renderTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(1000.0 / 240.0)
+        };
+        _renderTimer.Tick += OnRendering;
+        _renderTimer.Start();
+
+        _settingsSaveDebounce = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(400)
+        };
+        _settingsSaveDebounce.Tick += (_, _) =>
+        {
+            _settingsSaveDebounce.Stop();
+            _settings.Save();
+        };
 
         if (smoke)
         {
@@ -192,14 +200,25 @@ internal sealed class MainWindow : Window
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
         _hwnd = new WindowInteropHelper(this).Handle;
-        NativeMethods.SetClickThrough(_hwnd);
+        // The WPF host window stays hidden; the visible cursor is the WinForms
+        // GdiCursorOverlay (which composites above DirectComposition surfaces).
+        this.Hide();
         UpdateCoordinateSystem();
         _forceTopmost = true;
+        var source = HwndSource.FromHwnd(_hwnd);
+        source?.AddHook(WndProc);
+        NativeMethods.RegisterHotKey(_hwnd, HotkeyToggleCursor, NativeMethods.ModControl | NativeMethods.ModAlt | NativeMethods.ModNoRepeat, NativeMethods.VkH);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         UpdateCoordinateSystem();
+
+        if (!_overlayInitialized)
+        {
+            _overlayInitialized = true;
+            _overlay.ShowOverlay();
+        }
 
         if (!_cursorInstalled)
         {
@@ -225,7 +244,7 @@ internal sealed class MainWindow : Window
 
         _forceTopmost = true;
         InstallMouseHook();
-        CompositionTarget.Rendering += OnRendering;
+        _renderTimer.Start();
         _lastFrameTime = _clock.Elapsed.TotalSeconds;
 
         if (!_smoke)
@@ -248,10 +267,14 @@ internal sealed class MainWindow : Window
 
         _closing = true;
         _settingsWindow?.ForceClose();
-        CompositionTarget.Rendering -= OnRendering;
+        NativeMethods.UnregisterHotKey(_hwnd, HotkeyToggleCursor);
+        _renderTimer.Stop();
         UninstallMouseHook();
         _topmostTimer.Stop();
+        _settingsSaveDebounce.Stop();
+        _settings.Save();
         CursorReplacer.Restore();
+        _overlay?.Dispose();
 
         if (_trayIcon is not null)
         {
@@ -274,6 +297,62 @@ internal sealed class MainWindow : Window
 
     private void InstallMouseHook()
     {
+        if (_hookThread is not null)
+        {
+            return;
+        }
+
+        // Seed the shared position so the cursor doesn't start at (0,0).
+        if (NativeMethods.GetCursorInfo(out var ci))
+        {
+            _hookPosX = ci.ptScreenPos.X;
+            _hookPosY = ci.ptScreenPos.Y;
+            _cursorPoint = ci.ptScreenPos;
+        }
+
+        // Run the low-level mouse hook on its own thread with a dedicated message
+        // pump. This decouples input capture from the UI thread so that a high
+        // polling-rate mouse (>1000Hz) can no longer flood the WPF render loop
+        // and cause cursor lag ("rubber-banding"), especially under CPU load.
+        _hookThreadRunning = true;
+        _hookThread = new Thread(HookThreadMain)
+        {
+            IsBackground = true,
+            Name = "OsuCursorHook"
+        };
+        _hookThread.SetApartmentState(ApartmentState.STA);
+        _hookThread.Start();
+    }
+
+    private void UninstallMouseHook()
+    {
+        _hookThreadRunning = false;
+        if (_hookNativeThreadId != 0)
+        {
+            // Wake the hook thread's blocking message pump so it can exit cleanly.
+            NativeMethods.PostThreadMessage(_hookNativeThreadId, NativeMethods.WmQuit, IntPtr.Zero, IntPtr.Zero);
+        }
+
+        if (_hookThread is not null)
+        {
+            if (!_hookThread.Join(1000))
+            {
+                Program.Log("Hook thread did not exit within 1s; leaving it (background thread).");
+            }
+            _hookThread = null;
+        }
+
+        _hookNativeThreadId = 0;
+        _mouseHookActive = false;
+    }
+
+    private void HookThreadMain()
+    {
+        if (!_hookThreadRunning)
+        {
+            return;
+        }
+
         _mouseHookProc = OnLowLevelMouse;
         _mouseHook = NativeMethods.SetWindowsHookEx(
             NativeMethods.WhMouseLl,
@@ -281,33 +360,36 @@ internal sealed class MainWindow : Window
             NativeMethods.GetModuleHandle(IntPtr.Zero),
             0);
         _mouseHookActive = _mouseHook != IntPtr.Zero;
+
         if (!_mouseHookActive)
         {
-            Program.Log($"Mouse hook install failed: {Marshal.GetLastWin32Error()}");
-            _fallbackTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(8)
-            };
-            _fallbackTimer.Tick += (_, _) => _cursorLayer.InvalidateVisual();
-            _fallbackTimer.Start();
+            Program.Log($"Mouse hook install failed (thread): {Marshal.GetLastWin32Error()}");
+            return;
         }
-    }
 
-    private void UninstallMouseHook()
-    {
-        if (_mouseHook != IntPtr.Zero)
+        _hookNativeThreadId = NativeMethods.GetCurrentThreadId();
+        Program.Log("Mouse hook running on dedicated thread.");
+
+        if (!_hookThreadRunning)
         {
             NativeMethods.UnhookWindowsHookEx(_mouseHook);
             _mouseHook = IntPtr.Zero;
+            _mouseHookActive = false;
+            return;
         }
 
-        _mouseHookActive = false;
-
-        if (_fallbackTimer is not null)
+        // Blocking message pump. GetMessage returns 0 on WM_QUIT (posted by
+        // UninstallMouseHook), which terminates the loop and the thread.
+        while (NativeMethods.GetMessage(out var msg, IntPtr.Zero, 0, 0))
         {
-            _fallbackTimer.Stop();
-            _fallbackTimer = null;
+            NativeMethods.TranslateMessage(ref msg);
+            NativeMethods.DispatchMessage(ref msg);
         }
+
+        NativeMethods.UnhookWindowsHookEx(_mouseHook);
+        _mouseHook = IntPtr.Zero;
+        _mouseHookActive = false;
+        Program.Log("Mouse hook thread exited.");
     }
 
     private IntPtr OnLowLevelMouse(int nCode, IntPtr wParam, IntPtr lParam)
@@ -318,23 +400,24 @@ internal sealed class MainWindow : Window
             switch ((uint)wParam.ToInt64())
             {
                 case NativeMethods.WmMouseMove:
-                    _cursorPoint = data.pt;
+                    Volatile.Write(ref _hookPosX, data.pt.X);
+                    Volatile.Write(ref _hookPosY, data.pt.Y);
                     break;
                 case NativeMethods.WmLButtonDown:
                 case NativeMethods.WmRButtonDown:
                 case NativeMethods.WmMButtonDown:
                 case NativeMethods.WmXButtonDown:
-                    BeginPress(data.pt);
+                    Volatile.Write(ref _hookDownX, data.pt.X);
+                    Volatile.Write(ref _hookDownY, data.pt.Y);
+                    Volatile.Write(ref _hookPressPending, 1);
                     break;
                 case NativeMethods.WmLButtonUp:
                 case NativeMethods.WmRButtonUp:
                 case NativeMethods.WmMButtonUp:
                 case NativeMethods.WmXButtonUp:
-                    EndPress();
+                    Volatile.Write(ref _hookReleasePending, 1);
                     break;
             }
-
-            InvalidateCursorVisualFromHook();
         }
 
         return NativeMethods.CallNextHookEx(_mouseHook, nCode, wParam, lParam);
@@ -364,8 +447,14 @@ internal sealed class MainWindow : Window
     {
         if (_mouseHookActive)
         {
-            NativeMethods.GetCursorInfo(out var info);
-            UpdatePointerState(info);
+            // Read the latest position captured by the dedicated hook thread.
+            _cursorPoint = new NativeMethods.POINT
+            {
+                X = Volatile.Read(ref _hookPosX),
+                Y = Volatile.Read(ref _hookPosY)
+            };
+
+            ConsumeHookButtonEvents();
         }
         else
         {
@@ -377,7 +466,11 @@ internal sealed class MainWindow : Window
             _cursorPoint = info.ptScreenPos;
             var pressed = (NativeMethods.GetAsyncKeyState(0x01) & 0x8000) != 0;
             HandleButtonTransition(pressed);
-            UpdatePointerState(info);
+        }
+
+        if (NativeMethods.GetCursorInfo(out var cursorInfo))
+        {
+            UpdatePointerState(cursorInfo);
         }
 
         var winKeyPressed = (NativeMethods.GetAsyncKeyState(0x5B) & 0x8000) != 0
@@ -400,10 +493,78 @@ internal sealed class MainWindow : Window
         }
     }
 
+    private void ConsumeHookButtonEvents()
+    {
+        // Apply press/release events relayed from the hook thread on the UI thread
+        // so all cursor animation state stays single-threaded.
+        if (Volatile.Read(ref _hookPressPending) != 0)
+        {
+            Volatile.Write(ref _hookPressPending, 0);
+            _downStart = new NativeMethods.POINT
+            {
+                X = Volatile.Read(ref _hookDownX),
+                Y = Volatile.Read(ref _hookDownY)
+            };
+            BeginPress(_downStart);
+        }
+
+        if (Volatile.Read(ref _hookReleasePending) != 0)
+        {
+            Volatile.Write(ref _hookReleasePending, 0);
+            EndPress();
+        }
+    }
+
+    private void SetCursorVisible(bool visible)
+    {
+        if (_cursorVisible == visible)
+        {
+            return;
+        }
+
+        _cursorVisible = visible;
+        if (_overlayInitialized && _overlay != null)
+        {
+            if (visible)
+            {
+                _overlay.ShowOverlay();
+            }
+            else
+            {
+                _overlay.HideOverlay();
+            }
+        }
+
+        _forceTopmost = visible;
+    }
+
     private void UpdatePointerState(NativeMethods.CURSORINFO info)
     {
-        var normalHandle = CursorReplacer.GetBlankHandle(NativeMethods.OCR_NORMAL);
         var handHandle = CursorReplacer.GetBlankHandle(NativeMethods.OCR_HAND);
+
+        // Follow the system cursor's visibility. When the foreground app hides the
+        // cursor (FPS gameplay, video players hiding the pointer, etc.) the
+        // CURSOR_SHOWING flag is cleared; hide our overlay too so it never lingers
+        // over content or draws a duplicate cursor.
+        var cursorShowing = (info.flags & NativeMethods.CursorShowing) != 0;
+        // When an app shows its own custom cursor (Snipaste capture/edit,
+        // games, etc.), its handle is foreign to our installed blank cursors —
+        // hide the osu overlay so the two cursors don't double-draw.
+        // GetCursorInfo reports the handle the app requested. A standard system
+        // cursor (arrow, I-beam, hand, ...) means normal operation — keep the
+        // osu overlay. A custom handle (Snipaste capture/edit tools, games)
+        // means the app is drawing its own cursor — hide the overlay so the two
+        // cursors don't double-draw.
+        _suppressCursor = info.hCursor != IntPtr.Zero
+            && !NativeMethods.IsStandardCursor(info.hCursor);
+        var visible = cursorShowing && !_suppressCursor;
+        SetCursorVisible(visible);
+
+        if (DateTime.UtcNow >= _dbgNextLog)
+        {
+            _dbgNextLog = DateTime.UtcNow.AddMilliseconds(500);
+            Program.Log($"[DBG] ptrState hCursor=0x{info.hCursor.ToInt64():X} flags={info.flags} showing={cursorShowing} suppress={_suppressCursor} visible={visible} pos=({_cursorPoint.X},{_cursorPoint.Y})");
+        }
 
         if (info.hCursor != _lastCursorHandle)
         {
@@ -426,28 +587,80 @@ internal sealed class MainWindow : Window
         }
         else
         {
-            if (_baselineNormalHandle == IntPtr.Zero && info.hCursor != IntPtr.Zero && info.hCursor != handHandle)
-            {
-                _baselineNormalHandle = info.hCursor;
-            }
-
-            var isHoverCandidate = _pointerHover
-                || (info.hCursor != IntPtr.Zero
-                    && info.hCursor != normalHandle
-                    && info.hCursor != _baselineNormalHandle);
-
+            // Use Windows UI Automation to determine whether the element under
+            // the cursor is truly clickable (Button, CheckBox, ListItem, etc.)
+            // instead of guessing from cursor-handle heuristics. This eliminates
+            // false hover triggers in Explorer, text fields, resize borders, etc.
+            var isHoverCandidate = IsHoverClickable();
             if (isHoverCandidate && !_wasHoverCandidate && !_mouseDown)
             {
                 PlayHoverSample();
             }
 
-            if (!isHoverCandidate)
+            _wasHoverCandidate = isHoverCandidate;
+        }
+    }
+
+    private bool IsHoverClickable()
+    {
+        // UIA.FromPoint is a cross-process COM query; it must NOT run on every
+        // mouse move. Only recompute when the window under the cursor changed,
+        // when the system cursor handle changed (the OS signals the hover
+        // context changed), or when a short throttle window has elapsed.
+        var window = NativeMethods.WindowFromPoint(_cursorPoint);
+        var contextChanged = window != _lastUiaWindow
+            || _lastUiaCursorHandle != _lastCursorHandle;
+        if (!contextChanged && _uiaThrottle.ElapsedMilliseconds < 80)
+        {
+            return _lastUiaClickable;
+        }
+
+        _lastUiaWindow = window;
+        _lastUiaCursorHandle = _lastCursorHandle;
+        _uiaThrottle.Restart();
+        _lastUiaClickable = ComputeHoverClickable(_cursorPoint);
+        return _lastUiaClickable;
+    }
+
+    private static bool ComputeHoverClickable(NativeMethods.POINT pt)
+    {
+        try
+        {
+            var element = AutomationElement.FromPoint(new Point(pt.X, pt.Y));
+            if (element is null)
             {
-                _baselineNormalHandle = info.hCursor == normalHandle ? normalHandle : info.hCursor;
+                return false;
             }
 
-            _wasHoverCandidate = isHoverCandidate;
-            _wasHovering = _pointerHover;
+            if (!element.Current.IsEnabled)
+            {
+                return false;
+            }
+
+            var type = element.Current.ControlType;
+            if (type == ControlType.Button
+                || type == ControlType.CheckBox
+                || type == ControlType.RadioButton
+                || type == ControlType.ComboBox
+                || type == ControlType.ListItem
+                || type == ControlType.MenuItem
+                || type == ControlType.TabItem
+                || type == ControlType.Hyperlink
+                || type == ControlType.SplitButton
+                || type == ControlType.Spinner
+                || type == ControlType.DataItem)
+            {
+                return true;
+            }
+
+            // Many WPF/custom controls expose no specific ControlType (Custom);
+            // treat them as clickable only when they accept keyboard focus.
+            return type == ControlType.Custom && element.Current.IsKeyboardFocusable;
+        }
+        catch
+        {
+            // UIA provider failures (rare) degrade to "not clickable".
+            return false;
         }
     }
 
@@ -568,15 +781,22 @@ internal sealed class MainWindow : Window
 
     private void UpdateVisual()
     {
-        Canvas.SetLeft(_cursorRotate, _cursorWindowMargin);
-        Canvas.SetTop(_cursorRotate, _cursorWindowMargin);
-
-        _rotate.Angle = _angle;
-        _scale.ScaleX = _scaleValue;
-        _scale.ScaleY = _scaleValue;
-        _additiveImage.Opacity = _additiveOpacity;
+        if (!_overlayInitialized || _overlay == null)
+        {
+            return;
+        }
 
         UpdateWindowPosition();
+
+        _overlay.UpdateState(
+            _lastWindowX,
+            _lastWindowY,
+            _lastWindowWidth,
+            _lastWindowHeight,
+            _angle,
+            _scaleValue,
+            _additiveOpacity,
+            _cursorVisible);
     }
 
     private void UpdateWindowPosition()
@@ -586,19 +806,24 @@ internal sealed class MainWindow : Window
         var x = _cursorPoint.X - (int)Math.Round(_cursorWindowMargin * _dpiScaleX);
         var y = _cursorPoint.Y - (int)Math.Round(_cursorWindowMargin * _dpiScaleY);
 
-        if (_hwnd != IntPtr.Zero
-            && (_forceTopmost
-                || x != _lastWindowX
-                || y != _lastWindowY
-                || windowWidth != _lastWindowWidth
-                || windowHeight != _lastWindowHeight))
+        // Clamp bounds so the overlay stays on-screen-ish; the GdiCursorOverlay
+        // is a WinForms topmost form (non-layered, GDI-rendered) that composites
+        // above all Windows 11 DirectComposition surfaces (Start menu, Action
+        // Center, clipboard/volume flyouts).  Position is applied via UpdateState
+        // in UpdateVisual.
+        if (_overlayInitialized && _overlay != null)
         {
-            NativeMethods.MoveTopmost(_hwnd, x, y, windowWidth, windowHeight);
             _lastWindowX = x;
             _lastWindowY = y;
             _lastWindowWidth = windowWidth;
             _lastWindowHeight = windowHeight;
-            _forceTopmost = false;
+        }
+
+        _forceTopmost = false;
+        if (DateTime.UtcNow >= _dbgNextLog)
+        {
+            _dbgNextLog = DateTime.UtcNow.AddMilliseconds(500);
+            Program.Log($"[DBG] winPos x={x} y={y} w={windowWidth} h={windowHeight} visible={_cursorVisible}");
         }
     }
 
@@ -706,29 +931,8 @@ internal sealed class MainWindow : Window
         _cursorHeight = width * (BaseCursorHeight / BaseCursorWidth);
         _cursorWindowSize = width * (BaseCursorWindowSize / BaseCursorWidth);
         _cursorWindowMargin = width * (BaseCursorWindowMargin / BaseCursorWidth);
-
-        if (_cursorScale is not null)
-        {
-            _cursorScale.Width = _cursorWidth;
-            _cursorScale.Height = _cursorHeight;
-        }
-
-        if (_cursorRotate is not null)
-        {
-            _cursorRotate.Width = _cursorWidth;
-            _cursorRotate.Height = _cursorHeight;
-        }
-
-        if (_cursorImage is not null)
-        {
-            _cursorImage.Width = _cursorWidth;
-            _cursorImage.Height = _cursorHeight;
-            _additiveImage.Width = _cursorWidth;
-            _additiveImage.Height = _cursorHeight;
-            _settings.CursorWidth = width;
-            _settings.Save();
-        }
-
+        _settings.CursorWidth = width;
+        ScheduleSave();
         _forceTopmost = true;
     }
 
@@ -761,19 +965,39 @@ internal sealed class MainWindow : Window
 
             _forceTopmost = true;
             InstallMouseHook();
-            CompositionTarget.Rendering += OnRendering;
+            _renderTimer.Start();
             _lastFrameTime = _clock.Elapsed.TotalSeconds;
             _topmostTimer.Start();
-            Show();
+            if (_overlayInitialized && _overlay != null)
+            {
+                _overlay.ShowOverlay();
+            }
         }
         else
         {
-            CompositionTarget.Rendering -= OnRendering;
+            _renderTimer.Stop();
             UninstallMouseHook();
             _topmostTimer.Stop();
             CursorReplacer.Restore();
-            Hide();
+            if (_overlayInitialized && _overlay != null)
+            {
+                _overlay.HideOverlay();
+            }
         }
+    }
+
+    private void ScheduleSave()
+    {
+        // Debounce settings writes: dragging a slider fires dozens of change events
+        // per second; write to disk only after the user pauses (~400ms).
+        if (_settingsSaveDebounce is null)
+        {
+            _settings.Save();
+            return;
+        }
+
+        _settingsSaveDebounce.Stop();
+        _settingsSaveDebounce.Start();
     }
 
     private void ApplyAutoStart(bool enabled)
@@ -784,45 +1008,45 @@ internal sealed class MainWindow : Window
             Program.Log($"Failed to apply auto-start={enabled}");
             var reverted = !enabled;
             _settings.AutoStart = reverted;
-            _settings.Save();
+            ScheduleSave();
             _settingsWindow?.SetAutoStartChecked(reverted);
             return;
         }
 
         _settings.AutoStart = enabled;
-        _settings.Save();
+        ScheduleSave();
     }
 
     private void ApplyTapSound(bool enabled)
     {
         _settings.TapSoundEnabled = enabled;
         _tapSoundPlayer.Enabled = enabled;
-        _settings.Save();
+        ScheduleSave();
     }
 
     private void ApplyTapSoundVolume(double volume)
     {
         _settings.TapSoundVolume = Math.Clamp(volume, 0.0, 1.0);
-        _settings.Save();
+        ScheduleSave();
     }
 
     private void ApplyHoverSound(bool enabled)
     {
         _settings.HoverSoundEnabled = enabled;
         _hoverSoundPlayer.Enabled = enabled;
-        _settings.Save();
+        ScheduleSave();
     }
 
     private void ApplyHoverSoundVolume(double volume)
     {
         _settings.HoverSoundVolume = Math.Clamp(volume, 0.0, 1.0);
-        _settings.Save();
+        ScheduleSave();
     }
 
     private void ApplyHoverSoundMode(bool resizePrompt)
     {
         _settings.HoverSoundAsResizePrompt = resizePrompt;
-        _settings.Save();
+        ScheduleSave();
     }
 
     private void PlayTapSample(double baseFrequency)
@@ -862,10 +1086,14 @@ internal sealed class MainWindow : Window
 
     private double GetCurrentBalance()
     {
-        var virtualLeft = SystemParameters.VirtualScreenLeft;
-        var virtualWidth = SystemParameters.VirtualScreenWidth;
-        var xDip = _cursorPoint.X / _dpiScaleX;
-        return Math.Clamp(((xDip - virtualLeft) / virtualWidth) * 2.0 - 1.0, -0.6, 0.6);
+        // Use physical-pixel virtual-screen bounds (GetSystemMetrics) so we don't mix
+        // DIP and physical coordinates. The mouse-hook _cursorPoint is already in physical
+        // pixels, so this is a direct, consistent comparison.
+        var virtualLeft = NativeMethods.GetSystemMetrics(NativeMethods.SmXVirtualScreen);
+        var virtualWidth = NativeMethods.GetSystemMetrics(NativeMethods.SmCxVirtualScreen);
+        if (virtualWidth <= 0) return 0.0;
+        var x = _cursorPoint.X;
+        return Math.Clamp(((x - virtualLeft) / (double)virtualWidth) * 2.0 - 1.0, -0.6, 0.6);
     }
 
     private void InvalidateCursorVisualFromHook()
@@ -874,7 +1102,7 @@ internal sealed class MainWindow : Window
         if (now - _lastHookInvalidateTicks >= TimeSpan.TicksPerMillisecond * 8)
         {
             _lastHookInvalidateTicks = now;
-            _cursorLayer.InvalidateVisual();
+            _overlay?.Invalidate();
         }
     }
 
@@ -971,4 +1199,17 @@ internal sealed class MainWindow : Window
         stream.CopyTo(buffer);
         return buffer.ToArray();
     }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == NativeMethods.WmHotkey && wParam.ToInt32() == HotkeyToggleCursor)
+        {
+            _cursorEnabled = !_cursorEnabled;
+            SetCursorEnabled(_cursorEnabled);
+            handled = true;
+        }
+
+        return IntPtr.Zero;
+    }
+
 }

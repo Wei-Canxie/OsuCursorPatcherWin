@@ -98,13 +98,21 @@ internal sealed class TapSoundPlayer : IDisposable
     {
         var outputRate = Math.Clamp((int)Math.Round(_sampleRate * request.Frequency), 8000, 96000);
         var wav = BuildWave(outputRate, request.Volume, request.Balance);
-        var output = _outputs[_nextPlayer];
-        _nextPlayer = (_nextPlayer + 1) % _outputs.Length;
 
-        _streams[_nextPlayer]?.Dispose();
-        var stream = new WaveFileReader(new MemoryStream(wav));
-        _streams[_nextPlayer] = stream;
+        // Use a single, consistent slot index so the stream and its owning output
+        // stay paired. Previously the slot was advanced before disposing/assigning
+        // the stream, which (a) left the previous stream of the used slot alive
+        // forever (a growing WAV-buffer leak) and (b) misassociated each output with
+        // the stream stored in the *next* slot.
+        var slot = _nextPlayer;
+        _nextPlayer = (slot + 1) % _outputs.Length;
+
+        var output = _outputs[slot];
         output.Stop();
+        _streams[slot]?.Dispose();
+
+        var stream = new WaveFileReader(new MemoryStream(wav));
+        _streams[slot] = stream;
         output.Init(stream);
         output.Play();
     }
