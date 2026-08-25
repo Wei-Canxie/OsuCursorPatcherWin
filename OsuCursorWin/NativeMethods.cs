@@ -303,6 +303,9 @@ internal static class NativeMethods
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern IntPtr LoadCursor(IntPtr hInstance, IntPtr lpCursorName);
 
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    internal static extern IntPtr LoadCursorFromFile(string lpFileName);
+
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern IntPtr CopyIcon(IntPtr hIcon);
 
