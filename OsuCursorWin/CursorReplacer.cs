@@ -166,6 +166,14 @@ internal static class CursorReplacer
             }
         }
 
+        foreach (var value in OsuHandles.Values)
+        {
+            if (value == handle)
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -318,7 +326,15 @@ internal static class CursorReplacer
 
     /// <summary>Create a white ring HCURSOR from the osu cursor image (cursor.png)
     /// using AND/XOR masks.  The ring is drawn as white pixels on transparent
-    /// background.</summary>
+    /// background.
+    ///
+    /// IMPORTANT: assets/cursor.png is NOT a clean ring — it is the full osu
+    /// cursor sprite (a large stylised arrow + trail with the ring in the lower
+    /// right).  Scaling the whole sprite into a cursor and centring it on the
+    /// pointer puts the visible ring offset from the pointer tip.  Instead we
+    /// draw a clean, geometrically-centred white osu ring (annulus + small
+    /// centre dot) with its hotspot at the exact centre, so the pointer tip is
+    /// always the ring's centre.</summary>
     private static IntPtr CreateWhiteRingCursor(Bitmap source, int sizePx)
     {
         try
@@ -327,13 +343,33 @@ internal static class CursorReplacer
             using (var g = Graphics.FromImage(ring))
             {
                 g.Clear(Color.Transparent);
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                 g.SmoothingMode = SmoothingMode.HighQuality;
                 g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                float scale = (float)sizePx / Math.Max(source.Width, source.Height);
-                int w = (int)(source.Width * scale);
-                int h = (int)(source.Height * scale);
-                g.DrawImage(source, (sizePx - w) / 2, (sizePx - h) / 2, w, h);
+
+                // osu-style cursor: a thin white annulus with a small filled
+                // centre dot, both centred on the cursor tip (hotspot = centre).
+                float dotRadius = sizePx * 0.12f;   // centre dot
+                float outerR = sizePx * 0.45f;      // ring outer edge
+                float innerR = sizePx * 0.34f;      // ring inner edge
+                float c = sizePx / 2f;
+
+                // Centre dot.
+                using (var dotBrush = new SolidBrush(Color.White))
+                {
+                    g.FillEllipse(dotBrush, c - dotRadius, c - dotRadius,
+                        dotRadius * 2f, dotRadius * 2f);
+                }
+
+                // Ring (annulus): fill outer circle white, then punch the inner
+                // hole back to transparent with SourceCopy compositing.
+                g.CompositingMode = CompositingMode.SourceCopy;
+                using (var ringBrush = new SolidBrush(Color.White))
+                {
+                    g.FillEllipse(ringBrush, c - outerR, c - outerR, outerR * 2f, outerR * 2f);
+                    g.CompositingMode = CompositingMode.SourceOver;
+                    g.FillEllipse(new SolidBrush(Color.Transparent), c - innerR, c - innerR,
+                        innerR * 2f, innerR * 2f);
+                }
             }
 
             var (andMask, xorMask) = BuildMasks(ring);

@@ -97,6 +97,7 @@ internal sealed class MainWindow : Window
     private IntPtr _lastZForegroundWindow = IntPtr.Zero;
     private IntPtr _hostileWindow = IntPtr.Zero;
     private bool _suppressCursor;
+    private int _modeStableFrames;
     private DateTime _dbgNextLog = DateTime.MinValue;
     private const int HotkeyToggleCursor = 1;
     private double _cursorWidth;
@@ -561,26 +562,50 @@ internal sealed class MainWindow : Window
         // osu overlay. A custom handle (Snipaste capture/edit tools, games)
         // means the app is drawing its own cursor — hide the overlay so the two
         // cursors don't double-draw.
+        // Foreign-cursor suppression: hide the overlay only for a genuinely
+        // foreign cursor handle — neither a standard system cursor nor one of
+        // our own installed blank/osu cursors.  (GetCursorInfo reports the
+        // standard OCR handles even while our SetSystemCursor replacements are
+        // active, so this keeps the overlay visible in normal scenes.)
         _suppressCursor = info.hCursor != IntPtr.Zero
-            && !NativeMethods.IsStandardCursor(info.hCursor);
+            && !NativeMethods.IsStandardCursor(info.hCursor)
+            && !CursorReplacer.IsInstalledCursor(info.hCursor);
         var visible = cursorShowing && !_suppressCursor;
-        SetCursorVisible(visible);
 
         // Detect whether the pointer is over a DirectComposition XAML surface
         // (Start menu, Action Center, clipboard/volume flyouts) that the animated
         // overlay cannot composite above.  When it is, a system surface window
-        // sits ABOVE our overlay in the Z-order — swap the system cursor to the
-        // static osu ring so the pointer stays visible; otherwise keep it blank
-        // and let the overlay provide the animated cursor.
-        var useOsuSystemCursor = _overlayInitialized && _overlay != null
-            && visible
+        // sits ABOVE our topmost overlay in the Z-order at the cursor point —
+        // swap the system cursor to the static osu ring so the pointer stays
+        // visible; otherwise keep it blank and let the overlay provide the
+        // animated cursor.  A 2-frame hysteresis stops the mode from flapping
+        // on the boundary between a DC surface and the normal desktop.
+        var aboveDcSurface = _overlayInitialized && _overlay != null
             && IsWindowAboveCursor(_overlay.Handle, _cursorPoint);
-        CursorReplacer.SetMode(useOsuSystemCursor);
+        var wantOsu = aboveDcSurface && visible;
+        if (wantOsu != CursorReplacer.IsOsuMode())
+        {
+            if (++_modeStableFrames >= 2)
+            {
+                CursorReplacer.SetMode(wantOsu);
+                _modeStableFrames = 0;
+            }
+        }
+        else
+        {
+            _modeStableFrames = 0;
+        }
+
+        // Overlay and osu system cursor are mutually exclusive: when the osu
+        // system cursor is active (over a DC surface) hide the overlay — it is
+        // invisible there anyway and this avoids a double cursor during the
+        // enter/leave transition.
+        SetCursorVisible(visible && !CursorReplacer.IsOsuMode());
 
         if (DateTime.UtcNow >= _dbgNextLog)
         {
             _dbgNextLog = DateTime.UtcNow.AddMilliseconds(500);
-            Program.Log($"[DBG] ptrState hCursor=0x{info.hCursor.ToInt64():X} flags={info.flags} showing={cursorShowing} suppress={_suppressCursor} visible={visible} pos=({_cursorPoint.X},{_cursorPoint.Y})");
+            Program.Log($"[DBG] ptrState hCursor=0x{info.hCursor.ToInt64():X} flags={info.flags} showing={cursorShowing} suppress={_suppressCursor} visible={visible} aboveDc={aboveDcSurface} osuMode={CursorReplacer.IsOsuMode()} pos=({_cursorPoint.X},{_cursorPoint.Y})");
         }
 
         if (info.hCursor != _lastCursorHandle)
