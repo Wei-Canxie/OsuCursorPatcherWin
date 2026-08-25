@@ -3,24 +3,28 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace OsuCursorWin;
 
 /// <summary>
-/// Replaces the native system cursors with either blank (hidden) cursors or an
-/// osu-style ring cursor.  A hardware/system cursor is ALWAYS drawn on top of
-/// every window — including Windows 11 DirectComposition XAML surfaces (Start
-/// menu, Action Center, clipboard/volume flyouts) that a normal topmost window
-/// cannot cover.  So: in ordinary scenes we hide the system cursor (blank) and
-/// draw the animated osu overlay; when the cursor moves over one of those
-/// DirectComposition surfaces (where the overlay is invisible underneath), we
-/// switch the system cursor to a static osu ring so the pointer stays visible.
+/// Replaces the native system cursors with blank (hidden) cursors in normal
+/// scenes so the animated osu overlay is the only visible pointer.  When the
+/// pointer moves over a DirectComposition XAML surface (Start menu, Action
+/// Center, volume/clipboard flyouts) — where the overlay is invisible — swaps
+/// to a complete osu!-themed cursor set from embedded resources:
+///   OCR_NORMAL → white ring (from cursor.png)
+///   OCR_IBEAM → text.cur, OCR_HAND → hand.cur, OCR_CROSS → cross.cur, etc.
+/// Each system state gets a corresponding osu-style cursor, keeping the
+/// pointer visible and themed on every surface.
 /// </summary>
 internal static class CursorReplacer
 {
     private const uint SpiSetCursors = 0x0057;
     private const uint SpifSendChange = 0x0002;
+    private const string CursorResPrefix = "OsuCursorWin.Cursors.";
 
     private static readonly uint[] CursorIds =
     {
@@ -40,20 +44,39 @@ internal static class CursorReplacer
         NativeMethods.OCR_HELP
     };
 
+    // Map OCR ID → embedded cursor resource filename (without prefix)
+    private static readonly Dictionary<uint, string> OsuCursorMap = new()
+    {
+        [NativeMethods.OCR_NORMAL] = null!, // handled specially: white ring from cursor.png
+        [NativeMethods.OCR_IBEAM] = "text.cur",
+        [NativeMethods.OCR_WAIT] = "busy.ani",
+        [NativeMethods.OCR_CROSS] = "cross.cur",
+        [NativeMethods.OCR_UP] = null!, // no dedicated cursor, use white ring
+        [NativeMethods.OCR_SIZENWSE] = "dgn1.cur",
+        [NativeMethods.OCR_SIZENESW] = "dgn2.cur",
+        [NativeMethods.OCR_SIZEWE] = "horz.cur",
+        [NativeMethods.OCR_SIZENS] = "vert.cur",
+        [NativeMethods.OCR_SIZEALL] = "move.cur",
+        [NativeMethods.OCR_NO] = "unavailiable.cur",
+        [NativeMethods.OCR_HAND] = "hand.cur",
+        [NativeMethods.OCR_APPSTARTING] = "busy.ani",
+        [NativeMethods.OCR_HELP] = "alternate.cur",
+    };
+
     private static readonly Dictionary<uint, IntPtr> BlankHandles = new();
     private static readonly Dictionary<uint, IntPtr> OsuHandles = new();
     private static bool _installed;
     private static bool _osuMode;
+    private static int _osuSizePx = 32;
 
-    /// <summary>Install blank cursors so the animated osu overlay is the only
-    /// visible pointer.  Also pre-build the osu system cursor handles (used to
-    /// keep the pointer visible over DirectComposition surfaces).</summary>
     internal static bool Install(Bitmap? osuImage = null, int osuSizePx = 32)
     {
         if (_installed)
         {
             return true;
         }
+
+        _osuSizePx = Math.Clamp(osuSizePx, 16, 96);
 
         foreach (var id in CursorIds)
         {
@@ -74,28 +97,19 @@ internal static class CursorReplacer
             BlankHandles[id] = blank;
         }
 
-        // Pre-build osu-style system cursors (one per cursor id) so we can swap
-        // to them instantly when the pointer enters a DirectComposition surface.
-        if (osuImage != null)
-        {
-            var osu = CreateOsuCursors(osuImage, osuSizePx);
-            if (osu != null)
-            {
-                OsuHandles.Clear();
-                foreach (var kv in osu)
-                {
-                    OsuHandles[kv.Key] = kv.Value;
-                }
-            }
-        }
+        // Build osu-style cursors from embedded resources
+        LoadOsuCursors(osuImage);
 
         _installed = BlankHandles.ContainsKey(NativeMethods.OCR_NORMAL);
         Program.Log($"CursorReplacer.Install installed={_installed} blank={BlankHandles.Count} osu={OsuHandles.Count}");
+        if (OsuHandles.Count < CursorIds.Length)
+        {
+            Program.Log($"[CursorReplacer] Warning: only {OsuHandles.Count}/{CursorIds.Length} osu cursors loaded");
+        }
+
         return _installed;
     }
 
-    /// <summary>Switch the live system cursors to blank (overlay animation mode)
-    /// or osu ring (DirectComposition-surface mode).</summary>
     internal static void SetMode(bool useOsu)
     {
         if (!_installed || useOsu == _osuMode)
@@ -121,8 +135,6 @@ internal static class CursorReplacer
                 continue;
             }
 
-            // Re-apply the chosen cursor to the system.  SetSystemCursor copies
-            // the cursor, so our stored handles remain owned by us and valid.
             if (!NativeMethods.SetSystemCursor(handle, id))
             {
                 Program.Log($"SetMode({useOsu}) SetSystemCursor failed id={id} err={Marshal.GetLastWin32Error()}");
@@ -139,10 +151,6 @@ internal static class CursorReplacer
         return BlankHandles.TryGetValue(cursorId, out var handle) ? handle : IntPtr.Zero;
     }
 
-    /// <summary>True when the given cursor handle is one of the blank cursors we
-    /// installed to hide the native pointer. When an app shows its own custom
-    /// cursor (Snipaste, games, etc.), the handle is foreign and we should step
-    /// aside so the osu overlay doesn't double-draw over it.</summary>
     internal static bool IsInstalledCursor(IntPtr handle)
     {
         if (handle == IntPtr.Zero)
@@ -223,12 +231,96 @@ internal static class CursorReplacer
         return NativeMethods.CreateCursor(IntPtr.Zero, 0, 0, 32, 32, andMask, xorMask);
     }
 
-    /// <summary>Build one osu-style system cursor per OCR id from the given image.
-    /// The ring is drawn white; the background is made transparent via the AND
-    /// plane so only the ring shows wherever the hardware cursor is drawn.</summary>
-    private static Dictionary<uint, IntPtr>? CreateOsuCursors(Bitmap source, int sizePx)
+    private static void LoadOsuCursors(Bitmap? osuImage)
     {
-        var result = new Dictionary<uint, IntPtr>();
+        // For OCR_NORMAL: white ring from cursor.png (or provided osuImage)
+        if (osuImage != null)
+        {
+            var ring = CreateWhiteRingCursor(osuImage, _osuSizePx);
+            if (ring != IntPtr.Zero)
+            {
+                OsuHandles[NativeMethods.OCR_NORMAL] = ring;
+            }
+        }
+
+        // For all other IDs: load from embedded .cur/.ani resources
+        var asm = Assembly.GetExecutingAssembly();
+        string tempDir = Path.Combine(Path.GetTempPath(), "OsuCursorWinCursors");
+        Directory.CreateDirectory(tempDir);
+
+        foreach (var kv in OsuCursorMap)
+        {
+            uint id = kv.Key;
+            string? filename = kv.Value;
+            if (filename == null)
+            {
+                // No dedicated cursor; use white ring (already set for NORMAL, else fallback)
+                if (!OsuHandles.ContainsKey(id) && OsuHandles.TryGetValue(NativeMethods.OCR_NORMAL, out var ring))
+                {
+                    OsuHandles[id] = ring;
+                }
+
+                continue;
+            }
+
+            if (OsuHandles.ContainsKey(id))
+            {
+                continue; // already loaded (e.g. OCR_NORMAL)
+            }
+
+            string resName = CursorResPrefix + filename;
+            try
+            {
+                using var stream = asm.GetManifestResourceStream(resName);
+                if (stream == null)
+                {
+                    Program.Log($"[CursorReplacer] Resource '{resName}' not found");
+                    // fallback to white ring
+                    if (OsuHandles.TryGetValue(NativeMethods.OCR_NORMAL, out var fallback))
+                    {
+                        OsuHandles[id] = fallback;
+                    }
+
+                    continue;
+                }
+
+                byte[] data = new byte[stream.Length];
+                stream.ReadExactly(data);
+
+                // Write to temp file, load via LoadCursorFromFile
+                string tempPath = Path.Combine(tempDir, filename);
+                File.WriteAllBytes(tempPath, data);
+                var hcur = NativeMethods.LoadCursorFromFile(tempPath);
+                if (hcur == IntPtr.Zero)
+                {
+                    Program.Log($"[CursorReplacer] LoadCursorFromFile failed for '{filename}' err={Marshal.GetLastWin32Error()}");
+                    if (OsuHandles.TryGetValue(NativeMethods.OCR_NORMAL, out var fallback))
+                    {
+                        OsuHandles[id] = fallback;
+                    }
+
+                    continue;
+                }
+
+                OsuHandles[id] = hcur;
+                Program.Log($"[CursorReplacer] Loaded osu cursor for id={id} from '{filename}': hcur=0x{hcur.ToInt64():X}");
+            }
+            catch (Exception ex)
+            {
+                Program.Log($"[CursorReplacer] Failed to load '{filename}': {ex.Message}");
+                if (OsuHandles.TryGetValue(NativeMethods.OCR_NORMAL, out var fallback))
+                {
+                    OsuHandles[id] = fallback;
+                }
+            }
+        }
+    }
+
+    /// <summary>Create a white ring HCURSOR from the osu cursor image (cursor.png)
+    /// using AND/XOR masks.  The ring is drawn as white pixels on transparent
+    /// background.</summary>
+    private static IntPtr CreateWhiteRingCursor(Bitmap source, int sizePx)
+    {
         try
         {
             using var ring = new Bitmap(sizePx, sizePx, PixelFormat.Format32bppArgb);
@@ -238,8 +330,6 @@ internal static class CursorReplacer
                 g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                 g.SmoothingMode = SmoothingMode.HighQuality;
                 g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                // The source is the osu ring (312x442).  Fit it into sizePx while
-                // preserving aspect, centered.
                 float scale = (float)sizePx / Math.Max(source.Width, source.Height);
                 int w = (int)(source.Width * scale);
                 int h = (int)(source.Height * scale);
@@ -247,37 +337,19 @@ internal static class CursorReplacer
             }
 
             var (andMask, xorMask) = BuildMasks(ring);
-
-            foreach (var id in CursorIds)
-            {
-                var cur = NativeMethods.CreateCursor(IntPtr.Zero, sizePx / 2, sizePx / 2, sizePx, sizePx, andMask, xorMask);
-                if (cur != IntPtr.Zero)
-                {
-                    result[id] = cur;
-                }
-            }
+            return NativeMethods.CreateCursor(IntPtr.Zero, sizePx / 2, sizePx / 2, sizePx, sizePx, andMask, xorMask);
         }
         catch (Exception ex)
         {
-            Program.Log($"[CursorReplacer] CreateOsuCursors failed: {ex}");
-            foreach (var h in result.Values)
-            {
-                NativeMethods.DestroyCursor(h);
-            }
-
-            return null;
+            Program.Log($"[CursorReplacer] CreateWhiteRingCursor failed: {ex}");
+            return IntPtr.Zero;
         }
-
-        return result;
     }
 
-    /// <summary>Convert a 32bpp ring bitmap into CreateCursor AND/XOR monochrome
-    /// mask planes.  Ring pixels (alpha above threshold) are drawn (AND=0,
-    /// XOR=1 -> white); transparent pixels keep the background (AND=1).</summary>
     private static (byte[] and, byte[] xor) BuildMasks(Bitmap bmp)
     {
         int w = bmp.Width, h = bmp.Height;
-        int strideBytes = (w + 31) / 32 * 4; // 1bpp, row aligned to 32 bits
+        int strideBytes = (w + 31) / 32 * 4;
         int totalBytes = strideBytes * h;
         var and = new byte[totalBytes];
         var xor = new byte[totalBytes];
@@ -296,13 +368,11 @@ internal static class CursorReplacer
                     int bitMask = 0x80 >> (x % 8);
                     if (draw)
                     {
-                        // AND=0 (draw), XOR=1 (white)
                         and[byteIdx] &= (byte)~bitMask;
                         xor[byteIdx] |= (byte)bitMask;
                     }
                     else
                     {
-                        // AND=1 (transparent), XOR=0
                         and[byteIdx] |= (byte)bitMask;
                         xor[byteIdx] &= (byte)~bitMask;
                     }

@@ -30,6 +30,45 @@
     <EmbeddedResource Include="..\assets\cursor-additive.png">
       <LogicalName>OsuCursorWin.Images.cursorAdditive.png</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\text.cur">
+      <LogicalName>OsuCursorWin.Cursors.text.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\hand.cur">
+      <LogicalName>OsuCursorWin.Cursors.hand.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\cross.cur">
+      <LogicalName>OsuCursorWin.Cursors.cross.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\move.cur">
+      <LogicalName>OsuCursorWin.Cursors.move.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\horz.cur">
+      <LogicalName>OsuCursorWin.Cursors.horz.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\vert.cur">
+      <LogicalName>OsuCursorWin.Cursors.vert.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\dgn1.cur">
+      <LogicalName>OsuCursorWin.Cursors.dgn1.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\dgn2.cur">
+      <LogicalName>OsuCursorWin.Cursors.dgn2.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\link.cur">
+      <LogicalName>OsuCursorWin.Cursors.link.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\unavailiable.cur">
+      <LogicalName>OsuCursorWin.Cursors.unavailiable.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\alternate.cur">
+      <LogicalName>OsuCursorWin.Cursors.alternate.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\busy.ani">
+      <LogicalName>OsuCursorWin.Cursors.busy.ani</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\work.png">
+      <LogicalName>OsuCursorWin.Images.work.png</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>
