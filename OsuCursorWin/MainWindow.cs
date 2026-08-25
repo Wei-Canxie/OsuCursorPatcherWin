@@ -97,7 +97,6 @@ internal sealed class MainWindow : Window
     private IntPtr _lastZForegroundWindow = IntPtr.Zero;
     private IntPtr _hostileWindow = IntPtr.Zero;
     private bool _suppressCursor;
-    private int _modeStableFrames;
     private DateTime _dbgNextLog = DateTime.MinValue;
     private const int HotkeyToggleCursor = 1;
     private double _cursorWidth;
@@ -574,26 +573,15 @@ internal sealed class MainWindow : Window
 
         // Detect whether the pointer is over a DirectComposition XAML surface
         // (Start menu, Action Center, clipboard/volume flyouts) that the animated
-        // overlay cannot composite above.  When it is, a system surface window
-        // sits ABOVE our topmost overlay in the Z-order at the cursor point —
-        // swap the system cursor to the static osu ring so the pointer stays
-        // visible; otherwise keep it blank and let the overlay provide the
-        // animated cursor.  A 2-frame hysteresis stops the mode from flapping
-        // on the boundary between a DC surface and the normal desktop.
+        // overlay cannot composite above.  When it is, swap the system cursor to
+        // the static osu ring so the pointer stays visible; otherwise keep it
+        // blank and let the overlay provide the animated cursor.
         var aboveDcSurface = _overlayInitialized && _overlay != null
             && IsWindowAboveCursor(_overlay.Handle, _cursorPoint);
         var wantOsu = aboveDcSurface && visible;
         if (wantOsu != CursorReplacer.IsOsuMode())
         {
-            if (++_modeStableFrames >= 2)
-            {
-                CursorReplacer.SetMode(wantOsu);
-                _modeStableFrames = 0;
-            }
-        }
-        else
-        {
-            _modeStableFrames = 0;
+            CursorReplacer.SetMode(wantOsu);
         }
 
         // Overlay and osu system cursor are mutually exclusive: when the osu
