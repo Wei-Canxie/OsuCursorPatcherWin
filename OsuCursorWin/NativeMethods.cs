@@ -195,6 +195,15 @@ internal static class NativeMethods
         return false;
     }
 
+    /// <summary>True when the handle is the standard arrow cursor
+    /// (OCR_NORMAL).  Used to distinguish the "normal" pointer state from
+    /// special states (resize, I-beam, hand, crosshair, ...) that should
+    /// still show a themed system cursor even in normal scenes.</summary>
+    internal static bool IsNormalArrowCursor(IntPtr handle)
+    {
+        return handle != IntPtr.Zero && handle == StandardCursorHandles[0];
+    }
+
     internal static void SetOverlayVisible(IntPtr hwnd, bool visible)
     {
         SetWindowPos(hwnd, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | (visible ? SwpShowWindow : SwpHideWindow));

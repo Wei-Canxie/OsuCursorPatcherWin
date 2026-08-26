@@ -578,16 +578,25 @@ internal sealed class MainWindow : Window
         // blank and let the overlay provide the animated cursor.
         var aboveDcSurface = _overlayInitialized && _overlay != null
             && IsWindowAboveCursor(_overlay.Handle, _cursorPoint);
-        var wantOsu = aboveDcSurface && visible;
+
+        // Use the themed osu system cursor when (a) we're over a DirectComposition
+        // surface where the overlay cannot composite, or (b) the pointer is in a
+        // special state (resize handle, I-beam, hand, crosshair, ...) so the user
+        // still gets the native "cursor changed" feedback near window edges and
+        // over text/links instead of a frozen ring.  In the plain arrow state we
+        // keep the system cursor blank and let the overlay animate.
+        var specialState = NativeMethods.IsStandardCursor(info.hCursor)
+            && !NativeMethods.IsNormalArrowCursor(info.hCursor);
+        var wantOsu = visible && (aboveDcSurface || specialState);
         if (wantOsu != CursorReplacer.IsOsuMode())
         {
             CursorReplacer.SetMode(wantOsu);
         }
 
         // Overlay and osu system cursor are mutually exclusive: when the osu
-        // system cursor is active (over a DC surface) hide the overlay — it is
-        // invisible there anyway and this avoids a double cursor during the
-        // enter/leave transition.
+        // system cursor is active (over a DC surface or special state) hide the
+        // overlay — it is invisible there anyway and this avoids a double cursor
+        // during the enter/leave transition.
         SetCursorVisible(visible && !CursorReplacer.IsOsuMode());
 
         if (DateTime.UtcNow >= _dbgNextLog)
