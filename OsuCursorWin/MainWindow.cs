@@ -98,6 +98,13 @@ internal sealed class MainWindow : Window
     private IntPtr _hostileWindow = IntPtr.Zero;
     private bool _suppressCursor;
     private DateTime _dbgNextLog = DateTime.MinValue;
+    // Debounce for system-cursor mode switching: rapid sweeps across many
+    // special states (resize handles, links, text) or IME composition would
+    // otherwise flip SetMode every frame, causing visible flicker.  We only
+    // switch once the desired mode has been stable for this many ms.
+    private bool _pendingOsu;
+    private DateTime _pendingOsuSince = DateTime.MinValue;
+    private const int ModeSwitchDebounceMs = 90;
     private const int HotkeyToggleCursor = 1;
     private double _cursorWidth;
     private double _cursorHeight;
@@ -587,7 +594,18 @@ internal sealed class MainWindow : Window
         var specialState = NativeMethods.IsStandardCursor(info.hCursor)
             && !NativeMethods.IsNormalArrowCursor(info.hCursor);
         var wantOsu = visible && (aboveDcSurface || specialState);
-        if (wantOsu != CursorReplacer.IsOsuMode())
+
+        // Debounce: only actually switch SetMode when the desired state has
+        // been stable for ~90ms.  This prevents rapid flicker when the mouse
+        // sweeps across many special states (resize, hand, I-beam edges) or
+        // IME composition briefly changes the cursor handle.
+        if (wantOsu != _pendingOsu)
+        {
+            _pendingOsu = wantOsu;
+            _pendingOsuSince = DateTime.UtcNow;
+        }
+        else if (wantOsu != CursorReplacer.IsOsuMode()
+                 && (DateTime.UtcNow - _pendingOsuSince).TotalMilliseconds >= ModeSwitchDebounceMs)
         {
             CursorReplacer.SetMode(wantOsu);
         }

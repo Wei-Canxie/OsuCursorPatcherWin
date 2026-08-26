@@ -49,7 +49,7 @@ internal static class CursorReplacer
     {
         [NativeMethods.OCR_NORMAL] = null!, // handled specially: white ring from cursor.png
         [NativeMethods.OCR_IBEAM] = "text.cur",
-        [NativeMethods.OCR_WAIT] = "busy.ani",
+        [NativeMethods.OCR_WAIT] = "work.ani",   // busy↔work swapped: busy.ani renamed to work.ani
         [NativeMethods.OCR_CROSS] = "cross.cur",
         [NativeMethods.OCR_UP] = null!, // no dedicated cursor, use white ring
         [NativeMethods.OCR_SIZENWSE] = "dgn1.cur",
@@ -59,12 +59,17 @@ internal static class CursorReplacer
         [NativeMethods.OCR_SIZEALL] = "move.cur",
         [NativeMethods.OCR_NO] = "unavailiable.cur",
         [NativeMethods.OCR_HAND] = "hand.cur",
-        [NativeMethods.OCR_APPSTARTING] = "busy.ani",
+        [NativeMethods.OCR_APPSTARTING] = "busy.png", // was work.png (arrow+ring); work.ani is for OCR_WAIT
         [NativeMethods.OCR_HELP] = "alternate.cur",
     };
 
     private static readonly Dictionary<uint, IntPtr> BlankHandles = new();
     private static readonly Dictionary<uint, IntPtr> OsuHandles = new();
+
+    // For animated (.ani) cursors CopyIcon would lose the animation frames, so
+    // we keep the temp-file path and reload the full animation via
+    // LoadCursorFromFile on every mode switch instead.
+    private static readonly Dictionary<uint, string> OsuAniTempPaths = new();
     private static bool _installed;
     private static bool _osuMode;
     private static int _osuSizePx = 32;
@@ -149,9 +154,19 @@ internal static class CursorReplacer
             }
 
             // SetSystemCursor DESTROYS the handle we pass it (the system takes
-            // ownership).  Always pass a COPY so our originals stay valid and
-            // the next mode switch can produce another copy.
-            var copy = NativeMethods.CopyIcon(original);
+            // ownership).  For animated (.ani) cursors CopyIcon would lose the
+            // animation frames, so we load a fresh copy via LoadCursorFromFile;
+            // for static cursors we use CopyIcon to keep the original alive.
+            IntPtr copy;
+            if (useOsu && OsuAniTempPaths.TryGetValue(id, out var aniPath) && aniPath != null)
+            {
+                copy = NativeMethods.LoadCursorFromFile(aniPath);
+            }
+            else
+            {
+                copy = NativeMethods.CopyIcon(original);
+            }
+
             if (copy == IntPtr.Zero)
             {
                 failed++;
@@ -263,6 +278,7 @@ internal static class CursorReplacer
         }
 
         OsuHandles.Clear();
+        OsuAniTempPaths.Clear();
         _installed = false;
         _osuMode = false;
 
@@ -303,6 +319,7 @@ internal static class CursorReplacer
         }
 
         OsuHandles.Clear();
+        OsuAniTempPaths.Clear();
         _installed = false;
         _osuMode = false;
     }
@@ -372,7 +389,11 @@ internal static class CursorReplacer
                 continue; // already loaded (e.g. OCR_NORMAL)
             }
 
-            string resName = CursorResPrefix + filename;
+            // PNG source images are embedded under the Images.* prefix; .cur/.ani
+            // under Cursors.*.
+            string resName = filename.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                ? "OsuCursorWin.Images." + filename
+                : CursorResPrefix + filename;
             try
             {
                 using var stream = asm.GetManifestResourceStream(resName);
@@ -391,10 +412,35 @@ internal static class CursorReplacer
                 byte[] data = new byte[stream.Length];
                 stream.ReadExactly(data);
 
+                IntPtr hcur;
+                if (filename.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                {
+                    // PNG source image -> build a cursor from its bitmap (the
+                    // arrow+ring sprite for OCR_APPSTARTING).  We cannot load a
+                    // PNG with LoadCursorFromFile.
+                    using var ms = new MemoryStream(data);
+                    using var bmp = new Bitmap(ms);
+                    hcur = CreateCursorFromBitmap(bmp, _osuSizePx);
+                    if (hcur == IntPtr.Zero)
+                    {
+                        Program.Log($"[CursorReplacer] CreateCursorFromBitmap failed for '{filename}'");
+                        if (OsuHandles.TryGetValue(NativeMethods.OCR_NORMAL, out var fallback))
+                        {
+                            OsuHandles[id] = fallback;
+                        }
+
+                        continue;
+                    }
+
+                    OsuHandles[id] = hcur;
+                    Program.Log($"[CursorReplacer] Loaded osu cursor for id={id} from '{filename}' (bitmap): hcur=0x{hcur.ToInt64():X}");
+                    continue;
+                }
+
                 // Write to temp file, load via LoadCursorFromFile
                 string tempPath = Path.Combine(tempDir, filename);
                 File.WriteAllBytes(tempPath, data);
-                var hcur = NativeMethods.LoadCursorFromFile(tempPath);
+                hcur = NativeMethods.LoadCursorFromFile(tempPath);
                 if (hcur == IntPtr.Zero)
                 {
                     Program.Log($"[CursorReplacer] LoadCursorFromFile failed for '{filename}' err={Marshal.GetLastWin32Error()}");
@@ -407,6 +453,11 @@ internal static class CursorReplacer
                 }
 
                 OsuHandles[id] = hcur;
+                if (filename.EndsWith(".ani", StringComparison.OrdinalIgnoreCase))
+                {
+                    OsuAniTempPaths[id] = tempPath;
+                }
+
                 Program.Log($"[CursorReplacer] Loaded osu cursor for id={id} from '{filename}': hcur=0x{hcur.ToInt64():X}");
             }
             catch (Exception ex)
@@ -518,4 +569,35 @@ internal static class CursorReplacer
 
         return (and, xor);
     }
+
+    /// <summary>Create an HCURSOR from a source bitmap (PNG sprite) by scaling
+    /// it down to the target cursor size, building AND/XOR masks from the
+    /// alpha channel, and calling CreateCursor.  Hotspot is at the centre of
+    /// the image.</summary>
+    private static IntPtr CreateCursorFromBitmap(Bitmap source, int sizePx)
+    {
+            try
+            {
+                using var bmp = new Bitmap(sizePx, sizePx, PixelFormat.Format32bppArgb);
+                using (var g = Graphics.FromImage(bmp))
+                {
+                    g.Clear(Color.Transparent);
+                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    g.SmoothingMode = SmoothingMode.HighQuality;
+                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                    float scale = (float)sizePx / Math.Max(source.Width, source.Height);
+                    int w = (int)(source.Width * scale);
+                    int h = (int)(source.Height * scale);
+                    g.DrawImage(source, (sizePx - w) / 2, (sizePx - h) / 2, w, h);
+                }
+
+                var (andMask, xorMask) = BuildMasks(bmp);
+                return NativeMethods.CreateCursor(IntPtr.Zero, sizePx / 2, sizePx / 2, sizePx, sizePx, andMask, xorMask);
+            }
+            catch (Exception ex)
+            {
+                Program.Log($"[CursorReplacer] CreateCursorFromBitmap failed: {ex}");
+                return IntPtr.Zero;
+            }
+        }
 }
