@@ -576,8 +576,7 @@ internal sealed class MainWindow : Window
         // overlay cannot composite above.  When it is, swap the system cursor to
         // the static osu ring so the pointer stays visible; otherwise keep it
         // blank and let the overlay provide the animated cursor.
-        var aboveDcSurface = _overlayInitialized && _overlay != null
-            && IsWindowAboveCursor(_overlay.Handle, _cursorPoint);
+        var aboveDcSurface = IsOverDcSurface();
 
         // Use the themed osu system cursor when (a) we're over a DirectComposition
         // surface where the overlay cannot composite, or (b) the pointer is in a
@@ -1212,6 +1211,60 @@ internal sealed class MainWindow : Window
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// True when the pointer is over a DirectComposition XAML surface that the
+    /// animated overlay cannot composite above (Start menu, Action Center,
+    /// volume/clipboard flyouts, ...).  These are Windows.UI.Core.CoreWindow
+    /// surfaces hosted by StartMenuExperienceHost / SearchHost / ShellExperienceHost,
+    /// rendered by DirectComposition.  A plain Win32 Z-order walk from our overlay
+    /// misses them because they are not ordinary top-level windows above us in the
+    /// classic Z-order — so we ask the system directly what window is under the
+    /// pointer and inspect its class name.
+    /// </summary>
+    private bool IsOverDcSurface()
+    {
+        if (!_overlayInitialized || _overlay == null)
+        {
+            return false;
+        }
+
+        try
+        {
+            var hwnd = NativeMethods.WindowFromPoint(_cursorPoint);
+            if (hwnd == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            var sb = new StringBuilder(256);
+            NativeMethods.GetClassName(hwnd, sb, sb.Capacity);
+            var className = sb.ToString();
+            if (className.Length == 0)
+            {
+                return false;
+            }
+
+            // DirectComposition XAML surfaces share the Windows.UI.Core.CoreWindow
+            // class.  Include the classic application-frame / XAML island classes
+            // for safety.
+            if (className.Contains("Windows.UI.Core.CoreWindow")
+                || className.Contains("ApplicationFrameWindow")
+                || className.Contains("Windows.UI.Composition"))
+            {
+                return true;
+            }
+
+            // Fallback: if the window under the pointer is above our overlay in the
+            // classic Z-order it must be a surface that covers us.
+            return IsWindowAboveCursor(_overlay.Handle, _cursorPoint);
+        }
+        catch (Exception ex)
+        {
+            Program.Log($"[Overlay] IsOverDcSurface exception: {ex.Message}");
+            return false;
+        }
     }
 
     private void TryBringAboveTaskbarPreview()

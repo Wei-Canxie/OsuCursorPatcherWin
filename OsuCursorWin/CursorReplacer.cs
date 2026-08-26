@@ -98,11 +98,13 @@ internal static class CursorReplacer
                 continue;
             }
 
-            if (!NativeMethods.SetSystemCursor(blank, id))
+            // SetSystemCursor takes ownership of the handle it receives (it
+            // destroys it).  Always pass a copy so our original stays valid for
+            // later mode switches.
+            var copy = NativeMethods.CopyIcon(blank);
+            if (copy != IntPtr.Zero)
             {
-                Program.Log($"SetSystemCursor failed for id={id} error={Marshal.GetLastWin32Error()}");
-                NativeMethods.DestroyCursor(blank);
-                continue;
+                NativeMethods.SetSystemCursor(copy, id);
             }
 
             BlankHandles[id] = blank;
@@ -128,48 +130,85 @@ internal static class CursorReplacer
             return;
         }
 
-        if (!ApplyMode(useOsu))
+        int failed = 0;
+        foreach (var id in CursorIds)
         {
-            // Windows invalidates cursors installed via SetSystemCursor when the
-            // DPI/theme changes (GetLastError=1402 ERROR_CURSOR_NOT_FOUND).
-            // Rebuild the whole set from resources and retry once.
-            Program.Log("Cursor handles invalidated; reloading cursor set...");
+            IntPtr original = IntPtr.Zero;
+            if (useOsu && OsuHandles.TryGetValue(id, out var osu) && osu != IntPtr.Zero)
+            {
+                original = osu;
+            }
+            else if (BlankHandles.TryGetValue(id, out var blank))
+            {
+                original = blank;
+            }
+
+            if (original == IntPtr.Zero)
+            {
+                continue;
+            }
+
+            // SetSystemCursor DESTROYS the handle we pass it (the system takes
+            // ownership).  Always pass a COPY so our originals stay valid and
+            // the next mode switch can produce another copy.
+            var copy = NativeMethods.CopyIcon(original);
+            if (copy == IntPtr.Zero)
+            {
+                failed++;
+                continue;
+            }
+
+            if (!NativeMethods.SetSystemCursor(copy, id))
+            {
+                failed++;
+                Program.Log($"SetMode({useOsu}) SetSystemCursor failed id={id} err={Marshal.GetLastWin32Error()}");
+            }
+            // copy was destroyed by SetSystemCursor (or is garbage — ignore it).
+        }
+
+        if (failed > CursorIds.Length / 2)
+        {
+            // Fallback: Windows may have invalidated our whole cursor set
+            // (DPI/theme change).  Rebuild and retry once.
+            Program.Log("Handles invalidated; reloading cursor set...");
             Reload();
-            ApplyMode(useOsu);
+            SetModeCore(useOsu);
+            _osuMode = useOsu;
+            Program.Log($"CursorReplacer.SetMode osu={useOsu} (after reload)");
+            return;
         }
 
         _osuMode = useOsu;
         Program.Log($"CursorReplacer.SetMode osu={useOsu}");
     }
 
-    private static bool ApplyMode(bool useOsu)
+    private static void SetModeCore(bool useOsu)
     {
-        var allOk = true;
         foreach (var id in CursorIds)
         {
-            IntPtr handle = IntPtr.Zero;
+            IntPtr original = IntPtr.Zero;
             if (useOsu && OsuHandles.TryGetValue(id, out var osu) && osu != IntPtr.Zero)
             {
-                handle = osu;
+                original = osu;
             }
             else if (BlankHandles.TryGetValue(id, out var blank))
             {
-                handle = blank;
+                original = blank;
             }
 
-            if (handle == IntPtr.Zero)
+            if (original == IntPtr.Zero)
             {
                 continue;
             }
 
-            if (!NativeMethods.SetSystemCursor(handle, id))
+            var copy = NativeMethods.CopyIcon(original);
+            if (copy == IntPtr.Zero)
             {
-                allOk = false;
-                Program.Log($"SetMode({useOsu}) SetSystemCursor failed id={id} err={Marshal.GetLastWin32Error()}");
+                continue;
             }
-        }
 
-        return allOk;
+            NativeMethods.SetSystemCursor(copy, id);
+        }
     }
 
     internal static bool IsOsuMode() => _osuMode;
@@ -227,8 +266,11 @@ internal static class CursorReplacer
         _installed = false;
         _osuMode = false;
 
-        // Install(false) path: recreate blanks + osu set, reusing _cachedOsuImage.
-        Install(null, _osuSizePx);
+        // Rebuild blanks + osu set from the cached source image.  Pass a CLONE
+        // so Install's cache-refresh (`_cachedOsuImage?.Dispose()` then clone)
+        // doesn't dispose the very object we're about to clone.
+        using var clone = _cachedOsuImage != null ? new Bitmap(_cachedOsuImage) : null;
+        Install(clone, _osuSizePx);
     }
 
     internal static void Restore()
