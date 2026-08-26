@@ -63,12 +63,12 @@
     <EmbeddedResource Include="..\assets\ex\alternate.cur">
       <LogicalName>OsuCursorWin.Cursors.alternate.cur</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="..\assets\ex\busy.ani">
-      <LogicalName>OsuCursorWin.Cursors.busy.ani</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="..\assets\ex\work.png">
-      <LogicalName>OsuCursorWin.Images.work.png</LogicalName>
-    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\work.ani">
+          <LogicalName>OsuCursorWin.Cursors.work.ani</LogicalName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="..\assets\ex\busy.png">
+          <LogicalName>OsuCursorWin.Images.busy.png</LogicalName>
+        </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>
