@@ -68,6 +68,7 @@ internal static class CursorReplacer
     private static bool _installed;
     private static bool _osuMode;
     private static int _osuSizePx = 32;
+    private static Bitmap? _cachedOsuImage;
 
     internal static bool Install(Bitmap? osuImage = null, int osuSizePx = 32)
     {
@@ -77,6 +78,16 @@ internal static class CursorReplacer
         }
 
         _osuSizePx = Math.Clamp(osuSizePx, 16, 96);
+
+        // Keep a private copy so SetMode can rebuild the whole set if Windows
+        // invalidates the cursor handles (DPI/theme changes destroy cursors set
+        // via SetSystemCursor, leaving our stored handles dead).  Only refresh
+        // when a real image is supplied (Reload passes null to reuse the cache).
+        if (osuImage != null)
+        {
+            _cachedOsuImage?.Dispose();
+            _cachedOsuImage = new Bitmap(osuImage);
+        }
 
         foreach (var id in CursorIds)
         {
@@ -117,7 +128,23 @@ internal static class CursorReplacer
             return;
         }
 
+        if (!ApplyMode(useOsu))
+        {
+            // Windows invalidates cursors installed via SetSystemCursor when the
+            // DPI/theme changes (GetLastError=1402 ERROR_CURSOR_NOT_FOUND).
+            // Rebuild the whole set from resources and retry once.
+            Program.Log("Cursor handles invalidated; reloading cursor set...");
+            Reload();
+            ApplyMode(useOsu);
+        }
+
         _osuMode = useOsu;
+        Program.Log($"CursorReplacer.SetMode osu={useOsu}");
+    }
+
+    private static bool ApplyMode(bool useOsu)
+    {
+        var allOk = true;
         foreach (var id in CursorIds)
         {
             IntPtr handle = IntPtr.Zero;
@@ -137,11 +164,12 @@ internal static class CursorReplacer
 
             if (!NativeMethods.SetSystemCursor(handle, id))
             {
+                allOk = false;
                 Program.Log($"SetMode({useOsu}) SetSystemCursor failed id={id} err={Marshal.GetLastWin32Error()}");
             }
         }
 
-        Program.Log($"CursorReplacer.SetMode osu={useOsu}");
+        return allOk;
     }
 
     internal static bool IsOsuMode() => _osuMode;
@@ -175,6 +203,32 @@ internal static class CursorReplacer
         }
 
         return false;
+    }
+
+    /// <summary>Rebuild the whole blank+osu cursor set from cached resources.
+    /// Called when Windows invalidates our installed cursor handles (e.g. after
+    /// a DPI or theme change), so SetSystemCursor stops failing with
+    /// ERROR_CURSOR_NOT_FOUND.</summary>
+    internal static void Reload()
+    {
+        foreach (var handle in BlankHandles.Values)
+        {
+            NativeMethods.DestroyCursor(handle);
+        }
+
+        BlankHandles.Clear();
+
+        foreach (var handle in OsuHandles.Values)
+        {
+            NativeMethods.DestroyCursor(handle);
+        }
+
+        OsuHandles.Clear();
+        _installed = false;
+        _osuMode = false;
+
+        // Install(false) path: recreate blanks + osu set, reusing _cachedOsuImage.
+        Install(null, _osuSizePx);
     }
 
     internal static void Restore()
