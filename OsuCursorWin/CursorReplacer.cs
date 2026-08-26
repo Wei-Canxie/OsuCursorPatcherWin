@@ -112,7 +112,7 @@ internal static class CursorReplacer
 
     internal static void SetMode(bool useOsu)
     {
-        if (!_installed || useOsu == _osuMode)
+        if (!_installed)
         {
             return;
         }
