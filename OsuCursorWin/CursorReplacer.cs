@@ -364,6 +364,16 @@ internal static class CursorReplacer
             }
         }
 
+        // OCR_IBEAM: programmatic white I-beam (vertical line + top/bottom bars)
+        // instead of the osu-style circle from text.cur.
+        {
+            var ibeam = CreateIBeamCursor(_osuSizePx);
+            if (ibeam != IntPtr.Zero)
+            {
+                OsuHandles[NativeMethods.OCR_IBEAM] = ibeam;
+            }
+        }
+
         // For all other IDs: load from embedded .cur/.ani resources
         var asm = Assembly.GetExecutingAssembly();
         string tempDir = Path.Combine(Path.GetTempPath(), "OsuCursorWinCursors");
@@ -568,6 +578,47 @@ internal static class CursorReplacer
         }
 
         return (and, xor);
+    }
+
+    /// <summary>Create a white I-beam HCURSOR (vertical bar with top/bottom
+    /// caps) — the classic text cursor.  assets/ex/text.cur is an osu-style
+    /// circle dot, which reads badly as a text caret, so we draw a real
+    /// I-beam instead.  Hotspot is the centre of the vertical bar.</summary>
+    private static IntPtr CreateIBeamCursor(int sizePx)
+    {
+        try
+        {
+            using var bmp = new Bitmap(sizePx, sizePx, PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(bmp))
+            {
+                g.Clear(Color.Transparent);
+                g.SmoothingMode = SmoothingMode.HighQuality;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
+                float cx = sizePx / 2f;
+                float barW = Math.Max(2f, sizePx * 0.08f);   // vertical bar width
+                float capW = sizePx * 0.30f;                 // top/bottom cap width
+                float capH = Math.Max(2f, sizePx * 0.10f);   // cap height
+                float topY = sizePx * 0.10f;
+                float botY = sizePx * 0.90f;
+
+                using var brush = new SolidBrush(Color.White);
+                // vertical bar
+                g.FillRectangle(brush, cx - barW / 2f, topY, barW, botY - topY);
+                // top cap
+                g.FillRectangle(brush, cx - capW / 2f, topY, capW, capH);
+                // bottom cap
+                g.FillRectangle(brush, cx - capW / 2f, botY - capH, capW, capH);
+            }
+
+            var (andMask, xorMask) = BuildMasks(bmp);
+            return NativeMethods.CreateCursor(IntPtr.Zero, sizePx / 2, sizePx / 2, sizePx, sizePx, andMask, xorMask);
+        }
+        catch (Exception ex)
+        {
+            Program.Log($"[CursorReplacer] CreateIBeamCursor failed: {ex}");
+            return IntPtr.Zero;
+        }
     }
 
     /// <summary>Create an HCURSOR from a source bitmap (PNG sprite) by scaling
