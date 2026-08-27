@@ -88,6 +88,9 @@ internal sealed class SettingsWindow : Window
     private readonly TextBlock _resourceStatus;
 
     private bool _allowClose;
+    // Cache built pages so shared control fields are never re-attached
+    // (re-building a page would throw "already the logical child").
+    private readonly List<UIElement?> _cachedPages = new();
     private bool _autoStartUpdating;
     private bool _tapSoundUpdating;
     private bool _hoverSoundUpdating;
@@ -120,60 +123,6 @@ internal sealed class SettingsWindow : Window
         Foreground = TextBrush;
         FontFamily = new FontFamily("Microsoft YaHei UI");
         UseLayoutRounding = true;
-
-        // ---- Left navigation rail + right content host ----
-        var navItems = new (string label, Func<UIElement> factory)[]
-        {
-            ("光标", () => BuildCursorPage()),
-            ("场景对齐", () => BuildSceneComparePage()),
-            ("音效", () => BuildSoundPage()),
-            ("光标资源", () => BuildResourcePage()),
-            ("系统", () => BuildSystemPage()),
-        };
-
-        var rail = new StackPanel { Width = 160, Background = RailBrush };
-        var railButtons = new List<Button>();
-        var contentHost = new ContentControl
-        {
-            Margin = new Thickness(24, 20, 24, 20),
-            VerticalContentAlignment = VerticalAlignment.Stretch
-        };
-
-        for (int i = 0; i < navItems.Length; i++)
-        {
-            var idx = i;
-            var btn = new Button
-            {
-                Content = navItems[i].label,
-                Height = 40,
-                Margin = new Thickness(8, i == 0 ? 20 : 2, 8, 2),
-                HorizontalContentAlignment = HorizontalAlignment.Left,
-                Padding = new Thickness(16, 0, 0, 0),
-                Background = i == 0 ? SelectedNavBrush : Brushes.Transparent,
-                Foreground = TextBrush,
-                BorderThickness = new Thickness(0),
-                FontSize = 14,
-                Cursor = System.Windows.Input.Cursors.Hand
-            };
-            btn.Click += (_, _) =>
-            {
-                foreach (var b in railButtons) { b.Background = Brushes.Transparent; }
-                btn.Background = SelectedNavBrush;
-                contentHost.Content = navItems[idx].factory();
-            };
-            railButtons.Add(btn);
-            rail.Children.Add(btn);
-        }
-
-        contentHost.Content = navItems[0].factory();
-
-        var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        Grid.SetColumn(rail, 0);
-        Grid.SetColumn(contentHost, 1);
-        grid.Children.Add(rail);
-        grid.Children.Add(contentHost);
 
         // Pre-create controls used by both the pages and public accessors.
         _sizeSlider = new Slider { Minimum = 16, Maximum = 64, TickFrequency = 1, IsSnapToTickEnabled = true, Value = settings.CursorWidth };
@@ -240,6 +189,62 @@ internal sealed class SettingsWindow : Window
         _resourcePreview = MakePreviewImage(LoadPng("OsuCursorWin.Images.cursor.png"), 80);
         _resourceStatus = new TextBlock { Text = "", Foreground = MutedBrush, TextWrapping = TextWrapping.Wrap };
 
+        // ---- Left navigation rail + right content host ----
+        var navItems = new (string label, Func<UIElement> factory)[]
+        {
+            ("光标", () => BuildCursorPage()),
+            ("场景对齐", () => BuildSceneComparePage()),
+            ("音效", () => BuildSoundPage()),
+            ("光标资源", () => BuildResourcePage()),
+            ("系统", () => BuildSystemPage()),
+        };
+
+        var rail = new StackPanel { Width = 160, Background = RailBrush };
+        var railButtons = new List<Button>();
+        var contentHost = new ContentControl
+        {
+            Margin = new Thickness(24, 20, 24, 20),
+            VerticalContentAlignment = VerticalAlignment.Stretch
+        };
+
+        for (int i = 0; i < navItems.Length; i++)
+        {
+            var idx = i;
+            var btn = new Button
+            {
+                Content = navItems[i].label,
+                Height = 40,
+                Margin = new Thickness(8, i == 0 ? 20 : 2, 8, 2),
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Padding = new Thickness(16, 0, 0, 0),
+                Background = i == 0 ? SelectedNavBrush : Brushes.Transparent,
+                Foreground = TextBrush,
+                BorderThickness = new Thickness(0),
+                FontSize = 14,
+                Cursor = System.Windows.Input.Cursors.Hand
+            };
+            btn.Click += (_, _) =>
+            {
+                foreach (var b in railButtons) { b.Background = Brushes.Transparent; }
+                btn.Background = SelectedNavBrush;
+                contentHost.Content = GetCachedPage(idx, navItems[idx].factory);
+            };
+            railButtons.Add(btn);
+            rail.Children.Add(btn);
+        }
+
+        contentHost.Content = GetCachedPage(0, navItems[0].factory);
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        Grid.SetColumn(rail, 0);
+        Grid.SetColumn(contentHost, 1);
+        grid.Children.Add(rail);
+        grid.Children.Add(contentHost);
+
+
+
         Content = grid;
 
         Loaded += (_, _) =>
@@ -254,6 +259,21 @@ internal sealed class SettingsWindow : Window
     // ======================================================================
     // Pages
     // ======================================================================
+
+    private UIElement GetCachedPage(int index, Func<UIElement> factory)
+    {
+        while (_cachedPages.Count <= index)
+        {
+            _cachedPages.Add(null);
+        }
+
+        if (_cachedPages[index] is null)
+        {
+            _cachedPages[index] = factory();
+        }
+
+        return _cachedPages[index]!;
+    }
 
     private UIElement BuildCursorPage()
     {
