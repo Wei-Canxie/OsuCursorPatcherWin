@@ -142,10 +142,7 @@ internal sealed class GdiCursorOverlay : Form
             // even when set HWND_TOPMOST.  Click-through is handled by the WndProc
             // WM_NCHITTEST→HTTRANSPARENT override; taskbar hiding by ShowInTaskbar=false.
             cp.ExStyle |= (int)WS_EX_TOPMOST;
-            // WS_EX_LAYERED enables per-pixel alpha compositing (semi-transparent
-            // cursor like the original).  The overlay is only used in normal
-            // scenes now; DirectComposition surfaces use the osu system cursor,
-            // so layered rendering here is safe.
+            cp.ExStyle |= (int)WS_EX_TRANSPARENT;
             cp.ExStyle |= (int)WS_EX_LAYERED;
             return cp;
         }
@@ -258,7 +255,7 @@ internal sealed class GdiCursorOverlay : Form
             // 4x resolution, then bilinearly downsample to the target size.  The
             // extra passes cost little (small bitmap) and eliminate the jaggies
             // visible when a 30px-design cursor is scaled up on HiDPI screens.
-            const int ss = 4;
+            const int ss = 8;
             using (var hi = new Bitmap(width * ss, height * ss, PixelFormat.Format32bppArgb))
             {
                 using (var g = Graphics.FromImage(hi))
