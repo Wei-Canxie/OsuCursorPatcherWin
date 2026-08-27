@@ -168,16 +168,15 @@ internal sealed class MainWindow : Window
         _topmostTimer.Tick += (_, _) =>
         {
             _forceTopmost = true;
-            // Every 8 ticks (~2 s) re-check the display refresh rate so the
-            // render interval adapts to dynamic refresh-rate changes.
-            if (_topmostTick++ % 8 == 0)
+            // Every 20 ticks (~5 s) re-check the display refresh rate so the
+            // render interval adapts to dynamic refresh-rate / monitor changes.
+            if (_topmostTick++ % 20 == 0)
             {
                 int hz = GetHighestRefreshRate();
                 if (hz != _lastRefreshHz)
                 {
                     Program.Log($"[Display] refresh rate changed: {_lastRefreshHz} -> {hz} Hz");
-                    _lastRefreshHz = hz;
-                    ApplyRenderInterval();
+                    ApplyRenderInterval(); // this restarts the MMTimer
                 }
             }
 
@@ -479,12 +478,14 @@ internal sealed class MainWindow : Window
     /// display's rate).  Falls back to 60 if the API fails.</summary>
     private static int GetHighestRefreshRate()
     {
-        const int EnumCurrentSettings = -1;
         const uint DisplayDeviceActive = 0x00000001;
         int highest = 0;
 
         // Walk the adapter chain via EnumDisplayDevices (each active adapter is
-        // "\.\DISPLAY1", "\.\DISPLAY2", ...) and read its current mode.
+        // "\\.\\DISPLAY1", "\\.\\DISPLAY2", ...) and query its refresh
+        // rate through a GDI device context.  Uses GDI GetDeviceCaps(VREFRESH),
+        // immune to the DEVMODE C#/Win32 struct-alignment mismatch that made the
+        // old EnumDisplaySettings path misreport high-refresh panels.
         for (uint i = 0; ; i++)
         {
             var dd = new NativeMethods.DISPLAY_DEVICE { cb = (uint)System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.DISPLAY_DEVICE>() };
@@ -498,11 +499,21 @@ internal sealed class MainWindow : Window
                 continue;
             }
 
-            var dm = new NativeMethods.DEVMODE { dmSize = (short)System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.DEVMODE>() };
-            if (NativeMethods.EnumDisplaySettings(dd.DeviceName, EnumCurrentSettings, ref dm)
-                && dm.dmDisplayFrequency > (uint)highest)
+            IntPtr dc = NativeMethods.CreateDC(null, dd.DeviceName, null, IntPtr.Zero);
+            if (dc != IntPtr.Zero)
             {
-                highest = (int)dm.dmDisplayFrequency;
+                try
+                {
+                    int hz = NativeMethods.GetDeviceCaps(dc, NativeMethods.VREFRESH);
+                    if (hz > highest)
+                    {
+                        highest = hz;
+                    }
+                }
+                finally
+                {
+                    NativeMethods.DeleteDC(dc);
+                }
             }
         }
 
@@ -524,13 +535,18 @@ internal sealed class MainWindow : Window
     {
         int hz = GetHighestRefreshRate();
         _lastRefreshHz = hz;
+        // Target just above the highest panel rate so every refresh gets a
+        // freshly sampled cursor position (DWM coalesces to the panel rate).
+        // Clamp to [60, 240] — never below 60 to stay smooth, never above 240
+        // to avoid burning CPU pointlessly.
         _renderTargetHz = Math.Min(240, Math.Max(60, hz));
         _renderIntervalMs = 1000.0 / _renderTargetHz;
-        // Render slightly faster than the panel so a dropped tick never
-        // starves a refresh, but clamp so we don't churn the CPU pointlessly.
-        int targetHz = Math.Min(240, Math.Max(60, hz));
-        _renderTimer.Interval = TimeSpan.FromMilliseconds(1000.0 / targetHz);
-        Program.Log($"[Display] render interval -> {targetHz} Hz ({_renderTimer.Interval.TotalMilliseconds:0.00} ms)");
+        if (_mmTimerId != 0)
+        {
+            RestartMmTimerId();
+        }
+
+        Program.Log($"[Display] render target -> {_renderTargetHz} Hz ({_renderIntervalMs:0.00} ms)");
     }
 
     /// <summary>Raise the Windows timer resolution to 1 ms so the render
@@ -582,16 +598,24 @@ internal sealed class MainWindow : Window
     private void StartMmTimer()
     {
         if (_mmTimerId != 0) return;
-        // Fixed 8 ms render target (user requirement: avgTick <= 8 ms).  We do
-        // NOT clamp to the display refresh rate here — the cursor-sampling loop
-        // should run faster than the panel (DWM coalesces to the panel rate),
-        // which minimizes input-to-frame latency like a hardware cursor.
-        _renderTargetHz = 125;
-        _renderIntervalMs = 1000.0 / _renderTargetHz; // ~8.0 ms
+        ApplyRenderInterval();
+        RestartMmTimerId();
+    }
+
+    /// <summary>(Re)arm the WinMM timer with the current target interval.
+    /// Used at startup and when the display refresh rate changes.</summary>
+    private void RestartMmTimerId()
+    {
+        if (_mmTimerId != 0)
+        {
+            NativeMethods.timeKillEvent(_mmTimerId);
+            _mmTimerId = 0;
+        }
+
         uint delay = (uint)Math.Max(1, Math.Round(_renderIntervalMs));
         _mmCallback = MmTimerCallback;
         _mmTimerId = NativeMethods.timeSetEvent(delay, 1, _mmCallback, IntPtr.Zero, NativeMethods.TimePeriodic);
-        Program.Log($"[MMTimer] started id={_mmTimerId} delay={delay}ms (target={_renderTargetHz}Hz)");
+        Program.Log($"[MMTimer] (re)started id={_mmTimerId} delay={delay}ms (target={_renderTargetHz}Hz interval={_renderIntervalMs:0.00}ms)");
     }
 
     private void StopMmTimer()
@@ -610,11 +634,18 @@ internal sealed class MainWindow : Window
     private void MmTimerCallback(uint uID, uint uMsg, IntPtr dwUser, IntPtr dw1, IntPtr dw2)
     {
         if (_closing) return;
-        // Use BeginInvoke so we don't block the timer thread.  If the UI thread
-        // is still busy with the previous frame, this queues up and the timer
-        // keeps firing — we get the next frame when the UI thread is ready.
-        Dispatcher.BeginInvoke(() => OnRendering(null, EventArgs.Empty));
+        // Coalesce: if a frame is already queued/running on the UI thread, skip
+        // this tick.  Otherwise the Dispatcher queue piles up when the UI thread
+        // is briefly busy, giving bursty avgTick instead of a steady 181Hz.
+        if (System.Threading.Interlocked.Exchange(ref _renderQueued, 1) == 1) return;
+        Dispatcher.BeginInvoke(() =>
+        {
+            OnRendering(null, EventArgs.Empty);
+            System.Threading.Volatile.Write(ref _renderQueued, 0);
+        });
     }
+
+    private int _renderQueued;
 
     private NativeMethods.TimeProc? _mmCallback;
 

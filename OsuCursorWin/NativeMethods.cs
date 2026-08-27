@@ -48,6 +48,7 @@ internal static class NativeMethods
     internal const uint SwpNoMove = 0x0002;
     internal const uint SwpNoSize = 0x0001;
     internal const uint SwpNoZOrder = 0x0004;
+    internal const uint SwpAsyncWindowPos = 0x4000;
     internal const uint SwpNoActivate = 0x0010;
     internal const uint SwpShowWindow = 0x0040;
     internal const uint SwpHideWindow = 0x0080;
@@ -236,12 +237,14 @@ internal static class NativeMethods
 
     internal static void Move(IntPtr hwnd, int x, int y, int width, int height, bool visible = true)
     {
-        // Pure reposition: keep current Z-order position (SWP_NOZORDER).  This
-        // is the hot per-frame path (every ~8ms) and must avoid the DWM Z-order
-        // recomposition that HWND_TOPMOST triggers.  Z-order is maintained by
-        // the periodic BringTopmost call instead.
+        // Pure reposition: keep current Z-order (SWP_NOZORDER) and return
+        // immediately (SWP_ASYNCWINDOWPOS) so the hot per-frame path never
+        // blocks on DWM.  Z-order is maintained by the periodic BringTopmost
+        // call.  Async means the position update lands slightly after the call,
+        // imperceptible for a moving cursor but it keeps the render loop at
+        // the target rate instead of stalling on SetWindowPos.
         SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height,
-            SwpNoActivate | SwpNoZOrder | (visible ? SwpShowWindow : SwpHideWindow));
+            SwpNoActivate | SwpNoZOrder | SwpAsyncWindowPos | (visible ? SwpShowWindow : SwpHideWindow));
     }
 
     internal static void MoveTopmost(IntPtr hwnd, int x, int y, int width, int height, bool visible = true)
@@ -423,57 +426,70 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     internal static extern int GetWindowThreadProcessId(IntPtr hWnd, out int lpdwProcessId);
 
+    [DllImport("gdi32.dll")]
+    internal static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
+
+    [DllImport("gdi32.dll", EntryPoint = "CreateDCW", CharSet = CharSet.Unicode)]
+    internal static extern IntPtr CreateDC(string? lpszDriver, string? lpszDevice, string? lpszOutput, IntPtr lpInitData);
+
+    [DllImport("gdi32.dll")]
+    internal static extern bool DeleteDC(IntPtr hdc);
+
+    internal const int VREFRESH = 116; // VREFRESH for GetDeviceCaps
+
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
 
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
-    // DEVMODE must be laid out EXACTLY as the Win32 struct — dmDisplayFrequency
-    // sits at offset 136 and is a DWORD.  An incorrect layout (e.g. reading a
-    // short from the wrong offset) yields garbage (we saw "8316 Hz"), so the
-    // full field list up to dmDisplayFrequency is declared here.
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    // DEVMODE layout matching the Win32 Unicode (TCHAR) definition.
+    // dmFormName is TCHAR[32] = 64 bytes under Unicode.  Pack=1 eliminates
+    // C# default struct alignment so the field offsets match the native
+    // layout exactly.  An ANSI layout here would cause EnumDisplaySettingsW
+    // (the default on modern Windows) to read dmDisplayFrequency from the
+    // wrong offset, returning 0 or garbage for high-refresh panels.
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     internal struct DEVMODE
     {
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
         public string dmDeviceName;          // 0
-        public short dmSpecVersion;          // 32
-        public short dmDriverVersion;        // 34
-        public short dmSize;                 // 36
-        public short dmDriverExtra;          // 38
-        public uint dmFields;                // 40
-        public short dmOrientation;          // 44
-        public short dmPaperSize;            // 46
-        public short dmPaperLength;          // 48
-        public short dmPaperWidth;           // 50
-        public short dmScale;                // 52
-        public short dmCopies;               // 54
-        public short dmDefaultSource;        // 56
-        public short dmPrintQuality;         // 58
-        public int dmPositionX;              // 60 (POINTL)
-        public int dmPositionY;              // 64
-        public uint dmDisplayOrientation;    // 68
-        public uint dmDisplayFixedOutput;    // 72
-        public short dmColor;                // 76
-        public short dmDuplex;               // 78
-        public short dmYResolution;          // 80
-        public short dmTTOption;             // 82
-        public short dmCollate;              // 84
+        public ushort dmSpecVersion;          // 64
+        public ushort dmDriverVersion;        // 66
+        public ushort dmSize;                 // 68
+        public ushort dmDriverExtra;          // 70
+        public uint dmFields;                // 72
+        public short dmOrientation;          // 76
+        public short dmPaperSize;            // 78
+        public short dmPaperLength;          // 80
+        public short dmPaperWidth;           // 82
+        public short dmScale;                // 84
+        public short dmCopies;               // 86
+        public short dmDefaultSource;        // 88
+        public short dmPrintQuality;         // 90
+        public int dmPositionX;              // 92 (POINTL)
+        public int dmPositionY;              // 96
+        public uint dmDisplayOrientation;    // 100
+        public uint dmDisplayFixedOutput;    // 104
+        public short dmColor;                // 108
+        public short dmDuplex;               // 110
+        public short dmYResolution;          // 112
+        public short dmTTOption;             // 114
+        public short dmCollate;              // 116
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
-        public string dmFormName;            // 86
-        public short dmLogPixels;            // 118
-        public uint dmBitsPerPel;            // 120
-        public uint dmPelsWidth;             // 124
-        public uint dmPelsHeight;            // 128
-        public uint dmDisplayFlags;          // 132
-        public uint dmDisplayFrequency;      // 136  <-- refresh rate (Hz)
+        public string dmFormName;            // 118 → 64 bytes (TCHAR[32]) → 182
+        public ushort dmLogPixels;            // 182
+        public uint dmBitsPerPel;            // 184
+        public uint dmPelsWidth;             // 188
+        public uint dmPelsHeight;            // 192
+        public uint dmDisplayFlags;          // 196
+        public uint dmDisplayFrequency;      // 200  <-- refresh rate (Hz)
     }
 
-    [DllImport("user32.dll", CharSet = CharSet.Ansi)]
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "EnumDisplaySettingsW")]
     internal static extern bool EnumDisplaySettings(string? lpszDeviceName, int iModeNum, ref DEVMODE lpDevMode);
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     internal struct DISPLAY_DEVICE
     {
         public uint cb;
@@ -488,7 +504,7 @@ internal static class NativeMethods
         public string DeviceKey;
     }
 
-    [DllImport("user32.dll", CharSet = CharSet.Ansi)]
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "EnumDisplayDevicesW")]
     internal static extern bool EnumDisplayDevices(string? lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
 
     // High-resolution multimedia timer.  Raising the system timer resolution to
