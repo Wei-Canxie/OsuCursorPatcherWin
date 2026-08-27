@@ -383,11 +383,33 @@ internal sealed class GdiCursorOverlay : Form
         var renderW = (float)width / cursorWindowRatio * (float)_scaleValue;
         var renderH = renderW * (_baseBitmap.Height / (float)_baseBitmap.Width);
 
-        g.TranslateTransform(width / 2f, height / 2f);
+        // Anchor the cursor image so the same image point that the DC-scene
+        // system cursor uses as its hotspot sits exactly on the pointer.
+        // The DC scene draws cursor.png (312x442) CENTRED in a square sizePx
+        // canvas (sizePx == renderW here) with the hotspot at the canvas point
+        // (sizePx/8, sizePx/8).  Converting that to image coordinates:
+        //   ax = sizePx/8 - (sizePx - 312/442*sizePx)/2 = sizePx*(1/8 - (1-312/442)/2)
+        //   ay = sizePx/8 = renderH*(312/442)/8
+        // so the overlay must place image point (ax, ay) on the pointer.
+        // Pivot on the window point that maps to the pointer (margin/windowSize
+        // = 64/160 = 0.4, so (0.4*width, 0.4*height)); rotation pivots on that
+        // anchor so the cursor tip stays locked to the pointer.
+        var anchorX = width * 0.4f;
+        var anchorY = height * 0.4f;
+        g.TranslateTransform(anchorX, anchorY);
         g.RotateTransform((float)_angle);
 
-        var x = -renderW / 2f;
-        var y = -renderH / 2f;
+        // DC scene: cursor.png (312x442) is drawn CENTRED inside a square
+        // sizePx canvas (scale = sizePx/442, so image w = 312/442*sizePx,
+        // h = sizePx), and the hotspot is the canvas point (sizePx/8, sizePx/8).
+        // Image-space hotspot: x = sizePx/8 - (sizePx - w)/2 = -sizePx/32
+        // (ratio -1/32 of image width), y = sizePx/8 = renderH/8 (ratio 1/8 of
+        // image height).  Overlay draws the same image at renderW x renderH, so:
+        const float imgRatio = 312f / 442f;
+        var ax = -renderW / 32f;          // ≈ -0.0313*renderW
+        var ay = renderH / 8f;            // 0.125*renderH
+        var x = -ax;
+        var y = -ay;
 
         g.InterpolationMode = InterpolationMode.HighQualityBicubic;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
