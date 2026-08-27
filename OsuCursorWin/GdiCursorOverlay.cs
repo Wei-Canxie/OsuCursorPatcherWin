@@ -469,8 +469,11 @@ internal sealed class GdiCursorOverlay : Form
         // Image-space hotspot: x = sizePx/8 - (sizePx - w)/2 = -sizePx/32
         // (ratio -1/32 of image width), y = sizePx/8 = renderH/8 (ratio 1/8 of
         // image height).  Overlay draws the same image at renderW x renderH, so:
-        var ax = -renderW / 32f;          // ≈ -0.0313*renderW
-        var ay = renderH / 8f;            // 0.125*renderH
+        var ax = -renderW / 32f + 1f;     // ≈ -0.0313*renderW + 1px left
+        // Y anchor: -0.5px hardcoded (calibrated against the DC scene on a
+        // 2K/180Hz display).  This bakes in what used to require
+        // NormalHotspotY = -1 in the settings; the default 0 now matches.
+        var ay = renderH / 8f + 0.5f;     // 0.125*renderH + 0.5px up-equivalent
         var x = -ax + (float)_hotspotX;
         var y = -ay + (float)_hotspotY;
 

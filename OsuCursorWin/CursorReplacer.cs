@@ -69,6 +69,13 @@ internal static class CursorReplacer
         [NativeMethods.OCR_HELP] = "alternate.cur",
     };
 
+    /// <summary>Return the embedded resource filename for a given OCR ID,
+    /// or null if the ID is not mapped (e.g. OCR_UP which has no replacement).</summary>
+    internal static string? GetEmbeddedCursorFilename(uint id)
+    {
+        return OsuCursorMap.TryGetValue(id, out var f) ? f : null;
+    }
+
     private static readonly Dictionary<uint, IntPtr> BlankHandles = new();
     private static readonly Dictionary<uint, IntPtr> OsuHandles = new();
 

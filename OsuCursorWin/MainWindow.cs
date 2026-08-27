@@ -36,6 +36,7 @@ internal sealed class MainWindow : Window
     private readonly GdiCursorOverlay _overlay;
     private readonly NotifyIcon _trayIcon;
     private bool _overlayInitialized;
+    private readonly System.Collections.Generic.HashSet<string> _dcClassSeen = new();
     private readonly TapSoundPlayer _tapSoundPlayer;
     private readonly TapSoundPlayer _hoverSoundPlayer;
     private SettingsWindow? _settingsWindow;
@@ -1558,12 +1559,46 @@ internal sealed class MainWindow : Window
                 return false;
             }
 
-            // DirectComposition XAML surfaces share the Windows.UI.Core.CoreWindow
-            // class.  Include the classic application-frame / XAML island classes
-            // for safety.
-            if (className.Contains("Windows.UI.Core.CoreWindow")
-                || className.Contains("ApplicationFrameWindow")
-                || className.Contains("Windows.UI.Composition"))
+            // ---- Detection strategy (in increasing cost) ----
+            // 1. Direct class-name match for the window under the pointer.
+            // 2. Root-ancestor class-name match: flyout child windows may have a
+            //    different class, but their top-level root is a CoreWindow /
+            //    XAML-island surface.  Walk up with GetAncestor(GA_ROOT).
+            // 3. Owning-process match: DirectComposition XAML surfaces are hosted
+            //    by a small set of shell processes (ShellExperienceHost,
+            //    StartMenuExperienceHost, SearchHost, ...).  If the window belongs
+            //    to one of them it is a DC surface regardless of class name, so
+            //    newly-added shell flyouts are recognised automatically.
+
+            var isDcClass = IsDcSurfaceClass(className);
+
+            // Root-ancestor check: flyout children often have classes like
+            // 'ControlCenterWindow' that don't match directly, but their root
+            // ancestor is still a CoreWindow host.
+            if (!isDcClass)
+            {
+                var root = NativeMethods.GetAncestor(hwnd, NativeMethods.GaRoot);
+                if (root != IntPtr.Zero && root != hwnd)
+                {
+                    var rsb = new StringBuilder(256);
+                    NativeMethods.GetClassName(root, rsb, rsb.Capacity);
+                    isDcClass = IsDcSurfaceClass(rsb.ToString());
+                }
+            }
+
+            // Owning-process check (automatic for new shell flyouts).
+            if (!isDcClass)
+            {
+                NativeMethods.GetWindowThreadProcessId(hwnd, out int pid);
+                isDcClass = IsDcHostProcess(pid);
+            }
+
+            if (!isDcClass && _dcClassSeen.Add(className))
+            {
+                Program.Log($"[Overlay] ptr window class='{className}' aboveDc=false (not matched)");
+            }
+
+            if (isDcClass)
             {
                 return true;
             }
@@ -1575,6 +1610,50 @@ internal sealed class MainWindow : Window
         catch (Exception ex)
         {
             Program.Log($"[Overlay] IsOverDcSurface exception: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>True if the given window class belongs to a DirectComposition
+    /// XAML surface (Windows.UI.Core.CoreWindow, XAML islands, the quick-settings
+    /// control center, ...).  Substrings are matched so nested host windows are
+    /// caught too.</summary>
+    private static bool IsDcSurfaceClass(string className)
+    {
+        if (string.IsNullOrEmpty(className)) return false;
+        return className.Contains("Windows.UI.Core.CoreWindow")
+            || className.Contains("Windows.UI.Composition")
+            || className.Contains("ApplicationFrameWindow")
+            || className.Contains("XamlExplorerHostIslandWindow")
+            || className.Contains("XamlIslandWindow")
+            || className.Contains("Windows.UI.Core")
+            || className.Contains("ControlCenterWindow")
+            // WinUI 3 content islands (DesktopChildSiteBridge etc.) — these host
+            // the modern shell flyouts on recent Windows builds.
+            || className.Contains("Microsoft.UI.Content");
+    }
+
+    /// <summary>True if the given process ID is a known DirectComposition shell
+    /// host.  These processes render their UI via DirectComposition XAML islands,
+    /// so any window they own is a DC surface — this auto-covers new shell
+    /// flyouts without needing to match their exact class names.</summary>
+    private static bool IsDcHostProcess(int pid)
+    {
+        if (pid <= 0) return false;
+        try
+        {
+            using var proc = System.Diagnostics.Process.GetProcessById(pid);
+            var name = proc.ProcessName;
+            return name.Equals("ShellExperienceHost", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("StartMenuExperienceHost", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("SearchHost", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("TextInputHost", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("RuntimeBroker", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("LockApp", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("Dwm", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
             return false;
         }
     }
