@@ -37,7 +37,13 @@ internal static class Program
             return;
         }
 
-        AppDomain.CurrentDomain.ProcessExit += (_, _) => CursorReplacer.Restore();
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            CursorReplacer.Restore();
+            // Also restore the high-res timer so the system doesn't stay at 1ms
+            // after an abnormal exit.
+            try { NativeMethods.timeEndPeriod(1); } catch { }
+        };
 
         var app = new Application
         {

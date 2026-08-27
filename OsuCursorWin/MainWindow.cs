@@ -43,6 +43,7 @@ internal sealed class MainWindow : Window
     private bool _cursorEnabled = true;
     private bool _cursorVisible = true;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
+    private static bool _highResTimerEnabled;
     private readonly DispatcherTimer _topmostTimer;
     private readonly DispatcherTimer _renderTimer;
     private readonly DispatcherTimer _settingsSaveDebounce;
@@ -78,6 +79,8 @@ internal sealed class MainWindow : Window
     private bool _cursorInstalled;
     private bool _closing;
     private bool _forceTopmost = true;
+    private int _lastRefreshHz;
+    private int _topmostTick;
     private IntPtr _lastCursorHandle;
     private int _lastWindowX = int.MinValue;
     private int _lastWindowY = int.MinValue;
@@ -157,6 +160,19 @@ internal sealed class MainWindow : Window
         _topmostTimer.Tick += (_, _) =>
         {
             _forceTopmost = true;
+            // Every 8 ticks (~2 s) re-check the display refresh rate so the
+            // render interval adapts to dynamic refresh-rate changes.
+            if (_topmostTick++ % 8 == 0)
+            {
+                int hz = GetHighestRefreshRate();
+                if (hz != _lastRefreshHz)
+                {
+                    Program.Log($"[Display] refresh rate changed: {_lastRefreshHz} -> {hz} Hz");
+                    _lastRefreshHz = hz;
+                    ApplyRenderInterval();
+                }
+            }
+
             if (_overlayInitialized && !_closing)
             {
                 _overlay.Invalidate();
@@ -172,12 +188,12 @@ internal sealed class MainWindow : Window
 
         // Drive the render loop with a DispatcherTimer.  The WPF host window is
         // hidden, so CompositionTarget.Rendering no longer fires; a timer keeps
-        // the overlay animating regardless.
-        _renderTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(1000.0 / 240.0)
-        };
+        // the overlay animating regardless.  The interval is set dynamically to
+        // the highest display refresh rate (see ApplyRenderInterval) so the
+        // overlay never wastes frames above the panel rate nor lags below it.
+        _renderTimer = new DispatcherTimer();
         _renderTimer.Tick += OnRendering;
+        ApplyRenderInterval();
         _renderTimer.Start();
 
         _settingsSaveDebounce = new DispatcherTimer
@@ -260,8 +276,10 @@ internal sealed class MainWindow : Window
 
         _forceTopmost = true;
         InstallMouseHook();
+        ApplyRenderInterval();
         _renderTimer.Start();
         _lastFrameTime = _clock.Elapsed.TotalSeconds;
+        EnableHighResTimer();
 
         if (!_smoke)
         {
@@ -282,6 +300,7 @@ internal sealed class MainWindow : Window
         }
 
         _closing = true;
+        DisableHighResTimer();
         _settingsWindow?.ForceClose();
         NativeMethods.UnregisterHotKey(_hwnd, HotkeyToggleCursor);
         _renderTimer.Stop();
@@ -437,6 +456,106 @@ internal sealed class MainWindow : Window
         }
 
         return NativeMethods.CallNextHookEx(_mouseHook, nCode, wParam, lParam);
+    }
+
+    /// <summary>Enumerate every active display and return the highest refresh
+    /// rate across all of them (multi-monitor users may move the cursor to the
+    /// highest-Hz screen at any time, so we must not be limited by the primary
+    /// display's rate).  Falls back to 60 if the API fails.</summary>
+    private static int GetHighestRefreshRate()
+    {
+        const int EnumCurrentSettings = -1;
+        const uint DisplayDeviceActive = 0x00000001;
+        int highest = 0;
+
+        // Walk the adapter chain via EnumDisplayDevices (each active adapter is
+        // "\.\DISPLAY1", "\.\DISPLAY2", ...) and read its current mode.
+        for (uint i = 0; ; i++)
+        {
+            var dd = new NativeMethods.DISPLAY_DEVICE { cb = (uint)System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.DISPLAY_DEVICE>() };
+            if (!NativeMethods.EnumDisplayDevices(null, i, ref dd, 0))
+            {
+                break;
+            }
+
+            if ((dd.StateFlags & DisplayDeviceActive) == 0)
+            {
+                continue;
+            }
+
+            var dm = new NativeMethods.DEVMODE { dmSize = (short)System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.DEVMODE>() };
+            if (NativeMethods.EnumDisplaySettings(dd.DeviceName, EnumCurrentSettings, ref dm)
+                && dm.dmDisplayFrequency > (uint)highest)
+            {
+                highest = (int)dm.dmDisplayFrequency;
+            }
+        }
+
+        // Normalise: some drivers report 0/1 (driver-chosen) — treat as 60.
+        if (highest <= 1)
+        {
+            highest = 60;
+        }
+
+        Program.Log($"[Display] highest refresh rate across adapters: {highest} Hz");
+        return highest;
+    }
+
+    /// <summary>Set the render DispatcherTimer interval to just below the
+    /// highest display refresh rate so each frame aligns with a vsync slot
+    /// (no wasted frames on slow panels, no under-render on fast ones).
+    /// Called at startup and after any display-resolution change.</summary>
+    private void ApplyRenderInterval()
+    {
+        int hz = GetHighestRefreshRate();
+        _lastRefreshHz = hz;
+        // Render slightly faster than the panel so a dropped tick never
+        // starves a refresh, but clamp so we don't churn the CPU pointlessly.
+        int targetHz = Math.Min(240, Math.Max(60, hz));
+        _renderTimer.Interval = TimeSpan.FromMilliseconds(1000.0 / targetHz);
+        Program.Log($"[Display] render interval -> {targetHz} Hz ({_renderTimer.Interval.TotalMilliseconds:0.00} ms)");
+    }
+
+    /// <summary>Raise the Windows timer resolution to 1 ms so the render
+    /// DispatcherTimer can actually fire at the display refresh rate.  Without
+    /// this, SetTimer is clamped by the default ~15.6 ms system tick and the
+    /// overlay runs at ~60 fps even on 144/180 Hz displays.</summary>
+    private static void EnableHighResTimer()
+    {
+        if (_highResTimerEnabled)
+        {
+            return;
+        }
+
+        try
+        {
+            NativeMethods.timeBeginPeriod(1);
+            _highResTimerEnabled = true;
+            Program.Log("High-res timer enabled (timeBeginPeriod 1ms).");
+        }
+        catch (Exception ex)
+        {
+            Program.Log($"timeBeginPeriod failed: {ex.Message}");
+        }
+    }
+
+    private static void DisableHighResTimer()
+    {
+        if (!_highResTimerEnabled)
+        {
+            return;
+        }
+
+        try
+        {
+            NativeMethods.timeEndPeriod(1);
+            _highResTimerEnabled = false;
+            Program.Log("High-res timer disabled.");
+        }
+        catch (Exception ex)
+        {
+            Program.Log($"timeEndPeriod failed: {ex.Message}");
+        }
     }
 
     private void OnRendering(object? sender, EventArgs e)
