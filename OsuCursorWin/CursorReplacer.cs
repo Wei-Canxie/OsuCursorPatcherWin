@@ -477,13 +477,21 @@ internal static class CursorReplacer
                 }
                 else if (filename.EndsWith(".cur", StringComparison.OrdinalIgnoreCase))
                 {
-                    // req6: force hotspot to top-left (0,0) so that every
-                    // themed cursor extends down-right from the pointer,
-                    // matching the normal-scene overlay placement.
-                    var zeroed = ForceHotspotZero(hcur);
-                    if (zeroed != IntPtr.Zero && zeroed != hcur)
+                    // Hotspot policy:
+                    //  - link.cur (OCR_HAND, hyperlink/button): top + 1/4 from
+                    //    the left, per user req2.
+                    //  - all other .cur: top-left (0,0) per user req6.
+                    int hotX = 0, hotY = 0;
+                    if (filename.Equals("link.cur", StringComparison.OrdinalIgnoreCase))
                     {
-                        OsuHandles[id] = zeroed;
+                        hotX = GetCursorBitmapWidth(hcur) / 4;
+                        hotY = 0;
+                    }
+
+                    var relocated = SetHotspot(hcur, hotX, hotY);
+                    if (relocated != IntPtr.Zero && relocated != hcur)
+                    {
+                        OsuHandles[id] = relocated;
                         NativeMethods.DestroyCursor(hcur);
                     }
                 }
@@ -631,8 +639,8 @@ internal static class CursorReplacer
                 g.FillRectangle(brush, cx - capW / 2f, botY - capH, capW, capH);
             }
 
-            var (andMask, xorMask) = BuildMasks(bmp);
-            return NativeMethods.CreateCursor(IntPtr.Zero, 0, 0, sizePx, sizePx, andMask, xorMask);
+            // req3: text-selection cursor hotspot at CENTRE.
+            return CreateColorCursorFromBitmap(bmp, sizePx, sizePx / 2, sizePx / 2);
         }
         catch (Exception ex)
         {
@@ -641,17 +649,18 @@ internal static class CursorReplacer
         }
     }
 
-    /// <summary>Force an HCURSOR's hotspot to (0,0).  The original handle
-    /// is NOT destroyed — callers must dispose it separately.</summary>
-    private static IntPtr ForceHotspotZero(IntPtr hcur)
+    /// <summary>Return a copy of an HCURSOR with its hotspot relocated to
+    /// (hotX, hotY).  The original handle is NOT destroyed — callers must
+    /// dispose it separately.  Returns the original on failure.</summary>
+    private static IntPtr SetHotspot(IntPtr hcur, int hotX, int hotY)
     {
         if (hcur == IntPtr.Zero) return hcur;
         try
         {
             if (!NativeMethods.GetIconInfo(hcur, out var info)) return hcur;
             info.fIcon = false;
-            info.xHotspot = 0;
-            info.yHotspot = 0;
+            info.xHotspot = hotX;
+            info.yHotspot = hotY;
             var result = NativeMethods.CreateIconIndirect(ref info);
             if (info.hbmMask != IntPtr.Zero) NativeMethods.DeleteObject(info.hbmMask);
             if (info.hbmColor != IntPtr.Zero) NativeMethods.DeleteObject(info.hbmColor);
@@ -659,39 +668,148 @@ internal static class CursorReplacer
         }
         catch (Exception ex)
         {
-            Program.Log($"[CursorReplacer] ForceHotspotZero failed: {ex}");
+            Program.Log($"[CursorReplacer] SetHotspot failed: {ex}");
             return hcur;
         }
     }
 
-    /// <summary>Create an HCURSOR from a source bitmap (PNG sprite) by scaling
-    /// it down to the target cursor size, building AND/XOR masks from the
-    /// alpha channel, and calling CreateCursor.  Hotspot is at the centre of
-    /// the image.</summary>
+    /// <summary>Get the width (in pixels) of an HCURSOR's colour/mask bitmap.</summary>
+    private static int GetCursorBitmapWidth(IntPtr hcur)
+    {
+        try
+        {
+            if (!NativeMethods.GetIconInfo(hcur, out var info)) return 0;
+            int width = 0;
+            var hbm = info.hbmColor != IntPtr.Zero ? info.hbmColor : info.hbmMask;
+            if (hbm != IntPtr.Zero && NativeMethods.GetObject(hbm, System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.BITMAP>(), out var bm) != 0)
+            {
+                width = bm.bmWidth;
+            }
+
+            if (info.hbmMask != IntPtr.Zero) NativeMethods.DeleteObject(info.hbmMask);
+            if (info.hbmColor != IntPtr.Zero) NativeMethods.DeleteObject(info.hbmColor);
+            return width;
+        }
+        catch (Exception ex)
+        {
+            Program.Log($"[CursorReplacer] GetCursorBitmapWidth failed: {ex}");
+            return 0;
+        }
+    }
+
     private static IntPtr CreateCursorFromBitmap(Bitmap source, int sizePx)
     {
+        return CreateColorCursorFromBitmap(source, sizePx, 0, 0);
+    }
+
+    /// <summary>Create a colour HCURSOR from a source bitmap by writing a
+    /// .cur file to the temp directory and loading it via LoadCursorFromFile.
+    /// Unlike the old monochrome CreateCursor/AND+XOR approach, this preserves
+    /// the image's real colours (e.g. cursor.png's grey arrow + white ring).
+    /// Hotspot is set to (hotX, hotY).</summary>
+    private static IntPtr CreateColorCursorFromBitmap(Bitmap source, int sizePx, int hotX, int hotY)
+    {
+        try
+        {
+            using var bmp = new Bitmap(sizePx, sizePx, PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(bmp))
+            {
+                g.Clear(Color.Transparent);
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.SmoothingMode = SmoothingMode.HighQuality;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                float scale = (float)sizePx / Math.Max(source.Width, source.Height);
+                int w = (int)(source.Width * scale);
+                int h = (int)(source.Height * scale);
+                g.DrawImage(source, (sizePx - w) / 2, (sizePx - h) / 2, w, h);
+            }
+
+            int wOut = bmp.Width, hOut = bmp.Height;
+            int stride = wOut * 4;
+            byte[] pixelData = new byte[stride * hOut];
+            var data = bmp.LockBits(new Rectangle(0, 0, wOut, hOut), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
             try
             {
-                using var bmp = new Bitmap(sizePx, sizePx, PixelFormat.Format32bppArgb);
-                using (var g = Graphics.FromImage(bmp))
+                for (int y = 0; y < hOut; y++)
                 {
-                    g.Clear(Color.Transparent);
-                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                    g.SmoothingMode = SmoothingMode.HighQuality;
-                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                    float scale = (float)sizePx / Math.Max(source.Width, source.Height);
-                    int w = (int)(source.Width * scale);
-                    int h = (int)(source.Height * scale);
-                    g.DrawImage(source, (sizePx - w) / 2, (sizePx - h) / 2, w, h);
+                    Marshal.Copy(data.Scan0 + y * data.Stride, pixelData, y * stride, stride);
                 }
+            }
+            finally { bmp.UnlockBits(data); }
 
-                var (andMask, xorMask) = BuildMasks(bmp);
-                return NativeMethods.CreateCursor(IntPtr.Zero, 0, 0, sizePx, sizePx, andMask, xorMask);
-            }
-            catch (Exception ex)
-            {
-                Program.Log($"[CursorReplacer] CreateCursorFromBitmap failed: {ex}");
-                return IntPtr.Zero;
-            }
+            // Build ICONDIR + ICONDIRENTRY + DIB.  .cur format:
+            //   ICONDIR: reserved(2) type(2=cursor) count(2)
+            //   ICONDIRENTRY: w(1) h(1) colors(1) reserved(1) xHot(2) yHot(2) bytesInRes(4) offset(4)
+            //   DIB: BITMAPINFOHEADER + BGRA pixel data
+            const int dibHeaderSize = 40;
+            int dibSize = dibHeaderSize + pixelData.Length;
+            int entryOffset = 6 + 16; // ICONDIR + ICONDIRENTRY = 22
+            var cur = new byte[entryOffset + dibSize];
+
+            // ICONDIR
+            cur[2] = 2; // type = cursor
+            cur[4] = 1; // count = 1
+
+            // ICONDIRENTRY
+            cur[6] = (byte)(wOut >= 256 ? 0 : wOut);
+            cur[7] = (byte)(hOut >= 256 ? 0 : hOut);
+            cur[10] = (byte)hotX;      // xHotspot low byte
+            cur[11] = (byte)(hotX >> 8);
+            cur[12] = (byte)hotY;      // yHotspot low byte
+            cur[13] = (byte)(hotY >> 8);
+            cur[14] = (byte)(dibSize & 0xFF);
+            cur[15] = (byte)((dibSize >> 8) & 0xFF);
+            cur[16] = (byte)((dibSize >> 16) & 0xFF);
+            cur[17] = (byte)((dibSize >> 24) & 0xFF);
+            cur[18] = (byte)(entryOffset & 0xFF);
+            cur[19] = (byte)((entryOffset >> 8) & 0xFF);
+            cur[20] = (byte)((entryOffset >> 16) & 0xFF);
+            cur[21] = (byte)((entryOffset >> 24) & 0xFF);
+
+            // BITMAPINFOHEADER (32-bit BGRA, top-down)
+            int idx = entryOffset;
+            WriteInt(cur, ref idx, dibHeaderSize); // biSize
+            WriteInt(cur, ref idx, wOut);           // biWidth
+            WriteInt(cur, ref idx, -hOut);          // biHeight (negative = top-down)
+            WriteShort(cur, ref idx, 1);             // biPlanes
+            WriteShort(cur, ref idx, 32);            // biBitCount
+            WriteInt(cur, ref idx, 0);               // biCompression (BI_RGB)
+            WriteInt(cur, ref idx, 0);               // biSizeImage
+            WriteInt(cur, ref idx, 0);               // biXPelsPerMeter
+            WriteInt(cur, ref idx, 0);               // biYPelsPerMeter
+            WriteInt(cur, ref idx, 0);               // biClrUsed
+            WriteInt(cur, ref idx, 0);               // biClrImportant
+
+            // Pixel data (BGRA)
+            Buffer.BlockCopy(pixelData, 0, cur, idx, pixelData.Length);
+
+            string tempDir = Path.Combine(Path.GetTempPath(), "OsuCursorWinCursors");
+            Directory.CreateDirectory(tempDir);
+            string tempPath = Path.Combine(tempDir, $"__color_{Guid.NewGuid():N}.cur");
+            File.WriteAllBytes(tempPath, cur);
+
+            var hcur = NativeMethods.LoadCursorFromFile(tempPath);
+            try { File.Delete(tempPath); } catch { }
+            return hcur;
         }
+        catch (Exception ex)
+        {
+            Program.Log($"[CursorReplacer] CreateColorCursorFromBitmap failed: {ex}");
+            return IntPtr.Zero;
+        }
+    }
+
+    private static void WriteInt(byte[] buf, ref int pos, int val)
+    {
+        buf[pos++] = (byte)(val & 0xFF);
+        buf[pos++] = (byte)((val >> 8) & 0xFF);
+        buf[pos++] = (byte)((val >> 16) & 0xFF);
+        buf[pos++] = (byte)((val >> 24) & 0xFF);
+    }
+
+    private static void WriteShort(byte[] buf, ref int pos, int val)
+    {
+        buf[pos++] = (byte)(val & 0xFF);
+        buf[pos++] = (byte)((val >> 8) & 0xFF);
+    }
 }
