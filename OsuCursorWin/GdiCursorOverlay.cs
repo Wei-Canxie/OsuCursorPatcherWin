@@ -235,11 +235,13 @@ internal sealed class GdiCursorOverlay : Form
             _ovY = y;
 
             var t0 = System.Diagnostics.Stopwatch.GetTimestamp();
-            // Move + re-stack topmost in a SINGLE SetWindowPos (MoveTopmost).
-            // WinForms SetBounds + SetTopmost did two SetWindowPos calls, the
-            // first of which drops the overlay from the topmost band, doubling
-            // DWM recompositions per move.
-            NativeMethods.MoveTopmost(Handle, x, y, width, height);
+            // PERF: pure reposition WITHOUT HWND_TOPMOST.  Re-stacking on every
+            // move forced a DWM Z-order recomposition each frame (~5ms), making
+            // per-frame cost exceed the 8ms target.  The MainWindow topmost
+            // timer already calls BringToTopmost every 250ms, so z-order is
+            // maintained via that periodic re-stack instead — the hot path
+            // (every 8ms) is now a cheap SetWindowPos-with-SWP_NOZORDER.
+            NativeMethods.Move(Handle, x, y, width, height);
             _statSetBoundsTicks += System.Diagnostics.Stopwatch.GetTimestamp() - t0;
             _statSetBoundsCount++;
         }

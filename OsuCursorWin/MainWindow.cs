@@ -582,6 +582,12 @@ internal sealed class MainWindow : Window
     private void StartMmTimer()
     {
         if (_mmTimerId != 0) return;
+        // Fixed 8 ms render target (user requirement: avgTick <= 8 ms).  We do
+        // NOT clamp to the display refresh rate here — the cursor-sampling loop
+        // should run faster than the panel (DWM coalesces to the panel rate),
+        // which minimizes input-to-frame latency like a hardware cursor.
+        _renderTargetHz = 125;
+        _renderIntervalMs = 1000.0 / _renderTargetHz; // ~8.0 ms
         uint delay = (uint)Math.Max(1, Math.Round(_renderIntervalMs));
         _mmCallback = MmTimerCallback;
         _mmTimerId = NativeMethods.timeSetEvent(delay, 1, _mmCallback, IntPtr.Zero, NativeMethods.TimePeriodic);
