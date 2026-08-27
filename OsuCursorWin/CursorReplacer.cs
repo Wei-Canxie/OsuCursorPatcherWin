@@ -78,18 +78,98 @@ internal static class CursorReplacer
     private static readonly Dictionary<uint, string> OsuAniTempPaths = new();
     private static bool _dragMode;
     private static bool _installed;
+
+    // Req 2b: user-customised cursor overrides stored in
+    // %APPDATA%\OsuCursorWin\custom-cursors\<OCR-id>.<ext>.
+    // When present they take precedence over the embedded resource.
+    // `ResetCustomCursor(id)` deletes the file; `ResetAllCustomCursors()` clears
+    // the entire directory.
+    private static readonly string CustomCursorDir =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "OsuCursorWin", "custom-cursors");
+
+    /// <summary>Return the custom-cursor path for a given OCR ID, or null if
+    /// no user override exists.</summary>
+    private static string? GetCustomCursorPath(uint id)
+    {
+        if (!Directory.Exists(CustomCursorDir)) return null;
+        var files = Directory.GetFiles(CustomCursorDir, $"{id}.*");
+        return files.Length > 0 ? files[0] : null;
+    }
+
+    /// <summary>Return the custom-cursor file path for a given OCR ID, or null
+    /// if no user override exists.  Public wrapper for the settings UI.</summary>
+    internal static string? GetCustomCursorPathFor(uint id) => GetCustomCursorPath(id);
+
+    /// <summary>Remove a single custom cursor override (reverts to embedded).</summary>
+    internal static void ResetCustomCursor(uint id)
+    {
+        if (!Directory.Exists(CustomCursorDir)) return;
+        foreach (var f in Directory.GetFiles(CustomCursorDir, $"{id}.*"))
+        {
+            try { File.Delete(f); } catch { }
+        }
+    }
+
+    /// <summary>Remove ALL custom cursor overrides.</summary>
+    internal static void ResetAllCustomCursors()
+    {
+        if (!Directory.Exists(CustomCursorDir)) return;
+        try { Directory.Delete(CustomCursorDir, true); } catch { }
+    }
+
+    /// <summary>Install a user-supplied file as a custom cursor override for
+    /// the given OCR ID.  The file is copied to the custom-cursor directory
+    /// and the cursor set is reloaded so the new cursor takes effect
+    /// immediately.</summary>
+    internal static void SetCustomCursor(uint id, string sourcePath)
+    {
+        Directory.CreateDirectory(CustomCursorDir);
+        string ext = Path.GetExtension(sourcePath);
+        string dest = Path.Combine(CustomCursorDir, $"{id}{ext}");
+        File.Copy(sourcePath, dest, overwrite: true);
+        Reload();
+    }
     private static bool _osuMode;
     private static int _osuSizePx = 32;
+    private static double _osuAspectX = 1.0;
+    private static double _osuAspectY = 1.0;
+    private static double _osuHotspotX;
+    private static double _osuHotspotY;
+    private static double _lastAppliedAspectX = 1.0;
+    private static double _lastAppliedAspectY = 1.0;
+    private static double _lastAppliedHotspotX;
+    private static double _lastAppliedHotspotY;
     private static Bitmap? _cachedOsuImage;
 
-    internal static bool Install(Bitmap? osuImage = null, int osuSizePx = 32)
+    internal static bool Install(Bitmap? osuImage = null, int osuSizePx = 32,
+        double aspectX = 1.0, double aspectY = 1.0,
+        double hotspotX = 0.0, double hotspotY = 0.0)
     {
         if (_installed)
         {
+            // Req 2a: geometry changes re-apply by rebuilding the whole set.
+            _osuAspectX = Math.Max(0.05, aspectX);
+            _osuAspectY = Math.Max(0.05, aspectY);
+            _osuHotspotX = hotspotX;
+            _osuHotspotY = hotspotY;
+            if (Math.Abs(_lastAppliedAspectX - _osuAspectX) >= 0.01
+                || Math.Abs(_lastAppliedAspectY - _osuAspectY) >= 0.01
+                || Math.Abs(_lastAppliedHotspotX - _osuHotspotX) >= 0.5
+                || Math.Abs(_lastAppliedHotspotY - _osuHotspotY) >= 0.5
+                || osuSizePx != _osuSizePx)
+            {
+                _osuSizePx = Math.Clamp(osuSizePx, 16, 96);
+                Reload();
+            }
             return true;
         }
 
         _osuSizePx = Math.Clamp(osuSizePx, 16, 96);
+        _osuAspectX = Math.Max(0.05, aspectX);
+        _osuAspectY = Math.Max(0.05, aspectY);
+        _osuHotspotX = hotspotX;
+        _osuHotspotY = hotspotY;
 
         // Keep a private copy so SetMode can rebuild the whole set if Windows
         // invalidates the cursor handles (DPI/theme changes destroy cursors set
@@ -126,6 +206,10 @@ internal static class CursorReplacer
         LoadOsuCursors(osuImage);
 
         _installed = BlankHandles.ContainsKey(NativeMethods.OCR_NORMAL);
+        _lastAppliedAspectX = _osuAspectX;
+        _lastAppliedAspectY = _osuAspectY;
+        _lastAppliedHotspotX = _osuHotspotX;
+        _lastAppliedHotspotY = _osuHotspotY;
         Program.Log($"CursorReplacer.Install installed={_installed} blank={BlankHandles.Count} osu={OsuHandles.Count}");
         if (OsuHandles.Count < CursorIds.Length)
         {
@@ -322,9 +406,10 @@ internal static class CursorReplacer
 
         // Rebuild blanks + osu set from the cached source image.  Pass a CLONE
         // so Install's cache-refresh (`_cachedOsuImage?.Dispose()` then clone)
-        // doesn't dispose the very object we're about to clone.
+        // doesn't dispose the very object we're about to clone.  Preserve the
+        // DC-scene geometry (size/aspect/hotspot) so a reload keeps the tuning.
         using var clone = _cachedOsuImage != null ? new Bitmap(_cachedOsuImage) : null;
-        Install(clone, _osuSizePx);
+        Install(clone, _osuSizePx, _osuAspectX, _osuAspectY, _osuHotspotX, _osuHotspotY);
     }
 
     internal static void Restore()
@@ -390,12 +475,48 @@ internal static class CursorReplacer
         return NativeMethods.CreateCursor(IntPtr.Zero, 0, 0, 32, 32, andMask, xorMask);
     }
 
+    /// <summary>Load a user custom cursor override for the given OCR ID from
+    /// the custom-cursor directory.  Returns true if loaded successfully.</summary>
+    private static bool TryLoadCustomCursor(uint id)
+    {
+        var customPath = GetCustomCursorPath(id);
+        if (customPath == null)
+        {
+            return false;
+        }
+
+        try
+        {
+            var hcur = NativeMethods.LoadCursorFromFile(customPath);
+            if (hcur != IntPtr.Zero)
+            {
+                OsuHandles[id] = hcur;
+                if (customPath.EndsWith(".ani", StringComparison.OrdinalIgnoreCase))
+                {
+                    OsuAniTempPaths[id] = customPath;
+                }
+
+                Program.Log($"[CursorReplacer] Loaded custom osu cursor for id={id} from '{customPath}'");
+                return true;
+            }
+
+            Program.Log($"[CursorReplacer] LoadCursorFromFile failed for custom '{customPath}' err={Marshal.GetLastWin32Error()}");
+        }
+        catch (Exception ex)
+        {
+            Program.Log($"[CursorReplacer] Failed loading custom cursor '{customPath}': {ex.Message}");
+        }
+
+        return false;
+    }
+
     private static void LoadOsuCursors(Bitmap? osuImage)
     {
         // OCR_NORMAL: cursor.png bitmap directly (req1 — unify DC surface with
         // normal scene).  The cursor sprite is the same image the overlay
-        // draws, so both modes look identical at the pointer.
-        if (osuImage != null)
+        // draws, so both modes look identical at the pointer.  Req 2b: a user
+        // custom .cur/.ani override takes precedence.
+        if (!TryLoadCustomCursor(NativeMethods.OCR_NORMAL) && osuImage != null)
         {
             var cursor = CreateCursorFromBitmap(osuImage, _osuSizePx);
             if (cursor != IntPtr.Zero)
@@ -405,7 +526,9 @@ internal static class CursorReplacer
         }
 
         // OCR_IBEAM: programmatic white I-beam (vertical line + top/bottom bars)
-        // instead of the osu-style circle from text.cur.
+        // instead of the osu-style circle from text.cur.  Req 2b: a user custom
+        // override takes precedence.
+        if (!TryLoadCustomCursor(NativeMethods.OCR_IBEAM))
         {
             var ibeam = CreateIBeamCursor(_osuSizePx);
             if (ibeam != IntPtr.Zero)
@@ -437,6 +560,36 @@ internal static class CursorReplacer
             if (OsuHandles.ContainsKey(id))
             {
                 continue; // already loaded (e.g. OCR_NORMAL)
+            }
+
+            // Req 2b: user custom cursor overrides take precedence over the
+            // embedded resource.  When present, load from the file directly.
+            var customPath = GetCustomCursorPath(id);
+            if (customPath != null)
+            {
+                try
+                {
+                    var chcur = NativeMethods.LoadCursorFromFile(customPath);
+                    if (chcur != IntPtr.Zero)
+                    {
+                        OsuHandles[id] = chcur;
+                        if (customPath.EndsWith(".ani", StringComparison.OrdinalIgnoreCase))
+                        {
+                            OsuAniTempPaths[id] = customPath;
+                        }
+
+                        Program.Log($"[CursorReplacer] Loaded custom osu cursor for id={id} from '{customPath}'");
+                        continue;
+                    }
+
+                    Program.Log($"[CursorReplacer] LoadCursorFromFile failed for custom '{customPath}' err={Marshal.GetLastWin32Error()}");
+                }
+                catch (Exception ex)
+                {
+                    Program.Log($"[CursorReplacer] Failed loading custom cursor '{customPath}': {ex.Message}");
+                }
+
+                // fall through to embedded resource
             }
 
             // PNG source images are embedded under the Images.* prefix; .cur/.ani
@@ -742,7 +895,11 @@ internal static class CursorReplacer
     private static IntPtr CreateCursorFromBitmap(Bitmap source, int sizePx)
     {
         // req2: hotspot at (w/8, h/8) — micro-nudge from top-left toward centre
-        return CreateColorCursorFromBitmap(source, sizePx, sizePx / 8, sizePx / 8);
+        // Req 2a: DC-scene aspect and hotspot offsets apply here so the DC
+        // system cursor can be tuned to match the normal-scene overlay.
+        var hotX = (int)Math.Round(sizePx / 8.0 + _osuHotspotX);
+        var hotY = (int)Math.Round(sizePx / 8.0 + _osuHotspotY);
+        return CreateColorCursorFromBitmap(source, sizePx, hotX, hotY, _osuAspectX, _osuAspectY);
     }
 
     /// <summary>Create a colour HCURSOR from a source bitmap by writing a
@@ -750,7 +907,8 @@ internal static class CursorReplacer
     /// Unlike the old monochrome CreateCursor/AND+XOR approach, this preserves
     /// the image's real colours (e.g. cursor.png's grey arrow + white ring).
     /// Hotspot is set to (hotX, hotY).</summary>
-    private static IntPtr CreateColorCursorFromBitmap(Bitmap source, int sizePx, int hotX, int hotY)
+    private static IntPtr CreateColorCursorFromBitmap(Bitmap source, int sizePx, int hotX, int hotY,
+        double aspectX = 1.0, double aspectY = 1.0)
     {
         try
         {
@@ -762,8 +920,8 @@ internal static class CursorReplacer
                 g.SmoothingMode = SmoothingMode.HighQuality;
                 g.PixelOffsetMode = PixelOffsetMode.HighQuality;
                 float scale = (float)sizePx / Math.Max(source.Width, source.Height);
-                int w = (int)(source.Width * scale);
-                int h = (int)(source.Height * scale);
+                int w = (int)(source.Width * scale * Math.Max(0.05, aspectX));
+                int h = (int)(source.Height * scale * Math.Max(0.05, aspectY));
                 g.DrawImage(source, (sizePx - w) / 2, (sizePx - h) / 2, w, h);
             }
 
