@@ -737,12 +737,32 @@ internal static class CursorReplacer
             }
             finally { bmp.UnlockBits(data); }
 
-            // Build ICONDIR + ICONDIRENTRY + DIB.  .cur format:
-            //   ICONDIR: reserved(2) type(2=cursor) count(2)
-            //   ICONDIRENTRY: w(1) h(1) colors(1) reserved(1) xHot(2) yHot(2) bytesInRes(4) offset(4)
-            //   DIB: BITMAPINFOHEADER + BGRA pixel data
+            // .cur DIB must be bottom-up: reverse the row order.
+            byte[] bottomUp = new byte[pixelData.Length];
+            for (int y = 0; y < hOut; y++)
+            {
+                Buffer.BlockCopy(pixelData, y * stride, bottomUp, (hOut - 1 - y) * stride, stride);
+            }
+
+            // 1-bit AND mask (rows 4-byte aligned).  bit set = transparent.
+            int maskRowBytes = ((wOut + 31) / 32) * 4;
+            byte[] andMask = new byte[maskRowBytes * hOut];
+            for (int y = 0; y < hOut; y++)
+            {
+                for (int x = 0; x < wOut; x++)
+                {
+                    byte a = bottomUp[y * stride + x * 4 + 3]; // BGRA alpha
+                    int byteIdx = y * maskRowBytes + (x / 8);
+                    int bitMask = 0x80 >> (x % 8);
+                    if (a < 60) andMask[byteIdx] |= (byte)bitMask;
+                }
+            }
+
+            // Build ICONDIR + ICONDIRENTRY + DIB (XOR then AND).  biHeight is
+            // POSITIVE (bottom-up) and DOUBLE (XOR height + AND height) — this
+            // is what LoadCursorFromFile requires; negative/top-down fails.
             const int dibHeaderSize = 40;
-            int dibSize = dibHeaderSize + pixelData.Length;
+            int dibSize = dibHeaderSize + bottomUp.Length + andMask.Length;
             int entryOffset = 6 + 16; // ICONDIR + ICONDIRENTRY = 22
             var cur = new byte[entryOffset + dibSize];
 
@@ -766,11 +786,11 @@ internal static class CursorReplacer
             cur[20] = (byte)((entryOffset >> 16) & 0xFF);
             cur[21] = (byte)((entryOffset >> 24) & 0xFF);
 
-            // BITMAPINFOHEADER (32-bit BGRA, top-down)
+            // BITMAPINFOHEADER (32-bit BGRA, bottom-up, height = 2*actual)
             int idx = entryOffset;
             WriteInt(cur, ref idx, dibHeaderSize); // biSize
             WriteInt(cur, ref idx, wOut);           // biWidth
-            WriteInt(cur, ref idx, -hOut);          // biHeight (negative = top-down)
+            WriteInt(cur, ref idx, 2 * hOut);       // biHeight (positive, double)
             WriteShort(cur, ref idx, 1);             // biPlanes
             WriteShort(cur, ref idx, 32);            // biBitCount
             WriteInt(cur, ref idx, 0);               // biCompression (BI_RGB)
@@ -780,8 +800,10 @@ internal static class CursorReplacer
             WriteInt(cur, ref idx, 0);               // biClrUsed
             WriteInt(cur, ref idx, 0);               // biClrImportant
 
-            // Pixel data (BGRA)
-            Buffer.BlockCopy(pixelData, 0, cur, idx, pixelData.Length);
+            // XOR pixel data, then AND mask
+            Buffer.BlockCopy(bottomUp, 0, cur, idx, bottomUp.Length);
+            idx += bottomUp.Length;
+            Buffer.BlockCopy(andMask, 0, cur, idx, andMask.Length);
 
             string tempDir = Path.Combine(Path.GetTempPath(), "OsuCursorWinCursors");
             Directory.CreateDirectory(tempDir);
