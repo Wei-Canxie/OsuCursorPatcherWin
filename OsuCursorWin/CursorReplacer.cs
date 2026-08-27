@@ -47,19 +47,25 @@ internal static class CursorReplacer
     // Map OCR ID → embedded cursor resource filename (without prefix)
     private static readonly Dictionary<uint, string> OsuCursorMap = new()
     {
-        [NativeMethods.OCR_NORMAL] = null!, // handled specially: white ring from cursor.png
+        // OCR_NORMAL: cursor.png (start menu / DC surface) — same bitmap the
+        // overlay uses in normal scenes, so both stay visually unified.
+        [NativeMethods.OCR_NORMAL] = null!, // handled specially in LoadOsuCursors
         [NativeMethods.OCR_IBEAM] = "text.cur",
-        [NativeMethods.OCR_WAIT] = "work.ani",   // busy↔work swapped: busy.ani renamed to work.ani
+        // req4: 转圈(等待软件开启、桌面右键等待) -> busy.png
+        [NativeMethods.OCR_WAIT] = "busy.png",
         [NativeMethods.OCR_CROSS] = "cross.cur",
-        [NativeMethods.OCR_UP] = null!, // no dedicated cursor, use white ring
+        [NativeMethods.OCR_UP] = null!,
         [NativeMethods.OCR_SIZENWSE] = "dgn1.cur",
         [NativeMethods.OCR_SIZENESW] = "dgn2.cur",
         [NativeMethods.OCR_SIZEWE] = "horz.cur",
         [NativeMethods.OCR_SIZENS] = "vert.cur",
-        [NativeMethods.OCR_SIZEALL] = "move.cur",
+        // req2: 拖动光标(看图、移动画布) -> hand.cur
+        [NativeMethods.OCR_SIZEALL] = "hand.cur",
         [NativeMethods.OCR_NO] = "unavailiable.cur",
-        [NativeMethods.OCR_HAND] = "hand.cur",
-        [NativeMethods.OCR_APPSTARTING] = "busy.png", // was work.png (arrow+ring); work.ani is for OCR_WAIT
+        // req3: 特殊点击(打开超链接、点击按钮) -> link.cur
+        [NativeMethods.OCR_HAND] = "link.cur",
+        // req5: 卡死(沙漏光标、软件卡死) -> work.ani
+        [NativeMethods.OCR_APPSTARTING] = "work.ani",
         [NativeMethods.OCR_HELP] = "alternate.cur",
     };
 
@@ -354,13 +360,15 @@ internal static class CursorReplacer
 
     private static void LoadOsuCursors(Bitmap? osuImage)
     {
-        // For OCR_NORMAL: white ring from cursor.png (or provided osuImage)
+        // OCR_NORMAL: cursor.png bitmap directly (req1 — unify DC surface with
+        // normal scene).  The cursor sprite is the same image the overlay
+        // draws, so both modes look identical at the pointer.
         if (osuImage != null)
         {
-            var ring = CreateWhiteRingCursor(osuImage, _osuSizePx);
-            if (ring != IntPtr.Zero)
+            var cursor = CreateCursorFromBitmap(osuImage, _osuSizePx);
+            if (cursor != IntPtr.Zero)
             {
-                OsuHandles[NativeMethods.OCR_NORMAL] = ring;
+                OsuHandles[NativeMethods.OCR_NORMAL] = cursor;
             }
         }
 
@@ -467,6 +475,18 @@ internal static class CursorReplacer
                 {
                     OsuAniTempPaths[id] = tempPath;
                 }
+                else if (filename.EndsWith(".cur", StringComparison.OrdinalIgnoreCase))
+                {
+                    // req6: force hotspot to top-left (0,0) so that every
+                    // themed cursor extends down-right from the pointer,
+                    // matching the normal-scene overlay placement.
+                    var zeroed = ForceHotspotZero(hcur);
+                    if (zeroed != IntPtr.Zero && zeroed != hcur)
+                    {
+                        OsuHandles[id] = zeroed;
+                        NativeMethods.DestroyCursor(hcur);
+                    }
+                }
 
                 Program.Log($"[CursorReplacer] Loaded osu cursor for id={id} from '{filename}': hcur=0x{hcur.ToInt64():X}");
             }
@@ -530,7 +550,7 @@ internal static class CursorReplacer
             }
 
             var (andMask, xorMask) = BuildMasks(ring);
-            return NativeMethods.CreateCursor(IntPtr.Zero, sizePx / 2, sizePx / 2, sizePx, sizePx, andMask, xorMask);
+            return NativeMethods.CreateCursor(IntPtr.Zero, 0, 0, sizePx, sizePx, andMask, xorMask);
         }
         catch (Exception ex)
         {
@@ -612,12 +632,35 @@ internal static class CursorReplacer
             }
 
             var (andMask, xorMask) = BuildMasks(bmp);
-            return NativeMethods.CreateCursor(IntPtr.Zero, sizePx / 2, sizePx / 2, sizePx, sizePx, andMask, xorMask);
+            return NativeMethods.CreateCursor(IntPtr.Zero, 0, 0, sizePx, sizePx, andMask, xorMask);
         }
         catch (Exception ex)
         {
             Program.Log($"[CursorReplacer] CreateIBeamCursor failed: {ex}");
             return IntPtr.Zero;
+        }
+    }
+
+    /// <summary>Force an HCURSOR's hotspot to (0,0).  The original handle
+    /// is NOT destroyed — callers must dispose it separately.</summary>
+    private static IntPtr ForceHotspotZero(IntPtr hcur)
+    {
+        if (hcur == IntPtr.Zero) return hcur;
+        try
+        {
+            if (!NativeMethods.GetIconInfo(hcur, out var info)) return hcur;
+            info.fIcon = false;
+            info.xHotspot = 0;
+            info.yHotspot = 0;
+            var result = NativeMethods.CreateIconIndirect(ref info);
+            if (info.hbmMask != IntPtr.Zero) NativeMethods.DeleteObject(info.hbmMask);
+            if (info.hbmColor != IntPtr.Zero) NativeMethods.DeleteObject(info.hbmColor);
+            return result != IntPtr.Zero ? result : hcur;
+        }
+        catch (Exception ex)
+        {
+            Program.Log($"[CursorReplacer] ForceHotspotZero failed: {ex}");
+            return hcur;
         }
     }
 
@@ -643,7 +686,7 @@ internal static class CursorReplacer
                 }
 
                 var (andMask, xorMask) = BuildMasks(bmp);
-                return NativeMethods.CreateCursor(IntPtr.Zero, sizePx / 2, sizePx / 2, sizePx, sizePx, andMask, xorMask);
+                return NativeMethods.CreateCursor(IntPtr.Zero, 0, 0, sizePx, sizePx, andMask, xorMask);
             }
             catch (Exception ex)
             {

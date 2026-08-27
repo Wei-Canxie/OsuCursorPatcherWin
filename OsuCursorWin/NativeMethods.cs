@@ -322,6 +322,9 @@ internal static class NativeMethods
     internal static extern bool DestroyCursor(IntPtr hCursor);
 
     [DllImport("user32.dll", SetLastError = true)]
+    internal static extern bool GetIconInfo(IntPtr hIcon, out ICONINFO piconinfo);
+
+    [DllImport("user32.dll", SetLastError = true)]
     internal static extern IntPtr CreateIconIndirect(ref ICONINFO piconinfo);
 
     [DllImport("gdi32.dll", SetLastError = true)]
