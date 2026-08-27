@@ -27,13 +27,56 @@ internal sealed class GdiCursorOverlay : Form
     [DllImport("gdi32.dll")] private static extern IntPtr CreateRectRgn(int l, int t, int r, int b);
     [DllImport("gdi32.dll")] private static extern int CombineRgn(IntPtr d, IntPtr a, IntPtr b, int m);
     [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr h);
+    [DllImport("user32.dll")] private static extern IntPtr GetDC(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+    [DllImport("gdi32.dll")] private static extern IntPtr CreateCompatibleDC(IntPtr hDC);
+    [DllImport("gdi32.dll")] private static extern bool DeleteDC(IntPtr hdc);
+    [DllImport("gdi32.dll")] private static extern IntPtr SelectObject(IntPtr hdc, IntPtr hgdiobj);
+    [DllImport("user32.dll")] private static extern bool UpdateLayeredWindow(
+        IntPtr hwnd, IntPtr hdcDst, ref NativeMethods.POINT pptDst, ref SIZE psize,
+        IntPtr hdcSrc, ref NativeMethods.POINT pptSrc, uint crKey, ref BLENDFUNCTION pblend, uint dwFlags);
+    [DllImport("gdi32.dll")] private static extern IntPtr CreateDIBSection(IntPtr hdc, ref BITMAPINFO pbmi, uint usage, out IntPtr ppvBits, IntPtr hSection, uint offset);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SIZE { public int cx; public int cy; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct BLENDFUNCTION
+    {
+        public byte BlendOp, BlendFlags, SourceConstantAlpha, AlphaFormat;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct BITMAPINFOHEADER
+    {
+        public uint biSize;
+        public int biWidth;
+        public int biHeight;
+        public ushort biPlanes;
+        public ushort biBitCount;
+        public uint biCompression;
+        public uint biSizeImage;
+        public int biXPelsPerMeter;
+        public int biYPelsPerMeter;
+        public uint biClrUsed;
+        public uint biClrImportant;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct BITMAPINFO
+    {
+        public BITMAPINFOHEADER bmiHeader;
+        public uint bmiColors;
+    }
 
     private const int GWL_EXSTYLE = -20;
     private const long WS_EX_TRANSPARENT = 0x00000020L;
     private const long WS_EX_NOACTIVATE = 0x08000000L;
     private const long WS_EX_TOOLWINDOW = 0x00000080L;
     private const long WS_EX_TOPMOST = 0x00000008L;
+    private const long WS_EX_LAYERED = 0x00080000L;
     private const int RgnOr = 2;
+    private const uint ULW_ALPHA = 0x00000002;
     private const int AlphaThreshold = 60;
     private const int WmNcHitTest = 0x0084;
     private const int HitTestTransparent = -1;
@@ -50,10 +93,14 @@ internal sealed class GdiCursorOverlay : Form
     private double _angle;
     private double _scaleValue = 1.0;
     private double _additiveOpacity;
+    private int _ovX;  // last window screen position (for UpdateLayeredWindow)
+    private int _ovY;
     private bool _overlayVisible;
+    private Bitmap? _renderCache;
 
     // Last region-rebuild keys.
     private double _lastRegionScale = -1.0;
+    private double _lastAdditive = -1.0;
     private double _lastRegionAngle = double.NaN;
     private int _lastRegionWidth;
     private int _lastRegionHeight;
@@ -95,6 +142,11 @@ internal sealed class GdiCursorOverlay : Form
             // even when set HWND_TOPMOST.  Click-through is handled by the WndProc
             // WM_NCHITTEST→HTTRANSPARENT override; taskbar hiding by ShowInTaskbar=false.
             cp.ExStyle |= (int)WS_EX_TOPMOST;
+            // WS_EX_LAYERED enables per-pixel alpha compositing (semi-transparent
+            // cursor like the original).  The overlay is only used in normal
+            // scenes now; DirectComposition surfaces use the osu system cursor,
+            // so layered rendering here is safe.
+            cp.ExStyle |= (int)WS_EX_LAYERED;
             return cp;
         }
     }
@@ -149,6 +201,8 @@ internal sealed class GdiCursorOverlay : Form
 
         if (visible)
         {
+            _ovX = x;
+            _ovY = y;
             // Move the overlay.  CRITICAL: WinForms' SetBounds internally calls
             // SetWindowPos WITHOUT HWND_TOPMOST, which drops the overlay from the
             // topmost band every time we move it — Start menu / Action Center /
@@ -159,25 +213,31 @@ internal sealed class GdiCursorOverlay : Form
             NativeMethods.SetTopmost(Handle);
         }
 
-        // Only rebuild the clipping region when the footprint actually changed.
-        var changed = Math.Abs(scaleValue - _lastRegionScale) >= 0.03
+        // Rebuild the rendered (semi-transparent) cursor when the content or
+        // footprint changed; otherwise keep the cached bitmap.
+        var contentChanged = Math.Abs(scaleValue - _lastRegionScale) >= 0.03
             || (double.IsNaN(_lastRegionAngle)
                 || Math.Abs(NormalizeAngle(angle - _lastRegionAngle)) >= 4.0)
+            || Math.Abs(_additiveOpacity - _lastAdditive) >= 0.02
             || width != _lastRegionWidth
             || height != _lastRegionHeight;
 
-        if (changed)
+        if (visible && contentChanged)
         {
             UpdateRegion(width, height);
             _lastRegionScale = scaleValue;
             _lastRegionAngle = angle;
+            _lastAdditive = _additiveOpacity;
             _lastRegionWidth = width;
             _lastRegionHeight = height;
         }
 
-        if (visible)
+        // Layered window: every move needs a fresh UpdateLayeredWindow call so
+        // the image follows the window position (SetBounds alone doesn't move
+        // the layered surface).
+        if (visible && _renderCache != null)
         {
-            Invalidate();
+            ApplyLayered(_renderCache, width, height);
         }
     }
 
@@ -190,67 +250,39 @@ internal sealed class GdiCursorOverlay : Form
 
         try
         {
-            using var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-            using (var g = Graphics.FromImage(bmp))
+            // Render the cursor (base + additive, with per-pixel alpha) into a
+            // cached 32-bit ARGB bitmap.  UpdateState calls ApplyLayered on every
+            // move to re-upload it at the new position.
+            //
+            // Supersample 4x for smooth anti-aliased edges: draw the cursor at
+            // 4x resolution, then bilinearly downsample to the target size.  The
+            // extra passes cost little (small bitmap) and eliminate the jaggies
+            // visible when a 30px-design cursor is scaled up on HiDPI screens.
+            const int ss = 4;
+            using (var hi = new Bitmap(width * ss, height * ss, PixelFormat.Format32bppArgb))
             {
-                RenderCursor(g, width, height);
-            }
-
-            // Build an HRGN of opaque runs and apply it with the raw SetWindowRgn
-            // P/Invoke.  CRITICAL: do NOT use the WinForms Form.Region property.
-            // WinForms owns Form.Region and, on WM_WINDOWPOSCHANGED (which our
-            // periodic SetWindowPos(HWND_TOPMOST) in BringToTopmost triggers),
-            // re-applies the default (whole-window) region, wiping our clip and
-            // exposing the black BackColor as a big block.  A raw SetWindowRgn
-            // region is owned by the OS, survives SetWindowPos, and is never
-            // touched by WinForms.
-            var region = CreateRectRgn(0, 0, 0, 0); // empty
-            var data = bmp.LockBits(
-                new Rectangle(0, 0, width, height),
-                ImageLockMode.ReadOnly,
-                PixelFormat.Format32bppArgb);
-            try
-            {
-                var stride = data.Stride;
-                var scan0 = data.Scan0;
-                for (var y = 0; y < height; y++)
+                using (var g = Graphics.FromImage(hi))
                 {
-                    var row = (long)stride * y;
-                    var x0 = -1;
-                    for (var x = 0; x < width; x++)
-                    {
-                        // BGRA: alpha = 4th byte at offset 3
-                        var alpha = Marshal.ReadByte(scan0 + (int)row + x * 4 + 3);
-                        if (alpha >= AlphaThreshold && x0 < 0)
-                        {
-                            x0 = x;
-                        }
-                        else if (alpha < AlphaThreshold && x0 >= 0)
-                        {
-                            var rowRgn = CreateRectRgn(x0, y, x, y + 1);
-                            CombineRgn(region, region, rowRgn, RgnOr);
-                            DeleteObject(rowRgn);
-                            x0 = -1;
-                        }
-                    }
-
-                    if (x0 >= 0)
-                    {
-                        var rowRgn = CreateRectRgn(x0, y, width, y + 1);
-                        CombineRgn(region, region, rowRgn, RgnOr);
-                        DeleteObject(rowRgn);
-                    }
+                    g.Clear(Color.Transparent);
+                    g.SmoothingMode = SmoothingMode.HighQuality;
+                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                    // Render at ss× by scaling the cursor footprint accordingly.
+                    RenderCursor(g, width * ss, height * ss);
                 }
-            }
-            finally
-            {
-                bmp.UnlockBits(data);
-            }
 
-            // SetWindowRgn transfers ownership of the region to the window; the
-            // OS frees it when the window is destroyed or replaced.
-            SetWindowRgn(Handle, region, true);
-            Program.Log($"[Overlay] region rebuilt {width}x{height} scale={_scaleValue:F2}");
+                var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+                using (var g2 = Graphics.FromImage(bmp))
+                {
+                    g2.Clear(Color.Transparent);
+                    g2.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    g2.SmoothingMode = SmoothingMode.HighQuality;
+                    g2.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                    g2.DrawImage(hi, 0, 0, width, height);
+                }
+
+                _renderCache?.Dispose();
+                _renderCache = bmp;
+            }
         }
         catch (Exception ex)
         {
@@ -259,16 +291,80 @@ internal sealed class GdiCursorOverlay : Form
         }
     }
 
+    private void ApplyLayered(Bitmap bmp, int width, int height)
+    {
+        if (!IsHandleCreated) return;
+        try
+        {
+            UpdateLayered(bmp, width, height);
+        }
+        catch (Exception ex)
+        {
+            try { Program.Log($"[Overlay] ApplyLayered failed: {ex}"); } catch { }
+        }
+    }
+
+    private void UpdateLayered(Bitmap bmp, int width, int height)
+    {
+        if (!IsHandleCreated) return;
+
+        // Build a top-down 32-bit BGRA DIB (per-pixel alpha).
+        var bmi = new BITMAPINFO();
+        bmi.bmiHeader.biSize = (uint)Marshal.SizeOf<BITMAPINFOHEADER>();
+        bmi.bmiHeader.biWidth = width;
+        bmi.bmiHeader.biHeight = -height; // top-down
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = 32;
+        bmi.bmiHeader.biCompression = 0;
+
+        IntPtr screenDc = GetDC(IntPtr.Zero);
+        IntPtr bits;
+        IntPtr hbmp = CreateDIBSection(screenDc, ref bmi, 0, out bits, IntPtr.Zero, 0);
+        if (hbmp == IntPtr.Zero) { ReleaseDC(IntPtr.Zero, screenDc); return; }
+
+        try
+        {
+            // Copy bitmap pixels (BGRA) into the DIB.
+            var data = bmp.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            try
+            {
+                int stride = width * 4;
+                for (int y = 0; y < height; y++)
+                {
+                    Marshal.Copy(data.Scan0 + y * data.Stride, new byte[stride], 0, 0); // noop to touch
+                    // copy row
+                    var row = new byte[stride];
+                    Marshal.Copy(data.Scan0 + y * data.Stride, row, 0, stride);
+                    Marshal.Copy(row, 0, bits + y * stride, stride);
+                }
+            }
+            finally { bmp.UnlockBits(data); }
+
+            IntPtr memDc = CreateCompatibleDC(screenDc);
+            if (memDc == IntPtr.Zero) return;
+            IntPtr old = SelectObject(memDc, hbmp);
+
+            var dst = new NativeMethods.POINT { X = _ovX, Y = _ovY };
+            var sz = new SIZE { cx = width, cy = height };
+            var src = new NativeMethods.POINT { X = 0, Y = 0 };
+            var blend = new BLENDFUNCTION { BlendOp = 0, BlendFlags = 0, SourceConstantAlpha = 255, AlphaFormat = 1 };
+            UpdateLayeredWindow(Handle, screenDc, ref dst, ref sz, memDc, ref src, 0, ref blend, ULW_ALPHA);
+
+            SelectObject(memDc, old);
+            DeleteDC(memDc);
+        }
+        finally
+        {
+            DeleteObject(hbmp);
+            ReleaseDC(IntPtr.Zero, screenDc);
+        }
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
-        // No base.OnPaint and no Clear: the region already clips the window to
-        // the cursor shape, so we just draw the cursor over whatever is there.
-        if (!_overlayVisible)
-        {
-            return;
-        }
-
-        RenderCursor(e.Graphics, Width, Height);
+        // Layered window: all pixels come from UpdateLayeredWindow.  Nothing to
+        // draw here (drawing to the client DC would fight the layered surface
+        // and cause flicker).  base.OnPaint is intentionally not called.
     }
 
     /// <summary>Draw the base + additive cursor images centered, scaled and rotated.</summary>
@@ -347,6 +443,13 @@ internal sealed class GdiCursorOverlay : Form
             bool ok = NativeMethods.SetTopmost(Handle);
             Program.Log($"[Overlay] BringToTopmost ok={ok}");
         }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        _renderCache?.Dispose();
+        _renderCache = null;
+        base.Dispose(disposing);
     }
 
     private static double NormalizeAngle(double degrees)
