@@ -416,4 +416,78 @@ internal static class NativeMethods
     internal static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
 
     [DllImport("user32.dll", SetLastError = true)]
-    internal static extern bool UnregisterHotKey(IntPtr hWnd, int id);}
+    internal static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    // DEVMODE must be laid out EXACTLY as the Win32 struct — dmDisplayFrequency
+    // sits at offset 136 and is a DWORD.  An incorrect layout (e.g. reading a
+    // short from the wrong offset) yields garbage (we saw "8316 Hz"), so the
+    // full field list up to dmDisplayFrequency is declared here.
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    internal struct DEVMODE
+    {
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string dmDeviceName;          // 0
+        public short dmSpecVersion;          // 32
+        public short dmDriverVersion;        // 34
+        public short dmSize;                 // 36
+        public short dmDriverExtra;          // 38
+        public uint dmFields;                // 40
+        public short dmOrientation;          // 44
+        public short dmPaperSize;            // 46
+        public short dmPaperLength;          // 48
+        public short dmPaperWidth;           // 50
+        public short dmScale;                // 52
+        public short dmCopies;               // 54
+        public short dmDefaultSource;        // 56
+        public short dmPrintQuality;         // 58
+        public int dmPositionX;              // 60 (POINTL)
+        public int dmPositionY;              // 64
+        public uint dmDisplayOrientation;    // 68
+        public uint dmDisplayFixedOutput;    // 72
+        public short dmColor;                // 76
+        public short dmDuplex;               // 78
+        public short dmYResolution;          // 80
+        public short dmTTOption;             // 82
+        public short dmCollate;              // 84
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string dmFormName;            // 86
+        public short dmLogPixels;            // 118
+        public uint dmBitsPerPel;            // 120
+        public uint dmPelsWidth;             // 124
+        public uint dmPelsHeight;            // 128
+        public uint dmDisplayFlags;          // 132
+        public uint dmDisplayFrequency;      // 136  <-- refresh rate (Hz)
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Ansi)]
+    internal static extern bool EnumDisplaySettings(string? lpszDeviceName, int iModeNum, ref DEVMODE lpDevMode);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    internal struct DISPLAY_DEVICE
+    {
+        public uint cb;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string DeviceName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string DeviceString;
+        public uint StateFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string DeviceID;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string DeviceKey;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Ansi)]
+    internal static extern bool EnumDisplayDevices(string? lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
+
+    // High-resolution multimedia timer.  Raising the system timer resolution to
+    // 1 ms lets DispatcherTimer (backed by SetTimer) actually fire at the
+    // requested 240 Hz instead of being clamped by the default ~15.6 ms system
+    // timer tick (~64 Hz), which manifested as the cursor being stuck at 60 fps
+    // on high-refresh (144/180 Hz) displays.
+    [DllImport("winmm.dll")]
+    internal static extern uint timeBeginPeriod(uint uPeriod);
+
+    [DllImport("winmm.dll")]
+    internal static extern uint timeEndPeriod(uint uPeriod);
+}

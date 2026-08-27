@@ -212,18 +212,30 @@ internal sealed class GdiCursorOverlay : Form
             }
         }
 
+        // Move-guard: skip SetBounds / SetTopmost / ApplyLayered when the
+        // window position or size hasn't changed.  SetWindowPos(HWND_TOPMOST)
+        // forces a DWM re-composition that is expensive; gratuitous calls
+        // cap the effective frame rate well below the timer setting.
+        var moved = visible && (x != _ovX || y != _ovY || width != _lastRegionWidth
+            || height != _lastRegionHeight);
+
         if (visible)
         {
             _ovX = x;
             _ovY = y;
-            // Move the overlay.  CRITICAL: WinForms' SetBounds internally calls
-            // SetWindowPos WITHOUT HWND_TOPMOST, which drops the overlay from the
-            // topmost band every time we move it — Start menu / Action Center /
-            // volume flyouts (themselves topmost) then cover it.  Immediately
-            // re-stack it to HWND_TOPMOST after every move so it stays above
-            // every DirectComposition XAML surface.
-            SetBounds(x, y, width, height);
-            NativeMethods.SetTopmost(Handle);
+
+            if (moved)
+            {
+                // Move the overlay.  CRITICAL: WinForms' SetBounds internally
+                // calls SetWindowPos WITHOUT HWND_TOPMOST, which drops the
+                // overlay from the topmost band every time we move it — Start
+                // menu / Action Center / volume flyouts (themselves topmost)
+                // then cover it.  Immediately re-stack it to HWND_TOPMOST after
+                // every move so it stays above every DirectComposition XAML
+                // surface.
+                SetBounds(x, y, width, height);
+                NativeMethods.SetTopmost(Handle);
+            }
         }
 
         // Rebuild the rendered (semi-transparent) cursor when the content or
@@ -253,10 +265,13 @@ internal sealed class GdiCursorOverlay : Form
             _lastRegionHeight = height;
         }
 
-        // Layered window: every move needs a fresh UpdateLayeredWindow call so
-        // the image follows the window position (SetBounds alone doesn't move
-        // the layered surface).
-        if (visible && _renderCache != null)
+        // Upload the rendered cursor image only when the content changed.
+        // SetWindowPos (via SetBounds) already moves the window — the layered
+        // window's pixel contents follow the window position automatically.
+        // Calling UpdateLayeredWindow on every mouse move was a 3x cost
+        // multiplier (SetBounds + SetTopmost + ULW) that capped the frame rate.
+        // ULW is only needed when the bitmap itself changes.
+        if (visible && contentChanged && _renderCache != null)
         {
             ApplyLayered(_renderCache, width, height);
         }
@@ -352,10 +367,32 @@ internal sealed class GdiCursorOverlay : Form
                 int stride = width * 4;
                 for (int y = 0; y < height; y++)
                 {
-                    Marshal.Copy(data.Scan0 + y * data.Stride, new byte[stride], 0, 0); // noop to touch
-                    // copy row
+                    // copy row from the GDI+ bitmap (straight alpha, BGRA order)
                     var row = new byte[stride];
                     Marshal.Copy(data.Scan0 + y * data.Stride, row, 0, stride);
+
+                    // Premultiply: UpdateLayeredWindow(AlphaFormat=AC_SRC_ALPHA=1)
+                    // requires premultiplied alpha.  GDI+ Format32bppArgb / PNG
+                    // sources are straight alpha; sending straight to ULW makes
+                    // semi-transparent edges (RGB > A*255) render as a bright
+                    // halo / jaggies — the exact "锯齿感" the user reported.
+                    // Premultiply: RGB = RGB * A / 255, BGRA byte order.
+                    for (int i = 0; i < stride; i += 4)
+                    {
+                        byte a = row[i + 3];
+                        if (a == 0)
+                        {
+                            row[i] = 0; row[i + 1] = 0; row[i + 2] = 0;
+                        }
+                        else if (a < 255)
+                        {
+                            row[i]     = (byte)(row[i]     * a / 255); // B
+                            row[i + 1] = (byte)(row[i + 1] * a / 255); // G
+                            row[i + 2] = (byte)(row[i + 2] * a / 255); // R
+                        }
+                        // a == 255: RGB unchanged
+                    }
+
                     Marshal.Copy(row, 0, bits + y * stride, stride);
                 }
             }
