@@ -281,6 +281,21 @@ internal static class NativeMethods
     [DllImport("gdi32.dll", EntryPoint = "DeleteObject")]
     private static extern bool DeleteObjectNative(IntPtr ho);
 
+    [DllImport("gdi32.dll", SetLastError = true)]
+    internal static extern int GetObject(IntPtr hgdiobj, int cbBuffer, out BITMAP bm);
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct BITMAP
+    {
+        internal int bmType;
+        internal int bmWidth;
+        internal int bmHeight;
+        internal int bmWidthBytes;
+        internal ushort bmPlanes;
+        internal ushort bmBitsPixel;
+        internal IntPtr bmBits;
+    }
+
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
 
