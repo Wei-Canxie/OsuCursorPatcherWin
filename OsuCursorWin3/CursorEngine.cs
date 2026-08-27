@@ -513,7 +513,7 @@ internal sealed class CursorEngine : IDisposable
             CursorReplacer.SetMode(wantOsu);
         }
 
-        SetCursorVisible(visible);
+        SetCursorVisible(visible && !CursorReplacer.IsOsuMode());
 
         if (DateTime.UtcNow >= _dbgNextLog)
         {

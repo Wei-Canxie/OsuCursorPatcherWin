@@ -476,9 +476,11 @@ internal static class CursorReplacer
 
     private static IntPtr CreateBlankCursor()
     {
-        var andMask = new byte[128];
-        Array.Fill(andMask, (byte)0xFF);
-        var xorMask = new byte[128];
+        // A fully transparent cursor: CreateCursor's AND mask of 0 makes every
+        // pixel transparent (the XOR mask is irrelevant when AND=0), so the
+        // native arrow disappears and only the overlay circle is visible.
+        var andMask = new byte[128]; // all 0 = transparent
+        var xorMask = new byte[128]; // all 0
         return NativeMethods.CreateCursor(IntPtr.Zero, 0, 0, 32, 32, andMask, xorMask);
     }
 
