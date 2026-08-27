@@ -490,4 +490,18 @@ internal static class NativeMethods
 
     [DllImport("winmm.dll")]
     internal static extern uint timeEndPeriod(uint uPeriod);
+
+    // High-resolution multimedia timer callback (1 ms resolution), used to
+    // drive the render loop far more precisely than DispatcherTimer (whose WPF
+    // implementation lags to ~30 ms regardless of timeBeginPeriod).
+    public delegate void TimeProc(uint uID, uint uMsg, IntPtr dwUser, IntPtr dw1, IntPtr dw2);
+
+    [DllImport("winmm.dll")]
+    internal static extern uint timeSetEvent(uint uDelay, uint uResolution, TimeProc lpTimeProc,
+        IntPtr dwUser, uint fuEvent);
+
+    [DllImport("winmm.dll")]
+    internal static extern uint timeKillEvent(uint uTimerID);
+
+    internal const uint TimePeriodic = 0x0001;
 }

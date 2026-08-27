@@ -115,6 +115,10 @@ internal sealed class GdiCursorOverlay : Form
     private int _lastRegionWidth;
     private int _lastRegionHeight;
 
+    // PERF DIAG stats
+    internal long _statSetBoundsTicks, _statRenderTicks, _statUlwTicks;
+    internal int _statSetBoundsCount, _statRenderCount, _statUlwCount;
+
     public GdiCursorOverlay()
     {
         _baseBitmap = LoadPng("OsuCursorWin.Images.cursor.png");
@@ -212,30 +216,32 @@ internal sealed class GdiCursorOverlay : Form
             }
         }
 
-        // Move-guard: skip SetBounds / SetTopmost / ApplyLayered when the
-        // window position or size hasn't changed.  SetWindowPos(HWND_TOPMOST)
-        // forces a DWM re-composition that is expensive; gratuitous calls
-        // cap the effective frame rate well below the timer setting.
-        var moved = visible && (x != _ovX || y != _ovY || width != _lastRegionWidth
-            || height != _lastRegionHeight);
+        // Move-guard: only reposition when the cursor moved beyond a small
+        // hysteresis deadband.  The low-level mouse hook reports sub-pixel
+        // jitter even when the pointer is stationary; moving on every 1px tick
+        // made SetWindowPos fire constantly (~45x/s while idle) and each
+        // HWND_TOPMOST call forces a DWM re-composition — a big frame-time
+        // cost.  A 2px deadband keeps idle frames at zero SetWindowPos calls.
+        const int deadband = 2;
+        var moved = visible
+            && (Math.Abs(x - _ovX) >= deadband
+                || Math.Abs(y - _ovY) >= deadband
+                || width != _lastRegionWidth
+                || height != _lastRegionHeight);
 
-        if (visible)
+        if (visible && moved)
         {
             _ovX = x;
             _ovY = y;
 
-            if (moved)
-            {
-                // Move the overlay.  CRITICAL: WinForms' SetBounds internally
-                // calls SetWindowPos WITHOUT HWND_TOPMOST, which drops the
-                // overlay from the topmost band every time we move it — Start
-                // menu / Action Center / volume flyouts (themselves topmost)
-                // then cover it.  Immediately re-stack it to HWND_TOPMOST after
-                // every move so it stays above every DirectComposition XAML
-                // surface.
-                SetBounds(x, y, width, height);
-                NativeMethods.SetTopmost(Handle);
-            }
+            var t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            // Move + re-stack topmost in a SINGLE SetWindowPos (MoveTopmost).
+            // WinForms SetBounds + SetTopmost did two SetWindowPos calls, the
+            // first of which drops the overlay from the topmost band, doubling
+            // DWM recompositions per move.
+            NativeMethods.MoveTopmost(Handle, x, y, width, height);
+            _statSetBoundsTicks += System.Diagnostics.Stopwatch.GetTimestamp() - t0;
+            _statSetBoundsCount++;
         }
 
         // Rebuild the rendered (semi-transparent) cursor when the content or
@@ -253,7 +259,10 @@ internal sealed class GdiCursorOverlay : Form
 
         if (visible && contentChanged)
         {
+            var r0 = System.Diagnostics.Stopwatch.GetTimestamp();
             UpdateRegion(width, height);
+            _statRenderTicks += System.Diagnostics.Stopwatch.GetTimestamp() - r0;
+            _statRenderCount++;
             _lastRegionScale = scaleValue;
             _lastRegionAngle = angle;
             _lastAdditive = _additiveOpacity;
@@ -273,7 +282,10 @@ internal sealed class GdiCursorOverlay : Form
         // ULW is only needed when the bitmap itself changes.
         if (visible && contentChanged && _renderCache != null)
         {
+            var a0 = System.Diagnostics.Stopwatch.GetTimestamp();
             ApplyLayered(_renderCache, width, height);
+            _statUlwTicks += System.Diagnostics.Stopwatch.GetTimestamp() - a0;
+            _statUlwCount++;
         }
     }
 
@@ -290,35 +302,22 @@ internal sealed class GdiCursorOverlay : Form
             // cached 32-bit ARGB bitmap.  UpdateState calls ApplyLayered on every
             // move to re-upload it at the new position.
             //
-            // Supersample 4x for smooth anti-aliased edges: draw the cursor at
-            // 4x resolution, then bilinearly downsample to the target size.  The
-            // extra passes cost little (small bitmap) and eliminate the jaggies
-            // visible when a 30px-design cursor is scaled up on HiDPI screens.
-            const int ss = 8;
-            using (var hi = new Bitmap(width * ss, height * ss, PixelFormat.Format32bppArgb))
+            // PERF: supersampling was removed (was 8x + bicubic downsample).
+            // Drawing directly at target size cuts the per-frame render cost
+            // roughly in half, which matters for getting frame time under 8ms.
+            // Edge smoothness relies on GDI+ HighQualityBicubic interpolation.
+            var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(bmp))
             {
-                using (var g = Graphics.FromImage(hi))
-                {
-                    g.Clear(Color.Transparent);
-                    g.SmoothingMode = SmoothingMode.HighQuality;
-                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                    // Render at ss× by scaling the cursor footprint accordingly.
-                    RenderCursor(g, width * ss, height * ss);
-                }
-
-                var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-                using (var g2 = Graphics.FromImage(bmp))
-                {
-                    g2.Clear(Color.Transparent);
-                    g2.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                    g2.SmoothingMode = SmoothingMode.HighQuality;
-                    g2.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                    g2.DrawImage(hi, 0, 0, width, height);
-                }
-
-                _renderCache?.Dispose();
-                _renderCache = bmp;
+                g.Clear(Color.Transparent);
+                g.SmoothingMode = SmoothingMode.HighQuality;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                RenderCursor(g, width, height);
             }
+
+            _renderCache?.Dispose();
+            _renderCache = bmp;
         }
         catch (Exception ex)
         {

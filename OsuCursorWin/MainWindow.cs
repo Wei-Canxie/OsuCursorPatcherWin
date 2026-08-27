@@ -46,6 +46,7 @@ internal sealed class MainWindow : Window
     private static bool _highResTimerEnabled;
     private readonly DispatcherTimer _topmostTimer;
     private readonly DispatcherTimer _renderTimer;
+    private uint _mmTimerId;
     private readonly DispatcherTimer _settingsSaveDebounce;
 
     private NativeMethods.POINT _cursorPoint;
@@ -81,6 +82,13 @@ internal sealed class MainWindow : Window
     private bool _forceTopmost = true;
     private int _lastRefreshHz;
     private int _topmostTick;
+    private int _renderTargetHz = 60;
+    private double _renderIntervalMs = 16.67;
+
+    // PERF DIAG counters
+    private int _perfFrames;
+    private double _perfTotalMs, _perfMouseMs, _perfAnimMs, _perfVisualMs, _perfTickMs;
+    private double _perfNextLog;
     private IntPtr _lastCursorHandle;
     private int _lastWindowX = int.MinValue;
     private int _lastWindowY = int.MinValue;
@@ -192,9 +200,15 @@ internal sealed class MainWindow : Window
         // the highest display refresh rate (see ApplyRenderInterval) so the
         // overlay never wastes frames above the panel rate nor lags below it.
         _renderTimer = new DispatcherTimer();
-        _renderTimer.Tick += OnRendering;
+        // Render timer is only used for the initial interval calc; the actual
+        // render loop is driven by a WinMM multimedia timer (StartMmTimer)
+        // for precise 1-ms sub-16.67ms tick accuracy.
+        var t = _renderTimer;
+        // _renderTimer kept as a field for interval calculation
+        // (ApplyRenderInterval sets _renderIntervalMs which StartMmTimer uses)
+        _renderTimer.Tick += OnRendering;  // fallback, not used when mm timer active
         ApplyRenderInterval();
-        _renderTimer.Start();
+        // Don't start DispatcherTimer - StartMmTimer in SetCursorEnabled does the work
 
         _settingsSaveDebounce = new DispatcherTimer
         {
@@ -277,9 +291,9 @@ internal sealed class MainWindow : Window
         _forceTopmost = true;
         InstallMouseHook();
         ApplyRenderInterval();
-        _renderTimer.Start();
         _lastFrameTime = _clock.Elapsed.TotalSeconds;
         EnableHighResTimer();
+        StartMmTimer();
 
         if (!_smoke)
         {
@@ -304,6 +318,7 @@ internal sealed class MainWindow : Window
         _settingsWindow?.ForceClose();
         NativeMethods.UnregisterHotKey(_hwnd, HotkeyToggleCursor);
         _renderTimer.Stop();
+        StopMmTimer();
         UninstallMouseHook();
         _topmostTimer.Stop();
         _settingsSaveDebounce.Stop();
@@ -509,6 +524,8 @@ internal sealed class MainWindow : Window
     {
         int hz = GetHighestRefreshRate();
         _lastRefreshHz = hz;
+        _renderTargetHz = Math.Min(240, Math.Max(60, hz));
+        _renderIntervalMs = 1000.0 / _renderTargetHz;
         // Render slightly faster than the panel so a dropped tick never
         // starves a refresh, but clamp so we don't churn the CPU pointlessly.
         int targetHz = Math.Min(240, Math.Max(60, hz));
@@ -558,6 +575,43 @@ internal sealed class MainWindow : Window
         }
     }
 
+    /// <summary>Start the high-precision multimedia timer that drives the
+    /// render loop.  WinMM timeSetEvent fires at 1 ms resolution (much more
+    /// precise than WPF DispatcherTimer which was observed to cap at ~30 ms
+    /// regardless of the interval setting or timeBeginPeriod).</summary>
+    private void StartMmTimer()
+    {
+        if (_mmTimerId != 0) return;
+        uint delay = (uint)Math.Max(1, Math.Round(_renderIntervalMs));
+        _mmCallback = MmTimerCallback;
+        _mmTimerId = NativeMethods.timeSetEvent(delay, 1, _mmCallback, IntPtr.Zero, NativeMethods.TimePeriodic);
+        Program.Log($"[MMTimer] started id={_mmTimerId} delay={delay}ms (target={_renderTargetHz}Hz)");
+    }
+
+    private void StopMmTimer()
+    {
+        if (_mmTimerId != 0)
+        {
+            NativeMethods.timeKillEvent(_mmTimerId);
+            Program.Log($"[MMTimer] stopped id={_mmTimerId}");
+            _mmTimerId = 0;
+        }
+    }
+
+    /// <summary>Multimedia timer callback — runs on a separate thread.
+    /// Must be extremely fast: just marshal OnRendering to the UI thread via
+    /// Dispatcher.BeginInvoke.  The actual rendering happens on the UI thread.</summary>
+    private void MmTimerCallback(uint uID, uint uMsg, IntPtr dwUser, IntPtr dw1, IntPtr dw2)
+    {
+        if (_closing) return;
+        // Use BeginInvoke so we don't block the timer thread.  If the UI thread
+        // is still busy with the previous frame, this queues up and the timer
+        // keeps firing — we get the next frame when the UI thread is ready.
+        Dispatcher.BeginInvoke(() => OnRendering(null, EventArgs.Empty));
+    }
+
+    private NativeMethods.TimeProc? _mmCallback;
+
     private void OnRendering(object? sender, EventArgs e)
     {
         if (_closing || _hwnd == IntPtr.Zero)
@@ -573,9 +627,34 @@ internal sealed class MainWindow : Window
             dt = 1.0 / 60.0;
         }
 
+        // PERF DIAG: measure per-frame cost
+        var t0 = _clock.Elapsed.TotalMilliseconds;
         UpdateMouseState();
+        var t1 = _clock.Elapsed.TotalMilliseconds;
         UpdateAnimation(dt);
+        var t2 = _clock.Elapsed.TotalMilliseconds;
         UpdateVisual();
+        var t3 = _clock.Elapsed.TotalMilliseconds;
+
+        _perfFrames++;
+        _perfTotalMs += (t3 - t0);
+        _perfMouseMs += (t1 - t0);
+        _perfAnimMs += (t2 - t1);
+        _perfVisualMs += (t3 - t2);
+        _perfTickMs += (dt * 1000.0);
+        if (_clock.Elapsed.TotalSeconds >= _perfNextLog)
+        {
+            _perfNextLog += 5.0;
+            var f = _perfFrames > 0 ? _perfFrames : 1;
+            var o = _overlay;
+            long sb = o?._statSetBoundsCount ?? 0, rc = o?._statRenderCount ?? 0, uc = o?._statUlwCount ?? 0;
+            double sbMs = o != null ? o._statSetBoundsTicks / (double)System.Diagnostics.Stopwatch.Frequency * 1000.0 : 0;
+            double rMs = o != null ? o._statRenderTicks / (double)System.Diagnostics.Stopwatch.Frequency * 1000.0 : 0;
+            double uMs = o != null ? o._statUlwTicks / (double)System.Diagnostics.Stopwatch.Frequency * 1000.0 : 0;
+            Program.Log($"[PERF] frames={_perfFrames} avgTick={_perfTickMs / f:0.00}ms total={_perfTotalMs / f:0.00}ms mouse={_perfMouseMs / f:0.00}ms anim={_perfAnimMs / f:0.00}ms visual={_perfVisualMs / f:0.00}ms | overlay sb={sb}({sbMs:0.0}ms) render={rc}({rMs:0.0}ms) ulw={uc}({uMs:0.0}ms)");
+            _perfFrames = 0; _perfTotalMs = 0; _perfMouseMs = 0; _perfAnimMs = 0; _perfVisualMs = 0; _perfTickMs = 0;
+            if (o != null) { o._statSetBoundsCount = o._statRenderCount = o._statUlwCount = 0; o._statSetBoundsTicks = o._statRenderTicks = o._statUlwTicks = 0; }
+        }
     }
 
     private void UpdateMouseState()
