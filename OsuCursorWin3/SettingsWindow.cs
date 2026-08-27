@@ -11,12 +11,13 @@ namespace OsuCursorWin;
 /// WinUI 3 settings window built in code with real Fluent/WinUI controls:
 /// NavigationView, Slider, ToggleSwitch, ComboBox, CheckBox.
 /// </summary>
-public sealed class SettingsWindow : Window
+internal sealed class SettingsWindow : Window
 {
     private readonly AppSettings _settings = AppSettings.Load();
-
-    public SettingsWindow()
+    private readonly CursorEngine? _engine;
+    public SettingsWindow(CursorEngine? engine = null)
     {
+        _engine = engine;
         Title = "osu! Cursor 设置";
         AppWindow.Resize(new Windows.Graphics.SizeInt32(960, 680));
 
@@ -124,6 +125,7 @@ public sealed class SettingsWindow : Window
         {
             _settings.CursorWidth = e.NewValue;
             sizeValue.Text = e.NewValue.ToString("0.#");
+            _engine?.ApplyCursorWidth(e.NewValue);
             _settings.Save();
         };
 
@@ -158,11 +160,11 @@ public sealed class SettingsWindow : Window
         panel.Children.Add(new TextBlock { Text = "DC 场景（系统光标）", FontWeight = FontWeights.SemiBold, Opacity = 0.8, Margin = new Thickness(0, 12, 0, 0) });
 
         var dSize = BuildSliderRow("光标大小", _settings.DcCursorSize > 0 ? _settings.DcCursorSize : _settings.CursorWidth, 16, 64,
-            v => _settings.DcCursorSize = v);
-        var dAspectX = BuildSliderRow("横向缩放", _settings.DcAspectX, 0.5, 2.0, v => _settings.DcAspectX = v);
-        var dAspectY = BuildSliderRow("纵向缩放", _settings.DcAspectY, 0.5, 2.0, v => _settings.DcAspectY = v);
-        var dHotX = BuildSliderRow("热点 X", _settings.DcHotspotX, -64, 64, v => _settings.DcHotspotX = v);
-        var dHotY = BuildSliderRow("热点 Y", _settings.DcHotspotY, -64, 64, v => _settings.DcHotspotY = v);
+            v => _settings.DcCursorSize = v, () => _engine?.ApplyDcSceneTuning());
+        var dAspectX = BuildSliderRow("横向缩放", _settings.DcAspectX, 0.5, 2.0, v => _settings.DcAspectX = v, () => _engine?.ApplyDcSceneTuning());
+        var dAspectY = BuildSliderRow("纵向缩放", _settings.DcAspectY, 0.5, 2.0, v => _settings.DcAspectY = v, () => _engine?.ApplyDcSceneTuning());
+        var dHotX = BuildSliderRow("热点 X", _settings.DcHotspotX, -64, 64, v => _settings.DcHotspotX = v, () => _engine?.ApplyDcSceneTuning());
+        var dHotY = BuildSliderRow("热点 Y", _settings.DcHotspotY, -64, 64, v => _settings.DcHotspotY = v, () => _engine?.ApplyDcSceneTuning());
         panel.Children.Add(dSize);
         panel.Children.Add(dAspectX);
         panel.Children.Add(dAspectY);
@@ -172,7 +174,7 @@ public sealed class SettingsWindow : Window
         return panel;
     }
 
-    private FrameworkElement BuildSliderRow(string label, double value, double min, double max, Action<double> setter)
+    private FrameworkElement BuildSliderRow(string label, double value, double min, double max, Action<double> setter, Action? after = null)
     {
         var row = new Grid();
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -196,6 +198,7 @@ public sealed class SettingsWindow : Window
         {
             setter(e.NewValue);
             valueText.Text = e.NewValue.ToString("0.##");
+            after?.Invoke();
             _settings.Save();
         };
 

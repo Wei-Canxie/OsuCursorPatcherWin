@@ -5,15 +5,17 @@ using Microsoft.UI.Xaml.Controls;
 namespace OsuCursorWin;
 
 /// <summary>
-/// WinUI 3 Application. App.xaml declares the XamlControlsResources so the
-/// WinUI Fluent control styles/templates are available. OnLaunched creates the
-/// WinUI settings window, the native overlay window, and the system tray icon.
+/// WinUI 3 Application. App.xaml declares the XamlControlsResources.
+/// OnLaunched starts the overlay + rendering engine, settings window, and tray.
 /// </summary>
 public sealed partial class App : Application
 {
     private SettingsWindow? _settingsWindow;
     private GdiCursorOverlay? _overlay;
     private TrayIcon? _trayIcon;
+    private CursorEngine? _engine;
+    private TapSoundPlayer? _tapSoundPlayer;
+    private TapSoundPlayer? _hoverSoundPlayer;
 
     public App()
     {
@@ -24,10 +26,15 @@ public sealed partial class App : Application
     {
         try
         {
-            // Create the overlay window first (WinForms Form, GDI rendering)
+            // Create sound players
+            AppLog.Log("Creating sound players...");
+            _tapSoundPlayer = new TapSoundPlayer(LoadResourceBytes("OsuCursorWin.Audio.cursorTap.wav"));
+            _hoverSoundPlayer = new TapSoundPlayer(LoadResourceBytes("OsuCursorWin.Audio.defaultHover.wav"));
+
+            // Create the overlay window (WinForms Form, GDI rendering)
             AppLog.Log("Creating overlay window...");
             _overlay = new GdiCursorOverlay();
-            _overlay.Show();
+            _overlay.ShowOverlay();
 
             // Set up the system tray icon
             AppLog.Log("Setting up tray icon...");
@@ -35,12 +42,19 @@ public sealed partial class App : Application
             _trayIcon.ShowSettingsRequested += ShowSettingsWindow;
             _trayIcon.ExitRequested += ExitApp;
 
+            // Create and start the rendering engine
+            AppLog.Log("Creating CursorEngine...");
+            _engine = new CursorEngine(AppSettings.Load(), _overlay,
+                _tapSoundPlayer, _hoverSoundPlayer);
+            _engine.Start();
+
             // Create the WinUI 3 settings window
             AppLog.Log("Creating SettingsWindow...");
-            _settingsWindow = new SettingsWindow();
+            _settingsWindow = new SettingsWindow(_engine);
+            _settingsWindow.Closed += (_, _) => _settingsWindow = null;
             _settingsWindow.Activate();
 
-            AppLog.Log("Application started: overlay + tray + WinUI3 settings window");
+            AppLog.Log("Application started: engine + tray + WinUI3 settings window");
         }
         catch (Exception ex)
         {
@@ -55,7 +69,7 @@ public sealed partial class App : Application
         {
             if (_settingsWindow == null)
             {
-                _settingsWindow = new SettingsWindow();
+                _settingsWindow = new SettingsWindow(_engine);
                 _settingsWindow.Closed += (_, _) => _settingsWindow = null;
             }
             _settingsWindow.Activate();
@@ -66,14 +80,24 @@ public sealed partial class App : Application
         }
     }
 
+    private static byte[] LoadResourceBytes(string resourceName)
+    {
+        using var stream = typeof(App).Assembly.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Missing resource: {resourceName}");
+        using var buffer = new System.IO.MemoryStream();
+        stream.CopyTo(buffer);
+        return buffer.ToArray();
+    }
+
     private void ExitApp()
     {
         try
         {
-            CursorReplacer.Restore();
-            NativeMethods.timeEndPeriod(1);
+            _engine?.Dispose();
             _trayIcon?.Dispose();
-            _overlay?.Close();
+            _overlay?.Dispose();
+            _tapSoundPlayer?.Dispose();
+            _hoverSoundPlayer?.Dispose();
             _settingsWindow?.Close();
         }
         catch (Exception ex)

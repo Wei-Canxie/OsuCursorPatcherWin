@@ -42,6 +42,12 @@
     <EmbeddedResource Include="1.ico">
       <LogicalName>OsuCursorWin.Images.AppIcon.ico</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Include="cursor-tap.wav">
+      <LogicalName>OsuCursorWin.Audio.cursorTap.wav</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="default-hover.wav">
+      <LogicalName>OsuCursorWin.Audio.defaultHover.wav</LogicalName>
+    </EmbeddedResource>
     <EmbeddedResource Include="assets\cursor.png">
       <LogicalName>OsuCursorWin.Images.cursor.png</LogicalName>
     </EmbeddedResource>
@@ -50,6 +56,42 @@
     </EmbeddedResource>
     <EmbeddedResource Include="assets\ex\busy.png">
       <LogicalName>OsuCursorWin.Images.busy.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\text.cur">
+      <LogicalName>OsuCursorWin.Cursors.text.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\hand.cur">
+      <LogicalName>OsuCursorWin.Cursors.hand.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\cross.cur">
+      <LogicalName>OsuCursorWin.Cursors.cross.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\move.cur">
+      <LogicalName>OsuCursorWin.Cursors.move.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\horz.cur">
+      <LogicalName>OsuCursorWin.Cursors.horz.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\vert.cur">
+      <LogicalName>OsuCursorWin.Cursors.vert.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\dgn1.cur">
+      <LogicalName>OsuCursorWin.Cursors.dgn1.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\dgn2.cur">
+      <LogicalName>OsuCursorWin.Cursors.dgn2.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\link.cur">
+      <LogicalName>OsuCursorWin.Cursors.link.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\unavailiable.cur">
+      <LogicalName>OsuCursorWin.Cursors.unavailiable.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\alternate.cur">
+      <LogicalName>OsuCursorWin.Cursors.alternate.cur</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\ex\work.ani">
+      <LogicalName>OsuCursorWin.Cursors.work.ani</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
 
