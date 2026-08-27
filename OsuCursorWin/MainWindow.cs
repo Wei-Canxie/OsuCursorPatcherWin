@@ -67,6 +67,7 @@ internal sealed class MainWindow : Window
     private bool _dragActive;
     private bool _pointerHover;
     private bool _wasHoverCandidate;
+    private bool _wasPointerHover;
     private bool _wasResizePrompt;
     private readonly Stopwatch _uiaThrottle = Stopwatch.StartNew();
     private IntPtr _lastUiaWindow = IntPtr.Zero;
@@ -234,8 +235,10 @@ internal sealed class MainWindow : Window
             // surfaces (Start menu, Action Center, volume/clipboard flyouts)
             // that the animated overlay cannot cover.
             using var osuImage = LoadBitmapResource("OsuCursorWin.Images.cursor.png");
-            var osuSizePx = (int)Math.Clamp(Math.Round(BaseCursorWidth * _dpiScaleX), 24, 96);
-            if (!CursorReplacer.Install(osuImage, osuSizePx))
+            var osuSizePx = ComputeDcCursorSize();
+            if (!CursorReplacer.Install(osuImage, osuSizePx,
+                    _settings.DcAspectX, _settings.DcAspectY,
+                    _settings.DcHotspotX, _settings.DcHotspotY))
             {
                 CursorReplacer.Restore();
                 Program.Log("Unable to install system cursor replacement.");
@@ -648,11 +651,18 @@ internal sealed class MainWindow : Window
             // instead of guessing from cursor-handle heuristics. This eliminates
             // false hover triggers in Explorer, text fields, resize borders, etc.
             var isHoverCandidate = IsHoverClickable();
-            if (isHoverCandidate && !_wasHoverCandidate && !_mouseDown)
+
+            // Fast path: hand cursor detection (info.hCursor == handHandle) is a
+            // real-time OS signal that fires immediately — no UIA delay.  This
+            // catches quick sweeps across clickable elements that UIA would miss
+            // due to its cross-process COM latency (the "快速划过边缘线不响" bug).
+            var handRisingEdge = _pointerHover && !_wasPointerHover && !_mouseDown;
+            if (handRisingEdge || (isHoverCandidate && !_wasHoverCandidate && !_mouseDown))
             {
                 PlayHoverSample();
             }
 
+            _wasPointerHover = _pointerHover;
             _wasHoverCandidate = isHoverCandidate;
         }
     }
@@ -666,7 +676,7 @@ internal sealed class MainWindow : Window
         var window = NativeMethods.WindowFromPoint(_cursorPoint);
         var contextChanged = window != _lastUiaWindow
             || _lastUiaCursorHandle != _lastCursorHandle;
-        if (!contextChanged && _uiaThrottle.ElapsedMilliseconds < 80)
+        if (!contextChanged && _uiaThrottle.ElapsedMilliseconds < 25)
         {
             return _lastUiaClickable;
         }
@@ -857,7 +867,11 @@ internal sealed class MainWindow : Window
             _angle,
             _scaleValue,
             _additiveOpacity,
-            _cursorVisible);
+            _cursorVisible,
+            _settings.NormalAspectX,
+            _settings.NormalAspectY,
+            _settings.NormalHotspotX,
+            _settings.NormalHotspotY);
     }
 
     private void UpdateWindowPosition()
@@ -957,13 +971,40 @@ internal sealed class MainWindow : Window
         };
         menu.Items.Add(exitItem);
 
-        return new NotifyIcon
+        var icon = new NotifyIcon
         {
             Icon = ProgramIcon.CreateIcon(),
             Text = "osu! Cursor",
             Visible = true,
             ContextMenuStrip = menu
         };
+
+        // req 2c: double-click the tray icon opens the settings window directly.
+        icon.MouseDoubleClick += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                ShowSettingsWindow();
+            }
+        };
+
+        return icon;
+    }
+
+    /// <summary>Re-apply DC-scene cursor geometry (size/aspect/hotspot) after a
+    /// settings change.  Called from the settings window so tuning takes effect
+    /// immediately without restarting.</summary>
+    internal void ApplyDcSceneTuning()
+    {
+        if (!_cursorInstalled)
+        {
+            return;
+        }
+
+        var osuSizePx = ComputeDcCursorSize();
+        CursorReplacer.Install(null, osuSizePx,
+            _settings.DcAspectX, _settings.DcAspectY,
+            _settings.DcHotspotX, _settings.DcHotspotY);
     }
 
     private void ShowSettingsWindow()
@@ -978,6 +1019,7 @@ internal sealed class MainWindow : Window
             _settingsWindow.HoverSoundChanged += ApplyHoverSound;
             _settingsWindow.HoverSoundVolumeChanged += ApplyHoverSoundVolume;
             _settingsWindow.ResizeSoundModeChanged += ApplyHoverSoundMode;
+            _settingsWindow.DcSceneTuningChanged += () => ApplyDcSceneTuning();
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         }
 
@@ -995,6 +1037,18 @@ internal sealed class MainWindow : Window
         _settings.CursorWidth = width;
         ScheduleSave();
         _forceTopmost = true;
+    }
+
+    private int ComputeDcCursorSize()
+    {
+        // DC-scene size: DcCursorSize when explicitly set (px), else follow
+        // CursorWidth (converted from DIP to physical px).
+        if (_settings.DcCursorSize > 0)
+        {
+            return (int)Math.Clamp(_settings.DcCursorSize, 16, 96);
+        }
+
+        return (int)Math.Clamp(Math.Round(BaseCursorWidth * _dpiScaleX), 24, 96);
     }
 
     private void SetCursorEnabled(bool enabled)

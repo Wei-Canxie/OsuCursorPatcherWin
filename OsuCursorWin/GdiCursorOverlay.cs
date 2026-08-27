@@ -93,6 +93,12 @@ internal sealed class GdiCursorOverlay : Form
     private double _angle;
     private double _scaleValue = 1.0;
     private double _additiveOpacity;
+
+    // Req 2a: per-scene geometry tuning (set from MainWindow via UpdateState).
+    private double _aspectX = 1.0;
+    private double _aspectY = 1.0;
+    private double _hotspotX; // physical px offset from the tuned anchor
+    private double _hotspotY;
     private int _ovX;  // last window screen position (for UpdateLayeredWindow)
     private int _ovY;
     private bool _overlayVisible;
@@ -102,6 +108,10 @@ internal sealed class GdiCursorOverlay : Form
     private double _lastRegionScale = -1.0;
     private double _lastAdditive = -1.0;
     private double _lastRegionAngle = double.NaN;
+    private double _lastAspectX = 1.0;
+    private double _lastAspectY = 1.0;
+    private double _lastHotspotX;
+    private double _lastHotspotY;
     private int _lastRegionWidth;
     private int _lastRegionHeight;
 
@@ -177,11 +187,17 @@ internal sealed class GdiCursorOverlay : Form
     public void UpdateState(
         int x, int y, int width, int height,
         double angle, double scaleValue, double additiveOpacity,
-        bool visible)
+        bool visible,
+        double aspectX = 1.0, double aspectY = 1.0,
+        double hotspotX = 0.0, double hotspotY = 0.0)
     {
         _angle = angle;
         _scaleValue = scaleValue;
         _additiveOpacity = additiveOpacity;
+        _aspectX = aspectX;
+        _aspectY = aspectY;
+        _hotspotX = hotspotX;
+        _hotspotY = hotspotY;
 
         if (visible != _overlayVisible)
         {
@@ -216,6 +232,10 @@ internal sealed class GdiCursorOverlay : Form
             || (double.IsNaN(_lastRegionAngle)
                 || Math.Abs(NormalizeAngle(angle - _lastRegionAngle)) >= 4.0)
             || Math.Abs(_additiveOpacity - _lastAdditive) >= 0.02
+            || Math.Abs(_aspectX - _lastAspectX) >= 0.01
+            || Math.Abs(_aspectY - _lastAspectY) >= 0.01
+            || Math.Abs(_hotspotX - _lastHotspotX) >= 0.5
+            || Math.Abs(_hotspotY - _lastHotspotY) >= 0.5
             || width != _lastRegionWidth
             || height != _lastRegionHeight;
 
@@ -225,6 +245,10 @@ internal sealed class GdiCursorOverlay : Form
             _lastRegionScale = scaleValue;
             _lastRegionAngle = angle;
             _lastAdditive = _additiveOpacity;
+            _lastAspectX = _aspectX;
+            _lastAspectY = _aspectY;
+            _lastHotspotX = _hotspotX;
+            _lastHotspotY = _hotspotY;
             _lastRegionWidth = width;
             _lastRegionHeight = height;
         }
@@ -380,8 +404,10 @@ internal sealed class GdiCursorOverlay : Form
         // = 160/30 = 5.333x the cursor width, so the rendered cursor occupies
         // 1/5.333 of the window footprint (before the elastic scale/rotation).
         const float cursorWindowRatio = (float)(BaseCursorWindowSize / BaseCursorWidth);
-        var renderW = (float)width / cursorWindowRatio * (float)_scaleValue;
-        var renderH = renderW * (_baseBitmap.Height / (float)_baseBitmap.Width);
+        var renderW = (float)width / cursorWindowRatio * (float)_scaleValue
+            * Math.Max(0.05f, (float)_aspectX);
+        var renderH = renderW * (_baseBitmap.Height / (float)_baseBitmap.Width)
+            * Math.Max(0.05f, (float)_aspectY);
 
         // Anchor the cursor image so the same image point that the DC-scene
         // system cursor uses as its hotspot sits exactly on the pointer.
@@ -405,11 +431,10 @@ internal sealed class GdiCursorOverlay : Form
         // Image-space hotspot: x = sizePx/8 - (sizePx - w)/2 = -sizePx/32
         // (ratio -1/32 of image width), y = sizePx/8 = renderH/8 (ratio 1/8 of
         // image height).  Overlay draws the same image at renderW x renderH, so:
-        const float imgRatio = 312f / 442f;
         var ax = -renderW / 32f;          // ≈ -0.0313*renderW
         var ay = renderH / 8f;            // 0.125*renderH
-        var x = -ax;
-        var y = -ay;
+        var x = -ax + (float)_hotspotX;
+        var y = -ay + (float)_hotspotY;
 
         g.InterpolationMode = InterpolationMode.HighQualityBicubic;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;

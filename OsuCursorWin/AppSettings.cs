@@ -17,6 +17,35 @@ internal sealed class AppSettings
     public double HoverSoundVolume { get; set; } = 1.0;
     public bool HoverSoundAsResizePrompt { get; set; }
 
+    // ---- Req 2a: per-scene cursor geometry tuning ----
+    // Normal scene = the animated GDI overlay (visible over normal windows).
+    // DC scene    = the static osu system cursor (over Start menu, Action
+    //               Center, volume/clipboard flyouts, and special states).
+    // Each can be tuned independently for size, aspect ratio, and hotspot
+    // offset so the two scenes can be made to match.
+
+    /// <summary>Normal-scene (overlay) size multiplier relative to CursorWidth. 1.0 = default.</summary>
+    public double NormalSize { get; set; } = 1.0;
+    /// <summary>Normal-scene horizontal aspect multiplier. 1.0 = native image aspect.</summary>
+    public double NormalAspectX { get; set; } = 1.0;
+    /// <summary>Normal-scene vertical aspect multiplier. 1.0 = native image aspect.</summary>
+    public double NormalAspectY { get; set; } = 1.0;
+    /// <summary>Normal-scene hotspot X offset from the tuned anchor, in physical px.</summary>
+    public double NormalHotspotX { get; set; } = 0.0;
+    /// <summary>Normal-scene hotspot Y offset from the tuned anchor, in physical px.</summary>
+    public double NormalHotspotY { get; set; } = 0.0;
+
+    /// <summary>DC-scene system-cursor size in px (per-CURSOR bitmap edge). 0 = auto (follows CursorWidth).</summary>
+    public double DcCursorSize { get; set; } = 0.0;
+    /// <summary>DC-scene horizontal aspect multiplier. 1.0 = native image aspect.</summary>
+    public double DcAspectX { get; set; } = 1.0;
+    /// <summary>DC-scene vertical aspect multiplier. 1.0 = native image aspect.</summary>
+    public double DcAspectY { get; set; } = 1.0;
+    /// <summary>DC-scene hotspot X offset from default, in physical px.</summary>
+    public double DcHotspotX { get; set; } = 0.0;
+    /// <summary>DC-scene hotspot Y offset from default, in physical px.</summary>
+    public double DcHotspotY { get; set; } = 0.0;
+
     internal static string SettingsPath =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
