@@ -47,6 +47,7 @@ internal static class NativeMethods
 
     internal const uint SwpNoMove = 0x0002;
     internal const uint SwpNoSize = 0x0001;
+    internal const uint SwpNoZOrder = 0x0004;
     internal const uint SwpNoActivate = 0x0010;
     internal const uint SwpShowWindow = 0x0040;
     internal const uint SwpHideWindow = 0x0080;
@@ -231,6 +232,16 @@ internal static class NativeMethods
     internal static long GetWindowStyle(IntPtr hwnd)
     {
         return GetWindowLongPtr(hwnd, GwlStyle).ToInt64();
+    }
+
+    internal static void Move(IntPtr hwnd, int x, int y, int width, int height, bool visible = true)
+    {
+        // Pure reposition: keep current Z-order position (SWP_NOZORDER).  This
+        // is the hot per-frame path (every ~8ms) and must avoid the DWM Z-order
+        // recomposition that HWND_TOPMOST triggers.  Z-order is maintained by
+        // the periodic BringTopmost call instead.
+        SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height,
+            SwpNoActivate | SwpNoZOrder | (visible ? SwpShowWindow : SwpHideWindow));
     }
 
     internal static void MoveTopmost(IntPtr hwnd, int x, int y, int width, int height, bool visible = true)
