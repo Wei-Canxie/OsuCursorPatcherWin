@@ -421,6 +421,7 @@ internal sealed class SettingsWindow : Window
             _resourceStatus.Text = custom != null
                 ? $"当前使用自定义资源：{Path.GetFileName(custom)}"
                 : "当前使用内置默认资源。";
+            RefreshResourcePreview(entry.Id);
         }
     }
 
@@ -477,12 +478,102 @@ internal sealed class SettingsWindow : Window
 
     private void RefreshResourcePreview(uint id)
     {
-        // Show a simple placeholder preview (the normal cursor image).  True
-        // per-cursor .cur preview would require rendering the cursor bitmap;
-        // the embedded normal cursor image is a representative preview.
-        var bmp = LoadPng("OsuCursorWin.Images.cursor.png");
-        _resourcePreview.Source = ToBitmapSource(bmp);
-        bmp.Dispose();
+        // Try the user's custom cursor override first, then the embedded
+        // resource for this OCR ID.  Render the actual cursor bitmap so the
+        // preview shows what will really appear on screen.
+        try
+        {
+            var customPath = CursorReplacer.GetCustomCursorPathFor(id);
+            if (customPath != null && File.Exists(customPath))
+            {
+                using var bmp = LoadCursorPreview(customPath);
+                if (bmp != null)
+                {
+                    _resourcePreview.Source = ToBitmapSource(bmp);
+                    return;
+                }
+            }
+
+            var filename = CursorReplacer.GetEmbeddedCursorFilename(id);
+            if (filename != null)
+            {
+                var resName = filename.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                    ? "OsuCursorWin.Images." + filename
+                    : "OsuCursorWin.Cursors." + filename;
+                using var stream = System.Reflection.Assembly.GetExecutingAssembly()
+                    .GetManifestResourceStream(resName);
+                if (stream != null)
+                {
+                    using var ms = new MemoryStream();
+                    stream.CopyTo(ms);
+                    var bytes = ms.ToArray();
+
+                    System.Drawing.Bitmap? bmp = filename.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                        ? new System.Drawing.Bitmap(new MemoryStream(bytes))
+                        : LoadCursorPreviewFromBytes(bytes, Path.GetExtension(filename));
+
+                    if (bmp != null)
+                    {
+                        _resourcePreview.Source = ToBitmapSource(bmp);
+                        bmp.Dispose();
+                        return;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Program.Log($"[Settings] preview failed id={id}: {ex.Message}");
+        }
+
+        // Fallback: the normal cursor image.
+        var fb = LoadPng("OsuCursorWin.Images.cursor.png");
+        _resourcePreview.Source = ToBitmapSource(fb);
+        fb.Dispose();
+    }
+
+    /// <summary>Render the first frame of a .cur/.ani cursor file as a bitmap.</summary>
+    private static System.Drawing.Bitmap? LoadCursorPreview(string path)
+    {
+        var hcur = NativeMethods.LoadCursorFromFile(path);
+        if (hcur == IntPtr.Zero) return null;
+        try
+        {
+            if (!NativeMethods.GetIconInfo(hcur, out var info)) return null;
+            try
+            {
+                if (info.hbmColor == IntPtr.Zero)
+                {
+                    // Monochrome mask-only cursor; fall back to the mask as ARGB.
+                    if (info.hbmMask == IntPtr.Zero) return null;
+                    return System.Drawing.Image.FromHbitmap(info.hbmMask);
+                }
+                return System.Drawing.Image.FromHbitmap(info.hbmColor);
+            }
+            finally
+            {
+                if (info.hbmColor != IntPtr.Zero) NativeMethods.DeleteObject(info.hbmColor);
+                if (info.hbmMask != IntPtr.Zero) NativeMethods.DeleteObject(info.hbmMask);
+            }
+        }
+        finally
+        {
+            NativeMethods.DestroyCursor(hcur);
+        }
+    }
+
+    private static System.Drawing.Bitmap? LoadCursorPreviewFromBytes(byte[] data, string ext)
+    {
+        var tmp = Path.Combine(Path.GetTempPath(), "OsuCursorPreview_" + Guid.NewGuid().ToString("N") + ext);
+        try
+        {
+            File.WriteAllBytes(tmp, data);
+            return LoadCursorPreview(tmp);
+        }
+        finally
+        {
+            try { File.Delete(tmp); } catch { }
+        }
     }
 
     // ======================================================================
