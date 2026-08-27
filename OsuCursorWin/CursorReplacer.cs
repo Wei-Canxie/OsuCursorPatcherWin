@@ -59,8 +59,8 @@ internal static class CursorReplacer
         [NativeMethods.OCR_SIZENESW] = "dgn2.cur",
         [NativeMethods.OCR_SIZEWE] = "horz.cur",
         [NativeMethods.OCR_SIZENS] = "vert.cur",
-        // req2: 拖动光标(看图、移动画布) -> hand.cur
-        [NativeMethods.OCR_SIZEALL] = "hand.cur",
+        // window move -> move.cur; canvas drag needs hand.cur (set via SetDragMode)
+        [NativeMethods.OCR_SIZEALL] = "move.cur",
         [NativeMethods.OCR_NO] = "unavailiable.cur",
         // req3: 特殊点击(打开超链接、点击按钮) -> link.cur
         [NativeMethods.OCR_HAND] = "link.cur",
@@ -76,6 +76,7 @@ internal static class CursorReplacer
     // we keep the temp-file path and reload the full animation via
     // LoadCursorFromFile on every mode switch instead.
     private static readonly Dictionary<uint, string> OsuAniTempPaths = new();
+    private static bool _dragMode;
     private static bool _installed;
     private static bool _osuMode;
     private static int _osuSizePx = 32;
@@ -233,6 +234,37 @@ internal static class CursorReplacer
     }
 
     internal static bool IsOsuMode() => _osuMode;
+
+    /// <summary>When dragging (canvas pan, etc.) use hand.cur for the
+    /// move cursor (OCR_SIZEALL) instead of the default move.cur.</summary>
+    internal static void SetDragMode(bool dragging)
+    {
+        if (dragging == _dragMode) return;
+        _dragMode = dragging;
+        // Swap the SIZEALL osu handle in-place.
+        uint id = NativeMethods.OCR_SIZEALL;
+        if (OsuHandles.TryGetValue(id, out var cur) && cur != IntPtr.Zero)
+        {
+            // We need to find the hand.cur handle.  It's loaded during
+            // Install as OCR_SIZEALL.  Actually we need to rebuild the
+            // handle.  Let's just reload from the embedded resource.
+            string handName = dragging ? "hand.cur" : "move.cur";
+            var hcur = ReloadOsuCursor(id, handName);
+            if (hcur != IntPtr.Zero && hcur != cur)
+            {
+                // Replace the old handle with the new one.
+                // If osu mode is active, re-apply it so the change takes effect.
+                OsuHandles[id] = hcur;
+                NativeMethods.DestroyCursor(cur);
+                if (_osuMode)
+                {
+                    var copy = NativeMethods.CopyIcon(hcur);
+                    if (copy != IntPtr.Zero)
+                        NativeMethods.SetSystemCursor(copy, id);
+                }
+            }
+        }
+    }
 
     internal static IntPtr GetBlankHandle(uint cursorId)
     {
@@ -487,6 +519,16 @@ internal static class CursorReplacer
                         hotX = GetCursorBitmapWidth(hcur) / 4;
                         hotY = 0;
                     }
+                    else if (filename.Equals("dgn1.cur", StringComparison.OrdinalIgnoreCase) ||
+                             filename.Equals("dgn2.cur", StringComparison.OrdinalIgnoreCase) ||
+                             filename.Equals("horz.cur", StringComparison.OrdinalIgnoreCase) ||
+                             filename.Equals("vert.cur", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // req4: resize cursors hotspot at centre
+                        int bw = GetCursorBitmapWidth(hcur);
+                        hotX = bw / 2;
+                        hotY = bw / 2;
+                    }
 
                     var relocated = SetHotspot(hcur, hotX, hotY);
                     if (relocated != IntPtr.Zero && relocated != hcur)
@@ -699,7 +741,8 @@ internal static class CursorReplacer
 
     private static IntPtr CreateCursorFromBitmap(Bitmap source, int sizePx)
     {
-        return CreateColorCursorFromBitmap(source, sizePx, 0, 0);
+        // req2: hotspot at (w/8, h/8) — micro-nudge from top-left toward centre
+        return CreateColorCursorFromBitmap(source, sizePx, sizePx / 8, sizePx / 8);
     }
 
     /// <summary>Create a colour HCURSOR from a source bitmap by writing a
@@ -819,6 +862,39 @@ internal static class CursorReplacer
             Program.Log($"[CursorReplacer] CreateColorCursorFromBitmap failed: {ex}");
             return IntPtr.Zero;
         }
+    }
+
+    /// <summary>Reload a single .cur/.ani cursor from its embedded resource.
+    /// Used by SetDragMode to swap the SIZEALL cursor at runtime.</summary>
+    private static IntPtr ReloadOsuCursor(uint id, string filename)
+    {
+        try
+        {
+            string resName = filename.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                ? "OsuCursorWin.Images." + filename
+                : CursorResPrefix + filename;
+            var asm = Assembly.GetExecutingAssembly();
+            using var stream = asm.GetManifestResourceStream(resName);
+            if (stream == null) { Program.Log($"[ReloadOsuCursor] '{resName}' not found"); return IntPtr.Zero; }
+            byte[] data = new byte[stream.Length];
+            stream.ReadExactly(data);
+            if (filename.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+            {
+                using var ms = new MemoryStream(data);
+                using var bmp = new Bitmap(ms);
+                return CreateColorCursorFromBitmap(bmp, _osuSizePx, 0, 0);
+            }
+            string tempDir = Path.Combine(Path.GetTempPath(), "OsuCursorWinCursors");
+            Directory.CreateDirectory(tempDir);
+            string tempPath = Path.Combine(tempDir, $"__drag_{filename}");
+            File.WriteAllBytes(tempPath, data);
+            var hcur = NativeMethods.LoadCursorFromFile(tempPath);
+            // Apply hotspot same as during initial load
+            var relocated = SetHotspot(hcur, 0, 0);
+            if (relocated != hcur) { NativeMethods.DestroyCursor(hcur); return relocated; }
+            return hcur;
+        }
+        catch (Exception ex) { Program.Log($"[ReloadOsuCursor] failed: {ex}"); return IntPtr.Zero; }
     }
 
     private static void WriteInt(byte[] buf, ref int pos, int val)

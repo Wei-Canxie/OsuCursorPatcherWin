@@ -740,6 +740,8 @@ internal sealed class MainWindow : Window
         _dragActive = false;
         _forceTopmost = true;
         PlayTapSample(1.0);
+        // req3: when dragging, show hand.cur for the move cursor
+        CursorReplacer.SetDragMode(true);
     }
 
     private void EndPress()
@@ -748,6 +750,9 @@ internal sealed class MainWindow : Window
         {
             return;
         }
+
+        // req3: restore move.cur when drag ends
+        CursorReplacer.SetDragMode(false);
 
         if (_dragActive)
         {
