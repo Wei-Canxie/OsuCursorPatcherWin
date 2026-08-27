@@ -88,6 +88,11 @@ internal sealed class SettingsWindow : Window
     private readonly TextBlock _resourceStatus;
 
     private bool _allowClose;
+
+    // --- animated (.ani) resource preview ---
+    private System.Windows.Threading.DispatcherTimer? _aniTimer;
+    private readonly List<System.Drawing.Bitmap> _aniFrames = new();
+    private int _aniFrameIndex;
     // Cache built pages so shared control fields are never re-attached
     // (re-building a page would throw "already the logical child").
     private readonly List<UIElement?> _cachedPages = new();
@@ -478,22 +483,21 @@ internal sealed class SettingsWindow : Window
 
     private void RefreshResourcePreview(uint id)
     {
-        // Try the user's custom cursor override first, then the embedded
-        // resource for this OCR ID.  Render the actual cursor bitmap so the
-        // preview shows what will really appear on screen.
+        // Stop any previous .ani animation.
+        StopAnimatedPreview();
+
         try
         {
+            // --- custom cursor override ---
             var customPath = CursorReplacer.GetCustomCursorPathFor(id);
             if (customPath != null && File.Exists(customPath))
             {
+                if (TryStartAni(file: customPath)) return;
                 using var bmp = LoadCursorPreview(customPath);
-                if (bmp != null)
-                {
-                    _resourcePreview.Source = ToBitmapSource(bmp);
-                    return;
-                }
+                if (bmp != null) { _resourcePreview.Source = ToBitmapSource(bmp); return; }
             }
 
+            // --- embedded resource ---
             var filename = CursorReplacer.GetEmbeddedCursorFilename(id);
             if (filename != null)
             {
@@ -507,16 +511,22 @@ internal sealed class SettingsWindow : Window
                     using var ms = new MemoryStream();
                     stream.CopyTo(ms);
                     var bytes = ms.ToArray();
+                    var ext = Path.GetExtension(filename);
 
-                    System.Drawing.Bitmap? bmp = filename.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
-                        ? new System.Drawing.Bitmap(new MemoryStream(bytes))
-                        : LoadCursorPreviewFromBytes(bytes, Path.GetExtension(filename));
-
-                    if (bmp != null)
+                    if (ext.Equals(".ani", StringComparison.OrdinalIgnoreCase))
                     {
+                        if (TryStartAni(bytes)) return;
+                    }
+                    else if (ext.Equals(".png", StringComparison.OrdinalIgnoreCase))
+                    {
+                        using var bmp = new System.Drawing.Bitmap(new MemoryStream(bytes));
                         _resourcePreview.Source = ToBitmapSource(bmp);
-                        bmp.Dispose();
                         return;
+                    }
+                    else
+                    {
+                        using var bmp = LoadCursorPreviewFromBytes(bytes, ext);
+                        if (bmp != null) { _resourcePreview.Source = ToBitmapSource(bmp); return; }
                     }
                 }
             }
@@ -526,13 +536,238 @@ internal sealed class SettingsWindow : Window
             Program.Log($"[Settings] preview failed id={id}: {ex.Message}");
         }
 
-        // Fallback: the normal cursor image.
+        // Fallback: normal cursor image.
         var fb = LoadPng("OsuCursorWin.Images.cursor.png");
         _resourcePreview.Source = ToBitmapSource(fb);
         fb.Dispose();
     }
 
-    /// <summary>Render the first frame of a .cur/.ani cursor file as a bitmap.</summary>
+    // ==================================================================
+    // .ani animation support
+    // ==================================================================
+
+    private void StopAnimatedPreview()
+    {
+        _aniTimer?.Stop();
+        _aniTimer = null;
+        foreach (var f in _aniFrames) f.Dispose();
+        _aniFrames.Clear();
+        _aniFrameIndex = 0;
+    }
+
+    /// <summary>Try starting an animated preview from a .ani file. Returns true
+    /// on success, false on failure (caller falls back to static preview).</summary>
+    private bool TryStartAni(string file)
+    {
+        if (!file.EndsWith(".ani", StringComparison.OrdinalIgnoreCase)) return false;
+        try
+        {
+            var (frames, delayMs) = ParseAniFrames(File.ReadAllBytes(file));
+            if (frames == null || frames.Count == 0) return false;
+            StartAnimatedPreview(frames, delayMs);
+            return true;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Try starting an animated preview from .ani bytes. Returns true
+    /// on success.</summary>
+    private bool TryStartAni(byte[] data)
+    {
+        try
+        {
+            var (frames, delayMs) = ParseAniFrames(data);
+            if (frames == null || frames.Count == 0) return false;
+            StartAnimatedPreview(frames, delayMs);
+            return true;
+        }
+        catch { return false; }
+    }
+
+    private void StartAnimatedPreview(List<System.Drawing.Bitmap> frames, int delayMs)
+    {
+        _aniFrames.Clear();
+        _aniFrames.AddRange(frames);
+        _aniFrameIndex = 0;
+        _resourcePreview.Source = ToBitmapSource(frames[0]);
+
+        var interval = Math.Max(16, delayMs); // at least 16ms (~60fps)
+        _aniTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(interval)
+        };
+        _aniTimer.Tick += OnAniTick;
+        _aniTimer.Start();
+    }
+
+    private void OnAniTick(object? sender, EventArgs e)
+    {
+        if (_aniFrames.Count == 0) return;
+        _aniFrameIndex = (_aniFrameIndex + 1) % _aniFrames.Count;
+        _resourcePreview.Source = ToBitmapSource(_aniFrames[_aniFrameIndex]);
+    }
+
+    // ==================================================================
+    // RIFF/ACON (.ani) parser
+    // ==================================================================
+
+    /// <summary>Parse an .ani (RIFF/ACON) file and extract all frames plus
+    /// the display interval (ms). Returns (null, 0) on failure.</summary>
+    private static (List<System.Drawing.Bitmap>? frames, int delayMs) ParseAniFrames(byte[] data)
+    {
+        if (data.Length < 12) return (null, 0);
+        if (System.Text.Encoding.ASCII.GetString(data, 0, 4) != "RIFF") return (null, 0);
+        if (System.Text.Encoding.ASCII.GetString(data, 8, 4) != "ACON") return (null, 0);
+
+        var framePayloads = new List<byte[]>();
+        var rates = new List<int>();
+        var seq = new List<ushort>();
+        int defaultRate = 100; // ms, fallback
+
+        int offset = 12;
+        while (offset + 8 <= data.Length)
+        {
+            var id = System.Text.Encoding.ASCII.GetString(data, offset, 4);
+            int size = BitConverter.ToInt32(data, offset + 4);
+            int payload = offset + 8;
+            if (payload + size > data.Length) break;
+
+            if (id == "anih" && size >= 36)
+            {
+                // ANIHEADER: cbSize=0, nFrames=4, nSteps=8,
+                // iWidth=12, iHeight=16, nBitCount=20, nPlanes=24,
+                // iDispRate=28 (jiffies, 1/60s), bAttribute=32
+                int jiffies = BitConverter.ToInt32(data, payload + 28);
+                if (jiffies > 0) defaultRate = jiffies * 1000 / 60;
+            }
+            else if (id == "LIST" && size >= 4
+                && System.Text.Encoding.ASCII.GetString(data, payload, 4) == "fram")
+            {
+                int sub = payload + 4;
+                int end = payload + size;
+                while (sub + 8 <= end)
+                {
+                    var subId = System.Text.Encoding.ASCII.GetString(data, sub, 4);
+                    int subSize = BitConverter.ToInt32(data, sub + 4);
+                    if (subId == "icon" && sub + 8 + subSize <= end)
+                    {
+                        var iconBytes = new byte[subSize];
+                        Array.Copy(data, sub + 8, iconBytes, 0, subSize);
+                        framePayloads.Add(iconBytes);
+                    }
+                    sub += 8 + subSize + (subSize & 1); // pad to word
+                }
+            }
+            else if (id == "rate" && size >= 4)
+            {
+                for (int i = 0; i + 3 < size; i += 4)
+                    rates.Add(BitConverter.ToInt32(data, payload + i));
+            }
+            else if (id == "seq " && size >= 2)
+            {
+                for (int i = 0; i + 1 < size; i += 2)
+                    seq.Add(BitConverter.ToUInt16(data, payload + i));
+            }
+
+            offset = payload + size + (size & 1);
+        }
+
+        if (framePayloads.Count == 0) return (null, 0);
+
+        // Play frames in sequential order, ignoring the seq chunk.  Many .ani
+        // files embed placeholder frame-0 repeats in seq (work.ani: 0,0,1,0,
+        // 2,0,3,0,...) so the cursor visibly "snaps back" to frame 1 at every
+        // step; sequential playback gives the smooth loop users expect.
+        var order = new List<int>();
+        for (int i = 0; i < framePayloads.Count; i++) order.Add(i);
+
+        // Decode frames (manual ICONDIR/DIB parse — System.Drawing.Icon can't
+        // load cursor-type frames).
+        var frames = new List<System.Drawing.Bitmap>();
+        foreach (int idx in order)
+        {
+            if (idx < 0 || idx >= framePayloads.Count) continue;
+            try
+            {
+                var bmp = DecodeCursorFrame(framePayloads[idx]);
+                if (bmp != null) frames.Add(bmp);
+            }
+            catch { /* skip corrupt frame */ }
+        }
+
+        if (frames.Count == 0) return (null, 0);
+
+        // Determine display interval.  Prefer rate[0], else sequence length
+        // vs rate entries, else defaultRate.
+        int delayMs = defaultRate;
+        if (rates.Count > 0)
+            delayMs = rates[0];
+        else if (rates.Count == 0 && defaultRate > 0)
+            delayMs = defaultRate;
+
+        return (frames, delayMs);
+    }
+
+    /// <summary>Decode a single cursor frame (ICONDIR + 32bpp DIB) into a
+    /// Bitmap.  System.Drawing.Icon rejects cursor-type (type=2) frames, so we
+    /// parse the DIB directly: BITMAPINFOHEADER (40 bytes) followed by
+    /// bottom-up BGRA scanlines; the AND mask (if double-height) is ignored
+    /// because the alpha channel carries transparency.</summary>
+    private static System.Drawing.Bitmap? DecodeCursorFrame(byte[] iconData)
+    {
+        if (iconData.Length < 22 + 40) return null;
+
+        int imageOffset = BitConverter.ToInt32(iconData, 18);
+        int bytesInRes = BitConverter.ToInt32(iconData, 14);
+        if (imageOffset < 0 || imageOffset + bytesInRes > iconData.Length) return null;
+        if (bytesInRes < 40) return null;
+
+        var dib = iconData;
+        int dibOffset = imageOffset;
+        int biSize = BitConverter.ToInt32(dib, dibOffset);
+        if (biSize < 40) return null;
+
+        int biWidth = BitConverter.ToInt32(dib, dibOffset + 4);
+        int biHeight = BitConverter.ToInt32(dib, dibOffset + 8);
+        short biBitCount = BitConverter.ToInt16(dib, dibOffset + 14);
+        if (biWidth <= 0 || biBitCount != 32) return null;
+
+        // Double-height DIB (XOR + AND mask); use only the XOR half.
+        int xorHeight = Math.Abs(biHeight) / 2;
+        if (xorHeight <= 0) xorHeight = Math.Abs(biHeight);
+        int rowSize = ((biWidth * 32 + 31) / 32) * 4;
+        int pixelStart = dibOffset + 40;
+        if (pixelStart + xorHeight * rowSize > iconData.Length) return null;
+
+        var bmp = new System.Drawing.Bitmap(biWidth, xorHeight,
+            System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        var rect = new System.Drawing.Rectangle(0, 0, biWidth, xorHeight);
+        var locked = bmp.LockBits(rect, System.Drawing.Imaging.ImageLockMode.WriteOnly,
+            System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        try
+        {
+            // DIB rows are bottom-up; copy each row (BGRA matches
+            // Format32bppArgb's in-memory layout).
+            for (int row = 0; row < xorHeight; row++)
+            {
+                int srcRow = (Math.Abs(biHeight) == 2 * xorHeight) ? (xorHeight - 1 - row) : row;
+                System.Runtime.InteropServices.Marshal.Copy(
+                    dib, pixelStart + srcRow * rowSize,
+                    locked.Scan0 + row * locked.Stride, rowSize);
+            }
+        }
+        finally
+        {
+            bmp.UnlockBits(locked);
+        }
+        return bmp;
+    }
+
+    // ==================================================================
+    // Static cursor preview helpers (.cur / .png)
+    // ==================================================================
+
+    /// <summary>Render the first frame of a .cur cursor file as a bitmap.</summary>
     private static System.Drawing.Bitmap? LoadCursorPreview(string path)
     {
         var hcur = NativeMethods.LoadCursorFromFile(path);
@@ -544,7 +779,6 @@ internal sealed class SettingsWindow : Window
             {
                 if (info.hbmColor == IntPtr.Zero)
                 {
-                    // Monochrome mask-only cursor; fall back to the mask as ARGB.
                     if (info.hbmMask == IntPtr.Zero) return null;
                     return System.Drawing.Image.FromHbitmap(info.hbmMask);
                 }
@@ -675,6 +909,7 @@ internal sealed class SettingsWindow : Window
 
     private void OnClosing(object? sender, CancelEventArgs e)
     {
+        StopAnimatedPreview();
         if (!_allowClose)
         {
             e.Cancel = true;
