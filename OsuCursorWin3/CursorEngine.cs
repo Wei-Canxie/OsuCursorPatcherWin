@@ -77,8 +77,11 @@ internal sealed class CursorEngine : IDisposable
     private DateTime _lastTopmostReset = DateTime.MinValue;
     private DateTime _pendingOsuSince = DateTime.MinValue;
     private bool _pendingOsu;
+    private int _modeConfirmCount;
     private DateTime _dbgNextLog = DateTime.MinValue;
     private readonly HashSet<string> _dcClassSeen = new();
+    private NativeMethods.POINT _lastDcCheckPoint = new() { X = int.MinValue, Y = int.MinValue };
+    private bool _lastDcResult;
 
 
     // topmost timer
@@ -554,11 +557,23 @@ internal sealed class CursorEngine : IDisposable
         {
             _pendingOsu = wantOsu;
             _pendingOsuSince = DateTime.UtcNow;
+            _modeConfirmCount = 0;
         }
-        else if (wantOsu != CursorReplacer.IsOsuMode()
-                 && (DateTime.UtcNow - _pendingOsuSince).TotalMilliseconds >= ModeSwitchDebounceMs)
+        else if (wantOsu != CursorReplacer.IsOsuMode())
         {
-            CursorReplacer.SetMode(wantOsu);
+            // Require consecutive consistent readings before flipping mode.
+            // Prevents a single noisy frame at a window edge from triggering
+            // a SetMode → overlay show/hide flicker.
+            if (++_modeConfirmCount >= 3
+                && (DateTime.UtcNow - _pendingOsuSince).TotalMilliseconds >= ModeSwitchDebounceMs)
+            {
+                CursorReplacer.SetMode(wantOsu);
+                _modeConfirmCount = 0;
+            }
+        }
+        else
+        {
+            _modeConfirmCount = 0;
         }
 
         SetCursorVisible(visible && !CursorReplacer.IsOsuMode());
@@ -716,37 +731,61 @@ internal sealed class CursorEngine : IDisposable
 
     private bool IsOverDcSurface()
     {
+        // If the pointer didn't move since last check, return the cached
+        // result.  At window edges, WindowFromPoint can flip-flop between the
+        // DC window and the desktop on consecutive frames (hook reports sub-
+        // pixel jitter even when stationary).  Returning the cached value when
+        // the pointer is stationary eliminates that source of flicker entirely.
+        if (_cursorPoint.X == _lastDcCheckPoint.X
+            && _cursorPoint.Y == _lastDcCheckPoint.Y)
+        {
+            return _lastDcResult;
+        }
+
+        bool result;
         try
         {
             var hwnd = NativeMethods.WindowFromPoint(_cursorPoint);
-            if (hwnd == IntPtr.Zero) return false;
-            var sb = new StringBuilder(256);
-            NativeMethods.GetClassName(hwnd, sb, sb.Capacity);
-            var className = sb.ToString();
-            if (className.Length == 0) return false;
-
-            var isDcClass = IsDcSurfaceClass(className);
-            if (!isDcClass)
+            if (hwnd == IntPtr.Zero) result = false;
+            else
             {
-                var root = NativeMethods.GetAncestor(hwnd, NativeMethods.GaRoot);
-                if (root != IntPtr.Zero && root != hwnd)
+                var sb = new StringBuilder(256);
+                NativeMethods.GetClassName(hwnd, sb, sb.Capacity);
+                var className = sb.ToString();
+                if (className.Length == 0) result = false;
+                else
                 {
-                    var rsb = new StringBuilder(256);
-                    NativeMethods.GetClassName(root, rsb, rsb.Capacity);
-                    isDcClass = IsDcSurfaceClass(rsb.ToString());
+                    var isDcClass = IsDcSurfaceClass(className);
+                    if (!isDcClass)
+                    {
+                        var root = NativeMethods.GetAncestor(hwnd, NativeMethods.GaRoot);
+                        if (root != IntPtr.Zero && root != hwnd)
+                        {
+                            var rsb = new StringBuilder(256);
+                            NativeMethods.GetClassName(root, rsb, rsb.Capacity);
+                            isDcClass = IsDcSurfaceClass(rsb.ToString());
+                        }
+                    }
+                    if (!isDcClass)
+                    {
+                        NativeMethods.GetWindowThreadProcessId(hwnd, out int pid);
+                        isDcClass = IsDcHostProcess(pid);
+                    }
+                    if (!isDcClass && _dcClassSeen.Add(className))
+                        AppLog.Log($"[Overlay] ptr window class='{className}' aboveDc=false (not matched)");
+                    result = isDcClass || IsWindowAboveCursor(_overlay.Handle, _cursorPoint);
                 }
             }
-            if (!isDcClass)
-            {
-                NativeMethods.GetWindowThreadProcessId(hwnd, out int pid);
-                isDcClass = IsDcHostProcess(pid);
-            }
-            if (!isDcClass && _dcClassSeen.Add(className))
-                AppLog.Log($"[Overlay] ptr window class='{className}' aboveDc=false (not matched)");
-            if (isDcClass) return true;
-            return IsWindowAboveCursor(_overlay.Handle, _cursorPoint);
         }
-        catch (Exception ex) { AppLog.Log($"[Overlay] IsOverDcSurface exception: {ex.Message}"); return false; }
+        catch (Exception ex)
+        {
+            AppLog.Log($"[Overlay] IsOverDcSurface exception: {ex.Message}");
+            result = false;
+        }
+
+        _lastDcCheckPoint = _cursorPoint;
+        _lastDcResult = result;
+        return result;
     }
 
     private bool IsWindowAboveCursor(IntPtr overlayHandle, NativeMethods.POINT pt)
