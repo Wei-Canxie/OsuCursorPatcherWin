@@ -1,3 +1,4 @@
+using System;
 using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
@@ -9,17 +10,13 @@ namespace OsuCursorWin;
 
 /// <summary>
 /// WinUI 3 settings window built in code with real Fluent/WinUI controls:
-/// NavigationView, Slider, ToggleSwitch, ComboBox, CheckBox.
+/// NavigationView, TextBox (with +/- buttons), ToggleSwitch.
+/// All settings use the shared AppSettings instance from the engine.
 /// </summary>
 internal sealed class SettingsWindow : Window
 {
     private readonly AppSettings _settings;
     private readonly CursorEngine? _engine;
-    private DispatcherTimer? _pollTimer;
-    private readonly Dictionary<string, Slider> _sliders = new();
-    private readonly Dictionary<string, double> _lastSliderValues = new();
-    private readonly Dictionary<string, Action<double>> _sliderSetters = new();
-    private readonly Dictionary<string, Action?> _sliderAfters = new();
 
     public SettingsWindow(CursorEngine? engine = null)
     {
@@ -27,14 +24,6 @@ internal sealed class SettingsWindow : Window
         _settings = engine?.GetSettings() ?? AppSettings.Load();
         Title = "osu! Cursor 设置";
         AppWindow.Resize(new Windows.Graphics.SizeInt32(960, 680));
-
-        // Poll slider values every 100ms as a fallback for unreliable ValueChanged events
-        _pollTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(100)
-        };
-        _pollTimer.Tick += (_, _) => PollSliders();
-        _pollTimer.Start();
 
         var root = new Grid();
         var nav = new NavigationView
@@ -120,36 +109,40 @@ internal sealed class SettingsWindow : Window
 
         var sizeRow = new Grid();
         sizeRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        sizeRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        sizeRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         sizeRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var sizeLabel = new TextBlock { Text = "光标大小", VerticalAlignment = VerticalAlignment.Center };
-        var sizeSlider = new Slider
-        {
-            Minimum = 16, Maximum = 64, Value = _settings.CursorWidth,
-            Width = 360, VerticalAlignment = VerticalAlignment.Center
-        };
-        var sizeValue = new TextBlock
-        {
-            Text = _settings.CursorWidth.ToString("0.#"),
-            VerticalAlignment = VerticalAlignment.Center,
-            MinWidth = 48,
-            TextAlignment = TextAlignment.Right
-        };
-        sizeSlider.ValueChanged += (_, e) =>
-        {
-            AppLog.Log($"[DBG] sizeSlider ValueChanged: {e.NewValue:F1}");
-            _settings.CursorWidth = e.NewValue;
-            sizeValue.Text = e.NewValue.ToString("0.#");
-            _engine?.ApplyCursorWidth(e.NewValue);
-            _settings.Save();
-        };
+        var sizeBox = new TextBox { Text = _settings.CursorWidth.ToString("0.#"), Width = 80, VerticalAlignment = VerticalAlignment.Center };
+        var sizeMinus = new Button { Content = "−", Width = 32, Height = 32, Margin = new Thickness(4, 0, 2, 0) };
+        var sizePlus = new Button { Content = "+", Width = 32, Height = 32, Margin = new Thickness(2, 0, 0, 0) };
 
-        Grid.SetColumn(sizeSlider, 1);
-        Grid.SetColumn(sizeValue, 2);
+        void ApplySize()
+        {
+            if (double.TryParse(sizeBox.Text, out var v))
+            {
+                v = Math.Clamp(v, 16, 64);
+                _settings.CursorWidth = v;
+                sizeBox.Text = v.ToString("0.#");
+                _settings.Save();
+                _engine?.ApplyCursorWidth(v);
+            }
+        }
+
+        sizeBox.KeyDown += (_, e) => { if (e.Key == Windows.System.VirtualKey.Enter) { ApplySize(); e.Handled = true; } };
+        sizeBox.LostFocus += (_, _) => ApplySize();
+        sizeMinus.Click += (_, _) => { if (double.TryParse(sizeBox.Text, out var v)) { v = Math.Max(16, v - 1); sizeBox.Text = v.ToString("0.#"); ApplySize(); } };
+        sizePlus.Click += (_, _) => { if (double.TryParse(sizeBox.Text, out var v)) { v = Math.Min(64, v + 1); sizeBox.Text = v.ToString("0.#"); ApplySize(); } };
+
+        var sizeButtons = new StackPanel { Orientation = Orientation.Horizontal };
+        sizeButtons.Children.Add(sizeMinus);
+        sizeButtons.Children.Add(sizePlus);
+
+        Grid.SetColumn(sizeBox, 1);
+        Grid.SetColumn(sizeButtons, 2);
         sizeRow.Children.Add(sizeLabel);
-        sizeRow.Children.Add(sizeSlider);
-        sizeRow.Children.Add(sizeValue);
+        sizeRow.Children.Add(sizeBox);
+        sizeRow.Children.Add(sizeButtons);
 
         panel.Children.Add(sizeRow);
         return panel;
@@ -190,69 +183,6 @@ internal sealed class SettingsWindow : Window
         return panel;
     }
 
-    private FrameworkElement BuildSliderRow(string label, double value, double min, double max, Action<double> setter, Action? after = null)
-    {
-        var row = new Grid();
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        var labelText = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, MinWidth = 90 };
-        var slider = new Slider
-        {
-            Minimum = min, Maximum = max, Value = value,
-            Width = 360, VerticalAlignment = VerticalAlignment.Center
-        };
-        var valueText = new TextBlock
-        {
-            Text = value.ToString("0.##"),
-            VerticalAlignment = VerticalAlignment.Center,
-            MinWidth = 48,
-            TextAlignment = TextAlignment.Right
-        };
-        slider.ValueChanged += (_, e) =>
-        {
-            setter(e.NewValue);
-            valueText.Text = e.NewValue.ToString("0.##");
-            _settings.Save();
-            after?.Invoke();
-        };
-
-        // Register slider for polling fallback
-        _sliders[label] = slider;
-        _lastSliderValues[label] = value;
-        _sliderSetters[label] = setter;
-        _sliderAfters[label] = after;
-
-        Grid.SetColumn(slider, 1);
-        Grid.SetColumn(valueText, 2);
-        row.Children.Add(labelText);
-        row.Children.Add(slider);
-        row.Children.Add(valueText);
-        return row;
-    }
-
-    private void PollSliders()
-    {
-        foreach (var kvp in _sliders)
-        {
-            var slider = kvp.Value;
-            var lastValue = _lastSliderValues[kvp.Key];
-            if (Math.Abs(slider.Value - lastValue) > 0.01)
-            {
-                var newValue = slider.Value;
-                _lastSliderValues[kvp.Key] = newValue;
-                AppLog.Log($"[DBG] PollSliders: {kvp.Key} changed {lastValue:F2} -> {newValue:F2}");
-                // Update settings directly via the setter
-                if (_sliderSetters.TryGetValue(kvp.Key, out var setter))
-                    setter(newValue);
-                _settings.Save();
-                if (_sliderAfters.TryGetValue(kvp.Key, out var after) && after != null)
-                    after();
-            }
-        }
-    }
-
     private FrameworkElement BuildSoundPage()
     {
         var panel = new StackPanel { Spacing = 16, Padding = new Thickness(24, 16, 24, 16) };
@@ -268,8 +198,7 @@ internal sealed class SettingsWindow : Window
         tapToggle.Toggled += (_, _) => { _settings.TapSoundEnabled = tapToggle.IsOn; _settings.Save(); };
         panel.Children.Add(tapToggle);
 
-        var tapVolume = BuildSliderRow("音量", _settings.TapSoundVolume * 100, 0, 100,
-            v => _settings.TapSoundVolume = v / 100.0);
+        var tapVolume = BuildSliderRow("音量", _settings.TapSoundVolume * 100, 0, 100, v => { _settings.TapSoundVolume = v / 100.0; _settings.Save(); }, step: 5);
         panel.Children.Add(tapVolume);
 
         var hoverToggle = new ToggleSwitch
@@ -282,8 +211,7 @@ internal sealed class SettingsWindow : Window
         hoverToggle.Toggled += (_, _) => { _settings.HoverSoundEnabled = hoverToggle.IsOn; _settings.Save(); };
         panel.Children.Add(hoverToggle);
 
-        var hoverVolume = BuildSliderRow("音量", _settings.HoverSoundVolume * 100, 0, 100,
-            v => _settings.HoverSoundVolume = v / 100.0);
+        var hoverVolume = BuildSliderRow("音量", _settings.HoverSoundVolume * 100, 0, 100, v => { _settings.HoverSoundVolume = v / 100.0; _settings.Save(); }, step: 5);
         panel.Children.Add(hoverVolume);
 
         return panel;
@@ -310,5 +238,73 @@ internal sealed class SettingsWindow : Window
         panel.Children.Add(autoStart);
 
         return panel;
+    }
+
+    /// <summary>
+    /// A label + TextBox (with +/- buttons) row for numeric settings.
+    /// Used instead of WinUI 3 Slider which has unreliable ValueChanged events.
+    /// </summary>
+    private FrameworkElement BuildSliderRow(string label, double value, double min, double max, Action<double> setter, Action? after = null, double step = 1.0)
+    {
+        var row = new Grid();
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var labelText = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, MinWidth = 90 };
+        var valueBox = new TextBox { Text = value.ToString("0.##"), Width = 80, VerticalAlignment = VerticalAlignment.Center };
+        var minusBtn = new Button { Content = "−", Width = 32, Height = 32, Margin = new Thickness(4, 0, 2, 0) };
+        var plusBtn = new Button { Content = "+", Width = 32, Height = 32, Margin = new Thickness(2, 0, 0, 0) };
+
+        void ApplyValue()
+        {
+            if (double.TryParse(valueBox.Text, out var v))
+            {
+                v = Math.Clamp(v, min, max);
+                setter(v);
+                _settings.Save();
+                after?.Invoke();
+            }
+        }
+
+        valueBox.KeyDown += (_, e) =>
+        {
+            if (e.Key == Windows.System.VirtualKey.Enter)
+            {
+                ApplyValue();
+                e.Handled = true;
+            }
+        };
+        valueBox.LostFocus += (_, _) => ApplyValue();
+
+        minusBtn.Click += (_, _) =>
+        {
+            if (double.TryParse(valueBox.Text, out var v))
+            {
+                v = Math.Max(min, v - step);
+                valueBox.Text = v.ToString("0.##");
+                ApplyValue();
+            }
+        };
+        plusBtn.Click += (_, _) =>
+        {
+            if (double.TryParse(valueBox.Text, out var v))
+            {
+                v = Math.Min(max, v + step);
+                valueBox.Text = v.ToString("0.##");
+                ApplyValue();
+            }
+        };
+
+        var buttonsPanel = new StackPanel { Orientation = Orientation.Horizontal };
+        buttonsPanel.Children.Add(minusBtn);
+        buttonsPanel.Children.Add(plusBtn);
+
+        Grid.SetColumn(valueBox, 1);
+        Grid.SetColumn(buttonsPanel, 2);
+        row.Children.Add(labelText);
+        row.Children.Add(valueBox);
+        row.Children.Add(buttonsPanel);
+        return row;
     }
 }

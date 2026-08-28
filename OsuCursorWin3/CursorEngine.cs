@@ -167,7 +167,7 @@ internal sealed class CursorEngine : IDisposable
             };
             _settingsWatcher.Changed += OnSettingsFileChanged;
             _settingsWatcher.EnableRaisingEvents = true;
-            AppLog.Log($"[DBG] Watching settings file: {_settingsPath}");
+            AppLog.Log($"Watching settings file: {_settingsPath}");
         }
         catch (Exception ex)
         {
@@ -182,7 +182,7 @@ internal sealed class CursorEngine : IDisposable
         _lastSettingsReload = now;
         _dispatcher.TryEnqueue(() =>
         {
-            AppLog.Log("[DBG] Settings file changed, reloading...");
+            AppLog.Log("Settings file changed, reloading...");
             ReloadSettings();
         });
     }
@@ -671,7 +671,6 @@ internal sealed class CursorEngine : IDisposable
     private void UpdateVisual()
     {
         UpdateWindowPosition();
-        AppLog.Log($"[DBG] UpdateVisual: NormalAspectX={_settings.NormalAspectX} NormalAspectY={_settings.NormalAspectY} NormalHotspotX={_settings.NormalHotspotX} NormalHotspotY={_settings.NormalHotspotY} scale={_scaleValue:F2} visible={_cursorVisible}");
         _overlay.UpdateState(
             _lastWindowX, _lastWindowY, _lastWindowWidth, _lastWindowHeight,
             _angle, _scaleValue, _additiveOpacity, _cursorVisible,
@@ -795,7 +794,6 @@ internal sealed class CursorEngine : IDisposable
         _settings.CursorWidth = width;
         _overlay.Invalidate();
         _forceTopmost = true;
-        _settings.Save();
     }
 
     public AppSettings GetSettings() => _settings;
@@ -827,7 +825,7 @@ internal sealed class CursorEngine : IDisposable
         _settings.NormalHotspotY = fresh.NormalHotspotY;
         ApplyDcSceneTuning();
         _overlay.Invalidate();
-        AppLog.Log($"[DBG] ReloadSettings: CursorWidth={_settings.CursorWidth} NormalAspectX={_settings.NormalAspectX} NormalHotspotX={_settings.NormalHotspotX}");
+        AppLog.Log($"ReloadSettings: CursorWidth={_settings.CursorWidth} NormalAspectX={_settings.NormalAspectX} NormalHotspotX={_settings.NormalHotspotX}");
     }
 
     /// <summary>Toggle cursor on/off.</summary>
