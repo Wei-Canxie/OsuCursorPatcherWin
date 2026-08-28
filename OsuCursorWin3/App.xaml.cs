@@ -72,6 +72,8 @@ public sealed partial class App : Application
                 _settingsWindow = new SettingsWindow(_engine);
                 _settingsWindow.Closed += (_, _) => _settingsWindow = null;
             }
+            // Window may have been hidden (not closed) — bring it back.
+            _settingsWindow.AppWindow.Show();
             _settingsWindow.Activate();
         }
         catch (Exception ex)

@@ -5,6 +5,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
+using WinRT.Interop;
+using System.Runtime.InteropServices;
 
 namespace OsuCursorWin;
 
@@ -24,6 +26,14 @@ internal sealed class SettingsWindow : Window
         _settings = engine?.GetSettings() ?? AppSettings.Load();
         Title = "osu! Cursor 设置";
         AppWindow.Resize(new Windows.Graphics.SizeInt32(960, 680));
+
+        // Intercept WM_CLOSE: hide the window instead of destroying it so the
+        // engine + tray keep running in the background.
+        AppWindow.Closing += (_, e) =>
+        {
+            e.Cancel = true;
+            AppWindow.Hide();
+        };
 
         var root = new Grid();
         var nav = new NavigationView
