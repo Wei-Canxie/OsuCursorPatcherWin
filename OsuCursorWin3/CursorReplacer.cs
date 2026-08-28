@@ -903,11 +903,15 @@ internal static class CursorReplacer
 
     private static IntPtr CreateCursorFromBitmap(Bitmap source, int sizePx)
     {
-        // req2: hotspot at (w/8, h/8) — micro-nudge from top-left toward centre
+        // req2: hotspot at the arrow tip position (20, 2) in the 312x442 source image.
+        // The image is scaled to fit sizePx (scale = sizePx/442) and centered in the canvas.
+        // Tip maps to: drawX + 20*scale = sizePx*(442-312)/(2*442) + 20*sizePx/442
+        //             = sizePx*130/884 + sizePx*40/884 = sizePx*170/884 = sizePx*85/442
+        // Tip Y maps to: 2*scale = 2*sizePx/442
         // Req 2a: DC-scene aspect and hotspot offsets apply here so the DC
         // system cursor can be tuned to match the normal-scene overlay.
-        var hotX = (int)Math.Round(sizePx / 8.0 + _osuHotspotX);
-        var hotY = (int)Math.Round(sizePx / 8.0 + _osuHotspotY);
+        var hotX = (int)Math.Round(sizePx * 85.0 / 442.0 + _osuHotspotX);
+        var hotY = (int)Math.Round(sizePx * 2.0 / 442.0 + _osuHotspotY);
         return CreateColorCursorFromBitmap(source, sizePx, hotX, hotY, _osuAspectX, _osuAspectY);
     }
 

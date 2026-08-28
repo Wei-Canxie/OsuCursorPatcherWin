@@ -681,13 +681,15 @@ internal sealed class CursorEngine : IDisposable
     private void UpdateWindowPosition()
     {
         // Match the DC scene: the canvas is the rendered cursor image size,
-        // and the hotspot is at (canvasSize/8, canvasSize/8).  The window is
-        // sized to the rendered image, and positioned so the hotspot sits on
+        // and the hotspot is at the arrow tip position.  The window is
+        // sized to the rendered image, and positioned so the tip sits on
         // the pointer.
-        var windowWidth = Math.Max(1, (int)Math.Ceiling(_settings.CursorWidth));
-        var windowHeight = windowWidth;
-        var hotX = windowWidth / 8.0;
-        var hotY = windowHeight / 8.0;
+        var windowHeight = Math.Max(1, (int)Math.Ceiling(_settings.CursorWidth));
+        var windowWidth = Math.Max(1, (int)Math.Ceiling(_settings.CursorWidth * 312.0 / 442.0));
+        // Arrow tip position in window coords (matching RenderCursor).
+        // Source image 312x442, tip pixel at (20, 2).
+        var hotX = windowWidth * 20.0 / 312.0;
+        var hotY = windowHeight * 2.0 / 442.0;
         var x = _cursorPoint.X - (int)Math.Round(hotX);
         var y = _cursorPoint.Y - (int)Math.Round(hotY);
         _lastWindowX = x; _lastWindowY = y;

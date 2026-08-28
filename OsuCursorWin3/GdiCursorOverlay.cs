@@ -468,19 +468,20 @@ internal sealed class GdiCursorOverlay : Form
         var renderW = renderH * (_baseBitmap.Width / (float)_baseBitmap.Height) * Math.Max(0.05f, (float)_aspectX);
 
         // Match the DC scene: the cursor image is drawn CENTERED in the canvas,
-        // and the hotspot is at (canvasSize/8, canvasSize/8).  Rotation pivots
+        // and the hotspot is at the arrow tip position.  Rotation pivots
         // on the hotspot so the cursor tip stays locked to the pointer.
-        var anchorX = width * 0.125f;
-        var anchorY = height * 0.125f;
+        // Source image 312x442, tip pixel at (20, 2).
+        var anchorX = width * 20.0f / 312.0f;
+        var anchorY = height * 2.0f / 442.0f;
         g.TranslateTransform(anchorX, anchorY);
         g.RotateTransform((float)_angle);
 
-        // After translating to the hotspot, draw the image so it appears centered
-        // in the window.  The image center is at (width/2, height/2) in window
-        // coords, which is (width/2 - width/8, height/2 - height/8) = (3*width/8, 3*height/8)
+        // After translating to the hotspot (tip), draw the image so it appears
+        // centered in the window.  The image center is at (width/2, height/2)
+        // in window coords, which is (width/2 - anchorX, height/2 - anchorY)
         // relative to the hotspot.
-        var x = width * 0.375f - renderW * 0.5f + (float)_hotspotX;
-        var y = height * 0.375f - renderH * 0.5f + (float)_hotspotY;
+        var x = width * 0.5f - anchorX - renderW * 0.5f + (float)_hotspotX;
+        var y = height * 0.5f - anchorY - renderH * 0.5f + (float)_hotspotY;
 
         g.InterpolationMode = InterpolationMode.HighQualityBicubic;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
