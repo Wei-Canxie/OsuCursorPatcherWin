@@ -34,7 +34,7 @@ public sealed partial class App : Application
             // Create the overlay window (WinForms Form, GDI rendering)
             AppLog.Log("Creating overlay window...");
             _overlay = new GdiCursorOverlay();
-            _overlay.ShowOverlay();
+            _overlay.ShowOverlay(0, 0, 1, 1);
 
             // Set up the system tray icon
             AppLog.Log("Setting up tray icon...");

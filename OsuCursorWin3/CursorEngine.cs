@@ -115,7 +115,7 @@ internal sealed class CursorEngine : IDisposable
         if (_closing) return;
 
         // Show overlay
-        _overlay.ShowOverlay();
+        _overlay.ShowOverlay(0, 0, 1, 1);
 
         // Install osu-style system cursor
         if (!_cursorInstalled)
@@ -621,7 +621,7 @@ internal sealed class CursorEngine : IDisposable
     {
         if (_cursorVisible == visible) return;
         _cursorVisible = visible;
-        if (visible) _overlay.ShowOverlay();
+        if (visible) _overlay.ShowOverlay(_lastWindowX, _lastWindowY, _lastWindowWidth, _lastWindowHeight);
         else _overlay.HideOverlay();
         _forceTopmost = visible;
     }
@@ -888,7 +888,7 @@ internal sealed class CursorEngine : IDisposable
         if (enabled)
         {
             if (!_cursorInstalled) return;
-            _overlay.ShowOverlay();
+            _overlay.ShowOverlay(_lastWindowX, _lastWindowY, _lastWindowWidth, _lastWindowHeight);
             InstallMouseHook();
             StartMmTimer();
             StartTopmostTimer();

@@ -319,6 +319,16 @@ internal static class NativeMethods
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
 
+    /// <summary>Atomically show the window at a specific position.
+    /// Combines SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW so the window
+    /// appears at the target coords in a single frame — no intermediate flash
+    /// at the stale position.</summary>
+    internal static void ShowAndPosition(IntPtr hwnd, int x, int y, int width, int height)
+    {
+        SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height,
+            SwpNoActivate | SwpNoZOrder | SwpShowWindow);
+    }
+
     [DllImport("user32.dll", EntryPoint = "GetCursorInfo", SetLastError = true)]
     private static extern bool GetCursorInfoNative(ref CURSORINFO pci);
 

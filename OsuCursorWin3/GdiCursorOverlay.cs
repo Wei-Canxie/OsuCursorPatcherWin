@@ -187,8 +187,11 @@ internal sealed class GdiCursorOverlay : Form
         }
     }
 
-    /// <summary>Show and activate the overlay window on the current desktop.</summary>
-    public void ShowOverlay()
+    /// <summary>Show and activate the overlay window on the current desktop.
+    /// Uses SetWindowPos (SWP_SHOWWINDOW) so the window appears at the correct
+    /// position atomically — Show() + Move() is two steps and the window
+    /// visibly flashes at the old position before landing on the new one.</summary>
+    public void ShowOverlay(int x, int y, int width, int height)
     {
         if (!IsHandleCreated)
         {
@@ -198,7 +201,13 @@ internal sealed class GdiCursorOverlay : Form
         if (!_overlayVisible)
         {
             _overlayVisible = true;
-            Show();
+            _ovX = x;
+            _ovY = y;
+            _lastRegionWidth = width;
+            _lastRegionHeight = height;
+            // Atomic show + position in one call.  SWP_NOZORDER keeps Z-order,
+            // SWP_NOACTIVATE prevents focus steal, SWP_SHOWWINDOW shows.
+            NativeMethods.ShowAndPosition(Handle, x, y, width, height);
         }
     }
 
@@ -232,7 +241,9 @@ internal sealed class GdiCursorOverlay : Form
         {
             if (visible)
             {
-                ShowOverlay();
+                // Atomic show + position in one call — no intermediate frame
+                // where the window is visible at the wrong position.
+                ShowOverlay(x, y, width, height);
             }
             else
             {
