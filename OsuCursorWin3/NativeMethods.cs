@@ -237,14 +237,14 @@ internal static class NativeMethods
 
     internal static void Move(IntPtr hwnd, int x, int y, int width, int height, bool visible = true)
     {
-        // Pure reposition: keep current Z-order (SWP_NOZORDER) and return
-        // immediately (SWP_ASYNCWINDOWPOS) so the hot per-frame path never
-        // blocks on DWM.  Z-order is maintained by the periodic BringTopmost
-        // call.  Async means the position update lands slightly after the call,
-        // imperceptible for a moving cursor but it keeps the render loop at
-        // the target rate instead of stalling on SetWindowPos.
+        // Synchronous reposition: SWP_ASYNCWINDOWPOS was removed because it
+        // deferred the position update to the next DWM composition, causing
+        // the overlay to lag the cursor by one frame.  During fast movement
+        // this manifested as a brief flash of the cursor at its previous
+        // position (a "ghost" frame).  Synchronous SetWindowPos adds <0.1ms
+        // per call — well within the 5.56ms frame budget at 180Hz.
         SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height,
-            SwpNoActivate | SwpNoZOrder | SwpAsyncWindowPos | (visible ? SwpShowWindow : SwpHideWindow));
+            SwpNoActivate | SwpNoZOrder | (visible ? SwpShowWindow : SwpHideWindow));
     }
 
     internal static void MoveTopmost(IntPtr hwnd, int x, int y, int width, int height, bool visible = true)
