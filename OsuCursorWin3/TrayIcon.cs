@@ -28,7 +28,8 @@ internal sealed class TrayIcon : IDisposable
     private const uint TPM_RIGHTBUTTON = 0x0002;
     private const uint TPM_RETURNCMD = 0x0100;
     private const uint IDM_SETTINGS = 1000;
-    private const uint IDM_EXIT = 1001;
+    private const uint IDM_TOGGLE = 1001;
+    private const uint IDM_EXIT = 1002;
 
     private static readonly Guid TRAY_GUID = new Guid("B1E2F3A4-5C6D-7E8F-9A0B-C1D2E3F4A5B6");
     private bool _disposed;
@@ -36,8 +37,10 @@ internal sealed class TrayIcon : IDisposable
     private IntPtr _hIcon;
     private readonly IntPtr _hwnd;
     private System.Drawing.Icon? _icon;
+    private bool _cursorEnabled = true;
 
     public event Action? ShowSettingsRequested;
+    public event Action? ToggleCursorRequested;
     public event Action? ExitRequested;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -168,6 +171,7 @@ internal sealed class TrayIcon : IDisposable
     {
         var menu = CreatePopupMenu();
         AppendMenu(menu, 0, IDM_SETTINGS, "设置");
+        AppendMenu(menu, 0, IDM_TOGGLE, _cursorEnabled ? "关闭光标" : "启用光标");
         AppendMenu(menu, 0x0800 /*MF_SEPARATOR*/, 0, null);
         AppendMenu(menu, 0, IDM_EXIT, "退出");
 
@@ -181,6 +185,11 @@ internal sealed class TrayIcon : IDisposable
         PostMessage(_hwnd, 0 /*WM_NULL*/, IntPtr.Zero, IntPtr.Zero);
 
         if (cmd == IDM_SETTINGS) ShowSettingsRequested?.Invoke();
+        else if (cmd == IDM_TOGGLE)
+        {
+            _cursorEnabled = !_cursorEnabled;
+            ToggleCursorRequested?.Invoke();
+        }
         else if (cmd == IDM_EXIT) ExitRequested?.Invoke();
 
         DestroyMenu(menu);

@@ -111,6 +111,9 @@ internal sealed class CursorEngine : IDisposable
         _hoverSoundPlayer = hoverPlayer;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
         ApplyCursorDimensions(_settings.CursorWidth);
+        // Enable sound players based on settings (default was false = silent).
+        _tapSoundPlayer.Enabled = _settings.TapSoundEnabled;
+        _hoverSoundPlayer.Enabled = _settings.HoverSoundEnabled;
     }
 
     public void Start()
@@ -917,8 +920,12 @@ internal sealed class CursorEngine : IDisposable
     }
 
     /// <summary>Toggle cursor on/off.</summary>
+    public void ToggleCursor() => SetEnabled(!_cursorEnabled);
+
+    /// <summary>Set cursor enabled state.</summary>
     public void SetEnabled(bool enabled)
     {
+        if (_cursorEnabled == enabled) return;
         _cursorEnabled = enabled;
         if (enabled)
         {

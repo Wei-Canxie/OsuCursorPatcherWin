@@ -40,6 +40,7 @@ public sealed partial class App : Application
             AppLog.Log("Setting up tray icon...");
             _trayIcon = new TrayIcon();
             _trayIcon.ShowSettingsRequested += ShowSettingsWindow;
+            _trayIcon.ToggleCursorRequested += () => _engine?.ToggleCursor();
             _trayIcon.ExitRequested += ExitApp;
 
             // Create and start the rendering engine
