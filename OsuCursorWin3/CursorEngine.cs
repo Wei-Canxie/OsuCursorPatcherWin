@@ -927,20 +927,41 @@ internal sealed class CursorEngine : IDisposable
     {
         if (_cursorEnabled == enabled) return;
         _cursorEnabled = enabled;
+
         if (enabled)
         {
             if (!_cursorInstalled) return;
+
+            // Re-install osu system cursor replacement.  Restore() was
+            // called when disabling, so the original system cursors are
+            // back — we need to swap them again.
+            using var osuImage = LoadBitmapResource("OsuCursorWin.Images.cursor.png");
+            var osuSizePx = ComputeDcCursorSize();
+            if (!CursorReplacer.Install(osuImage, osuSizePx,
+                    _settings.DcAspectX, _settings.DcAspectY,
+                    _settings.DcHotspotX, _settings.DcHotspotY))
+            {
+                AppLog.Log("Failed to re-enable cursor replacement.");
+                _cursorEnabled = false;
+                return;
+            }
+
+            // Reset cursor visibility to true so the overlay shows.
+            _cursorVisible = true;
+
             _overlay.ShowOverlay(_lastWindowX, _lastWindowY, _lastWindowWidth, _lastWindowHeight);
+            SetCursorVisible(true);
             InstallMouseHook();
-            StartRenderThread();
+            StartMmTimer();
             StartTopmostTimer();
         }
         else
         {
-            StopRenderThread();
+            StopMmTimer();
             StopTopmostTimer();
             UninstallMouseHook();
             CursorReplacer.Restore();
+            SetCursorVisible(false);
             _overlay.HideOverlay();
         }
     }
