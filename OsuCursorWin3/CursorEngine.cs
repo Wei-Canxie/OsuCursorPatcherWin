@@ -387,65 +387,14 @@ internal sealed class CursorEngine : IDisposable
         if (_mmTimerId != 0) { NativeMethods.timeKillEvent(_mmTimerId); _mmTimerId = 0; }
     }
 
-    // Replace MM timer with a dedicated high-priority render thread.
-    // The MM timer callback runs on a thread-pool thread that can be
-    // preempted, and its callback blocks on synchronous SetWindowPos —
-    // causing missed deadlines and dropped frames (_renderQueued guard).
-    // A dedicated THREAD_PRIORITY_HIGHEST thread with a tight sleep loop
-    // guarantees the render cycle runs at the display refresh rate.
-    private Thread? _renderThread;
-    private volatile bool _renderThreadRunning;
-
-    private void StartRenderThread()
-    {
-        if (_renderThread != null) return;
-        _renderThreadRunning = true;
-        _renderThread = new Thread(RenderThreadMain)
-        {
-            IsBackground = true,
-            Name = "OsuCursorRender",
-            Priority = ThreadPriority.Highest
-        };
-        _renderThread.SetApartmentState(ApartmentState.STA);
-        _renderThread.Start();
-    }
-
-    private void StopRenderThread()
-    {
-        _renderThreadRunning = false;
-        if (_renderThread != null)
-        {
-            _renderThread.Join(500);
-            _renderThread = null;
-        }
-    }
-
-    private void RenderThreadMain()
-    {
-        // High-resolution spin-wait for sub-millisecond precision.
-        // Thread.Sleep(1) has ~15ms jitter on Windows; a Stopwatch-based
-        // busy-wait keeps the loop within 0.1ms of the target interval.
-        var interval = TimeSpan.FromMilliseconds(_renderIntervalMs);
-        var sw = Stopwatch.StartNew();
-        var nextTick = sw.Elapsed + interval;
-
-        while (_renderThreadRunning)
-        {
-            // Busy-wait until the next tick.  Burns ~5% CPU on one core
-            // but guarantees the render loop never misses a deadline.
-            while (sw.Elapsed < nextTick) { }
-
-            if (!_renderThreadRunning) break;
-
-            OnRendering();
-
-            // Schedule the next tick based on the current target, not the
-            // actual elapsed time — this prevents drift accumulation.
-            nextTick += interval;
-            // If we fell far behind (e.g. GC pause), reset to now.
-            if (nextTick < sw.Elapsed) nextTick = sw.Elapsed + interval;
-        }
-    }
+    // Render loop uses WinMM timeSetEvent (proven in main branch).
+    // Key difference from main branch: render directly on the timer
+    // callback thread instead of Dispatcher.BeginInvoke.  The callback
+    // only does raw Win32 calls — no UI thread dependency, no queue
+    // latency, no frame drops from UI thread busy periods.
+    private void StartRenderThread() => StartMmTimer();
+    private void StopRenderThread() => StopMmTimer();
+    private void RenderThreadMain() { }
 
     private void MmTimerCallback(uint uID, uint uMsg, IntPtr dwUser, IntPtr dw1, IntPtr dw2)
     {

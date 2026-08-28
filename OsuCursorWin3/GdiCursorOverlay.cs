@@ -336,16 +336,18 @@ internal sealed class GdiCursorOverlay : Form
 
         try
         {
-            // Render the cursor (base + additive, with per-pixel alpha) into a
-            // cached 32-bit ARGB bitmap.  UpdateState calls ApplyLayered on every
-            // move to re-upload it at the new position.
-            //
-            // PERF: supersampling was removed (was 8x + bicubic downsample).
-            // Drawing directly at target size cuts the per-frame render cost
-            // roughly in half, which matters for getting frame time under 8ms.
-            // Edge smoothness relies on GDI+ HighQualityBicubic interpolation.
-            var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-            using (var g = Graphics.FromImage(bmp))
+            // Reuse the cached bitmap when the size matches; only reallocate
+            // when the window dimensions change (e.g. CursorWidth setting).
+            // Allocating a new Bitmap every frame (180Hz × ~100KB = 18MB/s)
+            // triggers GC pauses that manifest as visible stutter / "甩尾".
+            if (_renderCache == null || _renderCache.Width != width || _renderCache.Height != height)
+            {
+                _renderCache?.Dispose();
+                _renderCache = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            }
+
+            // Clear and redraw directly into the cached bitmap.
+            using (var g = Graphics.FromImage(_renderCache))
             {
                 g.Clear(Color.Transparent);
                 g.SmoothingMode = SmoothingMode.HighQuality;
@@ -353,9 +355,6 @@ internal sealed class GdiCursorOverlay : Form
                 g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                 RenderCursor(g, width, height);
             }
-
-            _renderCache?.Dispose();
-            _renderCache = bmp;
         }
         catch (Exception ex)
         {

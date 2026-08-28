@@ -237,18 +237,16 @@ internal static class NativeMethods
 
     internal static void Move(IntPtr hwnd, int x, int y, int width, int height, bool visible = true)
     {
-        // Async reposition: the previous synchronous SetWindowPos blocked the
-        // MM timer callback thread for ~3.2ms per call, causing the timer to
-        // miss its deadline and drop frames (the _renderQueued guard).  At
-        // 180Hz a frame budget is only 5.56ms — the 3.2ms block ate most of
-        // it and made the cursor visibly lag the mouse.
+        // Async reposition: the synchronous SetWindowPos blocked the render
+        // thread for ~4.2ms per call.  At 180Hz a frame budget is only 5.56ms
+        // — the 4.2ms block ate 75% of it and caused visible "tail-drag".
         //
-        // SWP_ASYNCWINDOWPOS returns immediately; the actual move is deferred
-        // to the next DWM composition.  This is safe because each render cycle
-        // writes the latest cursor position — if one move is late, the next
-        // cycle's move overwrites it.  There is no ghost-frame risk: ShowOverlay
-        // already does an atomic SetWindowPos(SWP_SHOWWINDOW), so the window
-        // never flashes at a stale position.
+        // For a layered window, async is safe: UpdateLayeredWindow is only
+        // called when content changes (not on every move), so the window
+        // pixels are already correct — DWM composites the layered surface
+        // at the new position on the next frame.  The ShowOverlay path uses
+        // a separate synchronous SetWindowPos(SWP_SHOWWINDOW) to atomically
+        // show the window at the correct position, so there is no ghost.
         SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height,
             SwpNoActivate | SwpNoZOrder | SwpAsyncWindowPos | (visible ? SwpShowWindow : SwpHideWindow));
     }
