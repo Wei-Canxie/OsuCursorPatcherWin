@@ -104,6 +104,20 @@ internal sealed class GdiCursorOverlay : Form
     private bool _overlayVisible;
     private Bitmap? _renderCache;
 
+    /// <summary>Mark content dirty so the next frame forces a rebuild.</summary>
+    public void Invalidate()
+    {
+        _lastRegionScale = -1.0;
+        _lastAdditive = -1.0;
+        _lastRegionAngle = double.NaN;
+        _lastAspectX = -1.0;
+        _lastAspectY = -1.0;
+        _lastHotspotX = double.NaN;
+        _lastHotspotY = double.NaN;
+        _lastRegionWidth = -1;
+        _lastRegionHeight = -1;
+    }
+
     // Last region-rebuild keys.
     private double _lastRegionScale = -1.0;
     private double _lastAdditive = -1.0;

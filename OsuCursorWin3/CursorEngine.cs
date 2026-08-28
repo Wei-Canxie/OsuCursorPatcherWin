@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -32,6 +33,9 @@ internal sealed class CursorEngine : IDisposable
     private readonly TapSoundPlayer _tapSoundPlayer;
     private readonly TapSoundPlayer _hoverSoundPlayer;
     private readonly DispatcherQueue _dispatcher;
+    private FileSystemWatcher? _settingsWatcher;
+    private string? _settingsPath;
+    private DateTime _lastSettingsReload = DateTime.MinValue;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private bool _disposed;
     private bool _cursorEnabled = true;
@@ -138,7 +142,49 @@ internal sealed class CursorEngine : IDisposable
         // Start topmost maintainer
         StartTopmostTimer();
 
+        // Watch settings file for changes (robust fallback)
+        WatchSettingsFile();
+
         AppLog.Log("CursorEngine started.");
+    }
+
+    private void WatchSettingsFile()
+    {
+        try
+        {
+            _settingsPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "OsuCursorWin",
+                "settings.json");
+            if (!File.Exists(_settingsPath)) return;
+
+            var dir = Path.GetDirectoryName(_settingsPath);
+            if (string.IsNullOrEmpty(dir)) return;
+
+            _settingsWatcher = new FileSystemWatcher(dir, "settings.json")
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size
+            };
+            _settingsWatcher.Changed += OnSettingsFileChanged;
+            _settingsWatcher.EnableRaisingEvents = true;
+            AppLog.Log($"[DBG] Watching settings file: {_settingsPath}");
+        }
+        catch (Exception ex)
+        {
+            AppLog.Log($"[DBG] WatchSettingsFile failed: {ex.Message}");
+        }
+    }
+
+    private void OnSettingsFileChanged(object sender, FileSystemEventArgs e)
+    {
+        var now = DateTime.UtcNow;
+        if (now - _lastSettingsReload < TimeSpan.FromMilliseconds(300)) return;
+        _lastSettingsReload = now;
+        _dispatcher.TryEnqueue(() =>
+        {
+            AppLog.Log("[DBG] Settings file changed, reloading...");
+            ReloadSettings();
+        });
     }
 
     public void Stop()
@@ -151,6 +197,8 @@ internal sealed class CursorEngine : IDisposable
         CursorReplacer.Restore();
         _overlay.HideOverlay();
         _settings.Save();
+        _settingsWatcher?.Dispose();
+        _settingsWatcher = null;
         AppLog.Log("CursorEngine stopped.");
     }
 
@@ -623,6 +671,7 @@ internal sealed class CursorEngine : IDisposable
     private void UpdateVisual()
     {
         UpdateWindowPosition();
+        AppLog.Log($"[DBG] UpdateVisual: NormalAspectX={_settings.NormalAspectX} NormalAspectY={_settings.NormalAspectY} NormalHotspotX={_settings.NormalHotspotX} NormalHotspotY={_settings.NormalHotspotY} scale={_scaleValue:F2} visible={_cursorVisible}");
         _overlay.UpdateState(
             _lastWindowX, _lastWindowY, _lastWindowWidth, _lastWindowHeight,
             _angle, _scaleValue, _additiveOpacity, _cursorVisible,
@@ -749,6 +798,14 @@ internal sealed class CursorEngine : IDisposable
         _settings.Save();
     }
 
+    public AppSettings GetSettings() => _settings;
+
+    /// <summary>Reload normal-scene tuning values from disk (called when the settings window edits NormalAspect/NormalHotspot).</summary>
+    public void RefreshNormalSceneTuning()
+    {
+        _overlay.Invalidate();
+    }
+
     /// <summary>Re-apply DC-scene cursor geometry after a settings change.</summary>
     public void ApplyDcSceneTuning()
     {
@@ -764,8 +821,13 @@ internal sealed class CursorEngine : IDisposable
     {
         var fresh = AppSettings.Load();
         _settings.CursorWidth = fresh.CursorWidth;
+        _settings.NormalAspectX = fresh.NormalAspectX;
+        _settings.NormalAspectY = fresh.NormalAspectY;
+        _settings.NormalHotspotX = fresh.NormalHotspotX;
+        _settings.NormalHotspotY = fresh.NormalHotspotY;
         ApplyDcSceneTuning();
-        _settings.Save();
+        _overlay.Invalidate();
+        AppLog.Log($"[DBG] ReloadSettings: CursorWidth={_settings.CursorWidth} NormalAspectX={_settings.NormalAspectX} NormalHotspotX={_settings.NormalHotspotX}");
     }
 
     /// <summary>Toggle cursor on/off.</summary>

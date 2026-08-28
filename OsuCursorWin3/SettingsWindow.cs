@@ -13,13 +13,28 @@ namespace OsuCursorWin;
 /// </summary>
 internal sealed class SettingsWindow : Window
 {
-    private readonly AppSettings _settings = AppSettings.Load();
+    private readonly AppSettings _settings;
     private readonly CursorEngine? _engine;
+    private DispatcherTimer? _pollTimer;
+    private readonly Dictionary<string, Slider> _sliders = new();
+    private readonly Dictionary<string, double> _lastSliderValues = new();
+    private readonly Dictionary<string, Action<double>> _sliderSetters = new();
+    private readonly Dictionary<string, Action?> _sliderAfters = new();
+
     public SettingsWindow(CursorEngine? engine = null)
     {
         _engine = engine;
+        _settings = engine?.GetSettings() ?? AppSettings.Load();
         Title = "osu! Cursor 设置";
         AppWindow.Resize(new Windows.Graphics.SizeInt32(960, 680));
+
+        // Poll slider values every 100ms as a fallback for unreliable ValueChanged events
+        _pollTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(100)
+        };
+        _pollTimer.Tick += (_, _) => PollSliders();
+        _pollTimer.Start();
 
         var root = new Grid();
         var nav = new NavigationView
@@ -123,6 +138,7 @@ internal sealed class SettingsWindow : Window
         };
         sizeSlider.ValueChanged += (_, e) =>
         {
+            AppLog.Log($"[DBG] sizeSlider ValueChanged: {e.NewValue:F1}");
             _settings.CursorWidth = e.NewValue;
             sizeValue.Text = e.NewValue.ToString("0.#");
             _engine?.ApplyCursorWidth(e.NewValue);
@@ -147,10 +163,10 @@ internal sealed class SettingsWindow : Window
         // --- normal scene geometry ---
         panel.Children.Add(new TextBlock { Text = "主窗口场景", FontWeight = FontWeights.SemiBold, Opacity = 0.8 });
 
-        var aspectX = BuildSliderRow("横向缩放", _settings.NormalAspectX, 0.5, 2.0, v => _settings.NormalAspectX = v);
-        var aspectY = BuildSliderRow("纵向缩放", _settings.NormalAspectY, 0.5, 2.0, v => _settings.NormalAspectY = v);
-        var hotX = BuildSliderRow("热点 X", _settings.NormalHotspotX, -64, 64, v => _settings.NormalHotspotX = v);
-        var hotY = BuildSliderRow("热点 Y", _settings.NormalHotspotY, -64, 64, v => _settings.NormalHotspotY = v);
+        var aspectX = BuildSliderRow("横向缩放", _settings.NormalAspectX, 0.5, 2.0, v => { _settings.NormalAspectX = v; _settings.Save(); }, () => _engine?.RefreshNormalSceneTuning());
+        var aspectY = BuildSliderRow("纵向缩放", _settings.NormalAspectY, 0.5, 2.0, v => { _settings.NormalAspectY = v; _settings.Save(); }, () => _engine?.RefreshNormalSceneTuning());
+        var hotX = BuildSliderRow("热点 X", _settings.NormalHotspotX, -64, 64, v => { _settings.NormalHotspotX = v; _settings.Save(); }, () => _engine?.RefreshNormalSceneTuning());
+        var hotY = BuildSliderRow("热点 Y", _settings.NormalHotspotY, -64, 64, v => { _settings.NormalHotspotY = v; _settings.Save(); }, () => _engine?.RefreshNormalSceneTuning());
         panel.Children.Add(aspectX);
         panel.Children.Add(aspectY);
         panel.Children.Add(hotX);
@@ -160,11 +176,11 @@ internal sealed class SettingsWindow : Window
         panel.Children.Add(new TextBlock { Text = "DC 场景（系统光标）", FontWeight = FontWeights.SemiBold, Opacity = 0.8, Margin = new Thickness(0, 12, 0, 0) });
 
         var dSize = BuildSliderRow("光标大小", _settings.DcCursorSize > 0 ? _settings.DcCursorSize : _settings.CursorWidth, 16, 64,
-            v => _settings.DcCursorSize = v, () => _engine?.ApplyDcSceneTuning());
-        var dAspectX = BuildSliderRow("横向缩放", _settings.DcAspectX, 0.5, 2.0, v => _settings.DcAspectX = v, () => _engine?.ApplyDcSceneTuning());
-        var dAspectY = BuildSliderRow("纵向缩放", _settings.DcAspectY, 0.5, 2.0, v => _settings.DcAspectY = v, () => _engine?.ApplyDcSceneTuning());
-        var dHotX = BuildSliderRow("热点 X", _settings.DcHotspotX, -64, 64, v => _settings.DcHotspotX = v, () => _engine?.ApplyDcSceneTuning());
-        var dHotY = BuildSliderRow("热点 Y", _settings.DcHotspotY, -64, 64, v => _settings.DcHotspotY = v, () => _engine?.ApplyDcSceneTuning());
+            v => { _settings.DcCursorSize = v; _settings.Save(); }, () => _engine?.ApplyDcSceneTuning());
+        var dAspectX = BuildSliderRow("横向缩放", _settings.DcAspectX, 0.5, 2.0, v => { _settings.DcAspectX = v; _settings.Save(); }, () => _engine?.ApplyDcSceneTuning());
+        var dAspectY = BuildSliderRow("纵向缩放", _settings.DcAspectY, 0.5, 2.0, v => { _settings.DcAspectY = v; _settings.Save(); }, () => _engine?.ApplyDcSceneTuning());
+        var dHotX = BuildSliderRow("热点 X", _settings.DcHotspotX, -64, 64, v => { _settings.DcHotspotX = v; _settings.Save(); }, () => _engine?.ApplyDcSceneTuning());
+        var dHotY = BuildSliderRow("热点 Y", _settings.DcHotspotY, -64, 64, v => { _settings.DcHotspotY = v; _settings.Save(); }, () => _engine?.ApplyDcSceneTuning());
         panel.Children.Add(dSize);
         panel.Children.Add(dAspectX);
         panel.Children.Add(dAspectY);
@@ -198,9 +214,15 @@ internal sealed class SettingsWindow : Window
         {
             setter(e.NewValue);
             valueText.Text = e.NewValue.ToString("0.##");
-            after?.Invoke();
             _settings.Save();
+            after?.Invoke();
         };
+
+        // Register slider for polling fallback
+        _sliders[label] = slider;
+        _lastSliderValues[label] = value;
+        _sliderSetters[label] = setter;
+        _sliderAfters[label] = after;
 
         Grid.SetColumn(slider, 1);
         Grid.SetColumn(valueText, 2);
@@ -208,6 +230,27 @@ internal sealed class SettingsWindow : Window
         row.Children.Add(slider);
         row.Children.Add(valueText);
         return row;
+    }
+
+    private void PollSliders()
+    {
+        foreach (var kvp in _sliders)
+        {
+            var slider = kvp.Value;
+            var lastValue = _lastSliderValues[kvp.Key];
+            if (Math.Abs(slider.Value - lastValue) > 0.01)
+            {
+                var newValue = slider.Value;
+                _lastSliderValues[kvp.Key] = newValue;
+                AppLog.Log($"[DBG] PollSliders: {kvp.Key} changed {lastValue:F2} -> {newValue:F2}");
+                // Update settings directly via the setter
+                if (_sliderSetters.TryGetValue(kvp.Key, out var setter))
+                    setter(newValue);
+                _settings.Save();
+                if (_sliderAfters.TryGetValue(kvp.Key, out var after) && after != null)
+                    after();
+            }
+        }
     }
 
     private FrameworkElement BuildSoundPage()
