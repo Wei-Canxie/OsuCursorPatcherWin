@@ -695,12 +695,25 @@ internal sealed class CursorEngine : IDisposable
 
     private void UpdateWindowPosition()
     {
-        // Match the DC scene: the canvas is the rendered cursor image size,
-        // and the hotspot is at the arrow tip position.  The window is
-        // sized to the rendered image, and positioned so the tip sits on
-        // the pointer.
-        var windowHeight = Math.Max(1, (int)Math.Ceiling(_settings.CursorWidth));
-        var windowWidth = Math.Max(1, (int)Math.Ceiling(_settings.CursorWidth * 312.0 / 442.0));
+        // Match the DC scene: the canvas must be large enough to hold the
+        // rendered cursor at ANY rotation angle.  We compute the actual
+        // rendered size (including aspectX/aspectY scale) and then take the
+        // diagonal as the window size so the image never clips when rotated.
+        var aspectX = _settings.NormalAspectX;
+        var aspectY = _settings.NormalAspectY;
+
+        // Base rendered dimensions (same formula as RenderCursor).
+        var baseRenderH = _settings.CursorWidth * _scaleValue * Math.Max(0.05, aspectY);
+        var baseRenderW = baseRenderH * (312.0 / 442.0) * Math.Max(0.05, aspectX);
+
+        // Diagonal = worst-case bounding box at 45° rotation.
+        var diagonal = Math.Sqrt(baseRenderW * baseRenderW + baseRenderH * baseRenderH);
+        var windowSize = Math.Max(1, (int)Math.Ceiling(diagonal));
+
+        // Square window keeps hotspot math consistent.
+        var windowWidth = windowSize;
+        var windowHeight = windowSize;
+
         // Arrow tip position in window coords (matching RenderCursor).
         // Source image 312x442, tip pixel at (20, 2).
         var hotX = windowWidth * 20.0 / 312.0;
