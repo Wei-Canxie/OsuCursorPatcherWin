@@ -171,7 +171,7 @@ internal sealed class CursorEngine : IDisposable
         }
         catch (Exception ex)
         {
-            AppLog.Log($"[DBG] WatchSettingsFile failed: {ex.Message}");
+            AppLog.Log($"WatchSettingsFile failed: {ex.Message}");
         }
     }
 
@@ -566,7 +566,7 @@ internal sealed class CursorEngine : IDisposable
         if (DateTime.UtcNow >= _dbgNextLog)
         {
             _dbgNextLog = DateTime.UtcNow.AddMilliseconds(500);
-            AppLog.Log($"[DBG] ptrState hCursor=0x{info.hCursor.ToInt64():X} flags={info.flags} showing={cursorShowing} suppress={_suppressCursor} visible={visible} aboveDc={aboveDcSurface} osuMode={CursorReplacer.IsOsuMode()} pos=({_cursorPoint.X},{_cursorPoint.Y})");
+            AppLog.Log($"ptrState hCursor=0x{info.hCursor.ToInt64():X} flags={info.flags} showing={cursorShowing} suppress={_suppressCursor} visible={visible} aboveDc={aboveDcSurface} osuMode={CursorReplacer.IsOsuMode()} pos=({_cursorPoint.X},{_cursorPoint.Y})");
         }
 
         if (info.hCursor != _lastCursorHandle)
@@ -680,10 +680,16 @@ internal sealed class CursorEngine : IDisposable
 
     private void UpdateWindowPosition()
     {
-        var windowWidth = Math.Max(1, (int)Math.Ceiling(BaseCursorWindowSize));
-        var windowHeight = Math.Max(1, (int)Math.Ceiling(BaseCursorWindowSize));
-        var x = _cursorPoint.X - (int)Math.Round(BaseCursorWindowMargin);
-        var y = _cursorPoint.Y - (int)Math.Round(BaseCursorWindowMargin);
+        // Match the DC scene: the canvas is the rendered cursor image size,
+        // and the hotspot is at (canvasSize/8, canvasSize/8).  The window is
+        // sized to the rendered image, and positioned so the hotspot sits on
+        // the pointer.
+        var windowWidth = Math.Max(1, (int)Math.Ceiling(_settings.CursorWidth));
+        var windowHeight = windowWidth;
+        var hotX = windowWidth / 8.0;
+        var hotY = windowHeight / 8.0;
+        var x = _cursorPoint.X - (int)Math.Round(hotX);
+        var y = _cursorPoint.Y - (int)Math.Round(hotY);
         _lastWindowX = x; _lastWindowY = y;
         _lastWindowWidth = windowWidth; _lastWindowHeight = windowHeight;
         _forceTopmost = false;
@@ -792,7 +798,7 @@ internal sealed class CursorEngine : IDisposable
     {
         width = Math.Clamp(width, MinCursorWidth, MaxCursorWidth);
         _settings.CursorWidth = width;
-        _overlay.Invalidate();
+        _overlay.SetCursorWidth(width);
         _forceTopmost = true;
     }
 
@@ -823,6 +829,12 @@ internal sealed class CursorEngine : IDisposable
         _settings.NormalAspectY = fresh.NormalAspectY;
         _settings.NormalHotspotX = fresh.NormalHotspotX;
         _settings.NormalHotspotY = fresh.NormalHotspotY;
+        _settings.DcCursorSize = fresh.DcCursorSize;
+        _settings.DcAspectX = fresh.DcAspectX;
+        _settings.DcAspectY = fresh.DcAspectY;
+        _settings.DcHotspotX = fresh.DcHotspotX;
+        _settings.DcHotspotY = fresh.DcHotspotY;
+        _overlay.SetCursorWidth(_settings.CursorWidth);
         ApplyDcSceneTuning();
         _overlay.Invalidate();
         AppLog.Log($"ReloadSettings: CursorWidth={_settings.CursorWidth} NormalAspectX={_settings.NormalAspectX} NormalHotspotX={_settings.NormalHotspotX}");

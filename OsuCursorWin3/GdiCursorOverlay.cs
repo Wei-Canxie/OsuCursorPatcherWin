@@ -105,6 +105,17 @@ internal sealed class GdiCursorOverlay : Form
     private Bitmap? _renderCache;
 
     /// <summary>Mark content dirty so the next frame forces a rebuild.</summary>
+    private double _cursorWidth = BaseCursorWidth;
+
+    public void SetCursorWidth(double w)
+    {
+        if (Math.Abs(w - _cursorWidth) >= 0.5)
+        {
+            _cursorWidth = w;
+            Invalidate();
+        }
+    }
+
     public void Invalidate()
     {
         _lastRegionScale = -1.0;
@@ -451,45 +462,25 @@ internal sealed class GdiCursorOverlay : Form
         g.SmoothingMode = SmoothingMode.HighQuality;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
 
-        // Scale the design-size cursor image (312x442) down to the actual on-screen
-        // cursor size.  The window is sized to BaseCursorWindowSize/BaseCursorWidth
-        // = 160/30 = 5.333x the cursor width, so the rendered cursor occupies
-        // 1/5.333 of the window footprint (before the elastic scale/rotation).
-        const float cursorWindowRatio = (float)(BaseCursorWindowSize / BaseCursorWidth);
-        var renderW = (float)width / cursorWindowRatio * (float)_scaleValue
-            * Math.Max(0.05f, (float)_aspectX);
-        var renderH = renderW * (_baseBitmap.Height / (float)_baseBitmap.Width)
-            * Math.Max(0.05f, (float)_aspectY);
+        // Match the DC scene: scale the image so its height fills the canvas
+        // (cursorWidth), and the width is proportional to the image aspect ratio.
+        var renderH = (float)_cursorWidth * (float)_scaleValue * Math.Max(0.05f, (float)_aspectY);
+        var renderW = renderH * (_baseBitmap.Width / (float)_baseBitmap.Height) * Math.Max(0.05f, (float)_aspectX);
 
-        // Anchor the cursor image so the same image point that the DC-scene
-        // system cursor uses as its hotspot sits exactly on the pointer.
-        // The DC scene draws cursor.png (312x442) CENTRED in a square sizePx
-        // canvas (sizePx == renderW here) with the hotspot at the canvas point
-        // (sizePx/8, sizePx/8).  Converting that to image coordinates:
-        //   ax = sizePx/8 - (sizePx - 312/442*sizePx)/2 = sizePx*(1/8 - (1-312/442)/2)
-        //   ay = sizePx/8 = renderH*(312/442)/8
-        // so the overlay must place image point (ax, ay) on the pointer.
-        // Pivot on the window point that maps to the pointer (margin/windowSize
-        // = 64/160 = 0.4, so (0.4*width, 0.4*height)); rotation pivots on that
-        // anchor so the cursor tip stays locked to the pointer.
-        var anchorX = width * 0.4f;
-        var anchorY = height * 0.4f;
+        // Match the DC scene: the cursor image is drawn CENTERED in the canvas,
+        // and the hotspot is at (canvasSize/8, canvasSize/8).  Rotation pivots
+        // on the hotspot so the cursor tip stays locked to the pointer.
+        var anchorX = width * 0.125f;
+        var anchorY = height * 0.125f;
         g.TranslateTransform(anchorX, anchorY);
         g.RotateTransform((float)_angle);
 
-        // DC scene: cursor.png (312x442) is drawn CENTRED inside a square
-        // sizePx canvas (scale = sizePx/442, so image w = 312/442*sizePx,
-        // h = sizePx), and the hotspot is the canvas point (sizePx/8, sizePx/8).
-        // Image-space hotspot: x = sizePx/8 - (sizePx - w)/2 = -sizePx/32
-        // (ratio -1/32 of image width), y = sizePx/8 = renderH/8 (ratio 1/8 of
-        // image height).  Overlay draws the same image at renderW x renderH, so:
-        var ax = -renderW / 32f + 1f;     // ≈ -0.0313*renderW + 1px left
-        // Y anchor: -0.5px hardcoded (calibrated against the DC scene on a
-        // 2K/180Hz display).  This bakes in what used to require
-        // NormalHotspotY = -1 in the settings; the default 0 now matches.
-        var ay = renderH / 8f + 0.5f;     // 0.125*renderH + 0.5px up-equivalent
-        var x = -ax + (float)_hotspotX;
-        var y = -ay + (float)_hotspotY;
+        // After translating to the hotspot, draw the image so it appears centered
+        // in the window.  The image center is at (width/2, height/2) in window
+        // coords, which is (width/2 - width/8, height/2 - height/8) = (3*width/8, 3*height/8)
+        // relative to the hotspot.
+        var x = width * 0.375f - renderW * 0.5f + (float)_hotspotX;
+        var y = height * 0.375f - renderH * 0.5f + (float)_hotspotY;
 
         g.InterpolationMode = InterpolationMode.HighQualityBicubic;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
@@ -535,12 +526,7 @@ internal sealed class GdiCursorOverlay : Form
     {
         if (IsHandleCreated && Visible)
         {
-            // SetWindowPos with HWND_TOPMOST + SwpNoMove|SwpNoSize re-stacks the
-            // overlay above every other topmost window (including Start menu,
-            // Action Center, clipboard/volume flyouts — DirectComposition XAML
-            // surfaces that are themselves topmost).
             bool ok = NativeMethods.SetTopmost(Handle);
-            AppLog.Log($"[Overlay] BringToTopmost ok={ok}");
         }
     }
 

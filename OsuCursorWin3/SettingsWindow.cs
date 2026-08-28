@@ -127,12 +127,16 @@ internal sealed class SettingsWindow : Window
                 _settings.Save();
                 _engine?.ApplyCursorWidth(v);
             }
+            else
+            {
+            }
         }
 
-        sizeBox.KeyDown += (_, e) => { if (e.Key == Windows.System.VirtualKey.Enter) { ApplySize(); e.Handled = true; } };
+        sizeBox.KeyDown += (_, e) => {
+ if (e.Key == Windows.System.VirtualKey.Enter) { ApplySize(); e.Handled = true; } };
         sizeBox.LostFocus += (_, _) => ApplySize();
-        sizeMinus.Click += (_, _) => { if (double.TryParse(sizeBox.Text, out var v)) { v = Math.Max(16, v - 1); sizeBox.Text = v.ToString("0.#"); ApplySize(); } };
-        sizePlus.Click += (_, _) => { if (double.TryParse(sizeBox.Text, out var v)) { v = Math.Min(64, v + 1); sizeBox.Text = v.ToString("0.#"); ApplySize(); } };
+        sizeMinus.Click += (_, _) => { AppLog.Log("[UI] sizeMinus Click"); if (double.TryParse(sizeBox.Text, out var v)) { v = Math.Max(16, v - 1); sizeBox.Text = v.ToString("0.#"); ApplySize(); } };
+        sizePlus.Click += (_, _) => { AppLog.Log("[UI] sizePlus Click"); if (double.TryParse(sizeBox.Text, out var v)) { v = Math.Min(64, v + 1); sizeBox.Text = v.ToString("0.#"); ApplySize(); } };
 
         var sizeButtons = new StackPanel { Orientation = Orientation.Horizontal };
         sizeButtons.Children.Add(sizeMinus);
@@ -275,7 +279,8 @@ internal sealed class SettingsWindow : Window
                 e.Handled = true;
             }
         };
-        valueBox.LostFocus += (_, _) => ApplyValue();
+        valueBox.LostFocus += (_, _) => {
+ ApplyValue(); };
 
         minusBtn.Click += (_, _) =>
         {
