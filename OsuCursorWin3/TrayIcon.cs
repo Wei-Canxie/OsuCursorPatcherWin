@@ -24,6 +24,7 @@ internal sealed class TrayIcon : IDisposable
     private const int WM_TRAYICON = WM_USER + 100;
     private const int WM_LBUTTONDBLCLK = 0x0203;
     private const int WM_RBUTTONUP = 0x0205;
+    private const int WM_CONTEXTMENU = 0x007B;
     private const uint TPM_RIGHTBUTTON = 0x0002;
     private const uint TPM_RETURNCMD = 0x0100;
     private const uint IDM_SETTINGS = 1000;
@@ -116,23 +117,20 @@ internal sealed class TrayIcon : IDisposable
         var ok = Shell_NotifyIcon(NIM_ADD, ref _nid);
         var err = Marshal.GetLastWin32Error();
 
-        // Set version for modern behavior (right-click context menu, balloon tips)
-        var verData = new NOTIFYICONDATA
+        // Set version 4 for modern notification behavior (right-click context menu, balloon tips).
+        // NIM_SETVERSION uses the uTimeoutOrVersion union field for the version number.
+        var verNid = new NOTIFYICONDATA
         {
             cbSize = Marshal.SizeOf<NOTIFYICONDATA>(),
             hWnd = _hwnd,
             uID = 0,
+            uFlags = NIF_GUID,
             guidItem = TRAY_GUID,
-            uFlags = 4 // NIF_VERSION only works with uVersion field... use separate struct
+            uTimeoutOrVersion = NOTIFYICON_VERSION_4
         };
-        var verOk = Shell_NotifyIcon(NIM_SETVERSION, ref _nid);
-        // For version 4 we need the uVersion field; in the standard struct,
-        // NIM_SETVERSION uses the uCallbackMessage field for the version.
-        // Actually, we set the version by modifying the NID after ADD.
-        _nid.uCallbackMessage = (uint)NOTIFYICON_VERSION_4;
-        Shell_NotifyIcon(NIM_MODIFY, ref _nid);
+        Shell_NotifyIcon(NIM_SETVERSION, ref verNid);
 
-        AppLog.Log($"TrayIcon: NIM_ADD ok={ok} verSet={verOk} hwnd={_hwnd} hIcon={_hIcon} err={err}");
+        AppLog.Log($"TrayIcon: NIM_ADD ok={ok} hwnd={_hwnd} hIcon={_hIcon} err={err}");
     }
 
     private static IntPtr LoadIconFromStream(System.IO.MemoryStream ms)
@@ -157,7 +155,7 @@ internal sealed class TrayIcon : IDisposable
                 self.ShowSettingsRequested?.Invoke();
                 return IntPtr.Zero;
             }
-            else if (mouseMsg == WM_RBUTTONUP)
+            else if (mouseMsg == WM_RBUTTONUP || mouseMsg == WM_CONTEXTMENU)
             {
                 self.ShowContextMenu();
                 return IntPtr.Zero;
@@ -174,7 +172,14 @@ internal sealed class TrayIcon : IDisposable
         AppendMenu(menu, 0, IDM_EXIT, "退出");
 
         GetCursorPos(out var pt);
+
+        // VERSION_4 requires SetForegroundWindow before TrackPopupMenu so the
+        // menu pops up at the cursor and dismisses correctly.
+        SetForegroundWindow(_hwnd);
         var cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, pt.X, pt.Y, 0, _hwnd, IntPtr.Zero);
+        // Post a benign message so Windows dismisses the menu cleanly.
+        PostMessage(_hwnd, 0 /*WM_NULL*/, IntPtr.Zero, IntPtr.Zero);
+
         if (cmd == IDM_SETTINGS) ShowSettingsRequested?.Invoke();
         else if (cmd == IDM_EXIT) ExitRequested?.Invoke();
 
@@ -252,6 +257,12 @@ internal sealed class TrayIcon : IDisposable
 
     [DllImport("user32.dll")]
     private static extern bool DestroyMenu(IntPtr hMenu);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll")]
     private static extern bool GetCursorPos(out POINT lpPoint);
