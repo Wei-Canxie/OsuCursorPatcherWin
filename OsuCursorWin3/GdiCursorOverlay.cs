@@ -478,21 +478,22 @@ internal sealed class GdiCursorOverlay : Form
         var renderH = (float)_cursorWidth * (float)_scaleValue * Math.Max(0.05f, (float)_aspectY);
         var renderW = renderH * (_baseBitmap.Width / (float)_baseBitmap.Height) * Math.Max(0.05f, (float)_aspectX);
 
-        // Match the DC scene: the cursor image is drawn CENTERED in the canvas,
-        // and the hotspot is at the arrow tip position.  Rotation pivots
-        // on the hotspot so the cursor tip stays locked to the pointer.
         // Source image 312x442, tip pixel at (20, 2).
-        var anchorX = width * 20.0f / 312.0f;
-        var anchorY = height * 2.0f / 442.0f;
-        g.TranslateTransform(anchorX, anchorY);
+        // The rotation pivot MUST be at the window center so that the rotated
+        // image stays within a square window of side = diagonal.  Pivoting on
+        // the tip (off-center) makes the cursor sweep a circle much larger than
+        // the window when aspect scale stretches the image.
+        var pivotX = width * 0.5f;
+        var pivotY = height * 0.5f;
+        g.TranslateTransform(pivotX, pivotY);
         g.RotateTransform((float)_angle);
 
-        // After translating to the hotspot (tip), draw the image so it appears
-        // centered in the window.  The image center is at (width/2, height/2)
-        // in window coords, which is (width/2 - anchorX, height/2 - anchorY)
-        // relative to the hotspot.
-        var x = width * 0.5f - anchorX - renderW * 0.5f + (float)_hotspotX;
-        var y = height * 0.5f - anchorY - renderH * 0.5f + (float)_hotspotY;
+        // After translating to the window center (pivot), draw the image so its
+        // center coincides with the pivot.  The hotspot offset (tip position)
+        // is baked into UpdateWindowPosition's placement math, so here we just
+        // center the bitmap on the pivot.
+        var x = -renderW * 0.5f + (float)_hotspotX;
+        var y = -renderH * 0.5f + (float)_hotspotY;
 
         g.InterpolationMode = InterpolationMode.HighQualityBicubic;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;

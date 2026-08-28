@@ -714,12 +714,21 @@ internal sealed class CursorEngine : IDisposable
         var windowWidth = windowSize;
         var windowHeight = windowSize;
 
-        // Arrow tip position in window coords (matching RenderCursor).
-        // Source image 312x442, tip pixel at (20, 2).
-        var hotX = windowWidth * 20.0 / 312.0;
-        var hotY = windowHeight * 2.0 / 442.0;
-        var x = _cursorPoint.X - (int)Math.Round(hotX);
-        var y = _cursorPoint.Y - (int)Math.Round(hotY);
+        // The rotation pivot is at the window center.  The cursor tip in the
+        // source image is at pixel (20, 2) out of 312x442.  When the image is
+        // drawn centered on the pivot, the tip offset from the window center is:
+        //   tipOffsetX = (20 - 312/2) / 312 * renderW = -136/312 * renderW
+        //   tipOffsetY = (2 - 442/2) / 442 * renderH = -219/442 * renderH
+        // So the tip in window coords is:
+        //   tipX = windowWidth/2 + tipOffsetX
+        //   tipY = windowHeight/2 + tipOffsetY
+        // And window position = cursor - tip.
+        var tipOffsetX = (20.0 - 312.0 / 2.0) / 312.0 * baseRenderW;
+        var tipOffsetY = (2.0 - 442.0 / 2.0) / 442.0 * baseRenderH;
+        var tipX = windowWidth / 2.0 + tipOffsetX;
+        var tipY = windowHeight / 2.0 + tipOffsetY;
+        var x = _cursorPoint.X - (int)Math.Round(tipX);
+        var y = _cursorPoint.Y - (int)Math.Round(tipY);
         _lastWindowX = x; _lastWindowY = y;
         _lastWindowWidth = windowWidth; _lastWindowHeight = windowHeight;
         _forceTopmost = false;
