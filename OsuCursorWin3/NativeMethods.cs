@@ -237,14 +237,20 @@ internal static class NativeMethods
 
     internal static void Move(IntPtr hwnd, int x, int y, int width, int height, bool visible = true)
     {
-        // Synchronous reposition: SWP_ASYNCWINDOWPOS was removed because it
-        // deferred the position update to the next DWM composition, causing
-        // the overlay to lag the cursor by one frame.  During fast movement
-        // this manifested as a brief flash of the cursor at its previous
-        // position (a "ghost" frame).  Synchronous SetWindowPos adds <0.1ms
-        // per call — well within the 5.56ms frame budget at 180Hz.
+        // Async reposition: the previous synchronous SetWindowPos blocked the
+        // MM timer callback thread for ~3.2ms per call, causing the timer to
+        // miss its deadline and drop frames (the _renderQueued guard).  At
+        // 180Hz a frame budget is only 5.56ms — the 3.2ms block ate most of
+        // it and made the cursor visibly lag the mouse.
+        //
+        // SWP_ASYNCWINDOWPOS returns immediately; the actual move is deferred
+        // to the next DWM composition.  This is safe because each render cycle
+        // writes the latest cursor position — if one move is late, the next
+        // cycle's move overwrites it.  There is no ghost-frame risk: ShowOverlay
+        // already does an atomic SetWindowPos(SWP_SHOWWINDOW), so the window
+        // never flashes at a stale position.
         SetWindowPos(hwnd, IntPtr.Zero, x, y, width, height,
-            SwpNoActivate | SwpNoZOrder | (visible ? SwpShowWindow : SwpHideWindow));
+            SwpNoActivate | SwpNoZOrder | SwpAsyncWindowPos | (visible ? SwpShowWindow : SwpHideWindow));
     }
 
     internal static void MoveTopmost(IntPtr hwnd, int x, int y, int width, int height, bool visible = true)
