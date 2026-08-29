@@ -365,6 +365,9 @@ internal sealed class SettingsWindow : Window
             _titleBarText.Foreground = GetTitleBarForeground();
         }
 
+        // Sidebar background must follow theme changes too
+        SyncSidebarBackground();
+
         _settings.Save();
     }
 
