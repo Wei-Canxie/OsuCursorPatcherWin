@@ -344,32 +344,10 @@ internal sealed class SettingsWindow : Window
             StepFrequency = step
         };
         var valueBox = new TextBox { Text = value.ToString(format), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 4, 0) };
-        var minusBtn = new Button
-        {
-            Content = "−",
-            Width = 32,
-            Height = 32,
-            FontSize = 16,
-            Padding = new Thickness(0),
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-            VerticalContentAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(2, 0, 1, 0)
-        };
-        var plusBtn = new Button
-        {
-            Content = "+",
-            Width = 32,
-            Height = 32,
-            FontSize = 16,
-            Padding = new Thickness(0),
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-            VerticalContentAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(1, 0, 2, 0)
-        };
+        var minusText = new TextBlock { Text = "−", FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        var plusText = new TextBlock { Text = "+", FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        var minusBtn = new Button { Content = minusText, Width = 32, Height = 32, Padding = new Thickness(0), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 1, 0) };
+        var plusBtn = new Button { Content = plusText, Width = 32, Height = 32, Padding = new Thickness(0), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(1, 0, 2, 0) };
 
         // Slider value changed -> update textbox and apply
         slider.ValueChanged += (_, _) =>
