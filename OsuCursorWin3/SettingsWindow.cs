@@ -110,7 +110,7 @@ internal sealed class SettingsWindow : Window
             var isDark = IsDarkTheme();
             var bg = new SolidColorBrush(isDark
                 ? Color.FromArgb(255, 0x2D, 0x2D, 0x2D)
-                : Color.FromArgb(255, 0xF3, 0xF3, 0xF3));
+                : Colors.White);
 
             if (pane is Panel panel)
             {
