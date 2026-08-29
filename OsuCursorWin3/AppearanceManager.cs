@@ -3,6 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Composition;
@@ -252,19 +253,24 @@ internal static class AppearanceManager
             try
             {
                 using var bitmap = new Bitmap(settings.BackgroundImagePath);
-                var processed = applyBlur ? ApplyGaussianBlur(bitmap, settings.BackgroundBlurRadius) : new Bitmap(bitmap);
-                using var ms = new MemoryStream();
-                processed.Save(ms, ImageFormat.Png);
-                ms.Position = 0;
-                var bitmapImage = new BitmapImage();
-                bitmapImage.SetSource(ms.AsRandomAccessStream());
+                using var processed = applyBlur ? ApplyGaussianBlur(bitmap, settings.BackgroundBlurRadius) : new Bitmap(bitmap);
+                var wb = new WriteableBitmap(processed.Width, processed.Height);
+                using (var destStream = wb.PixelBuffer.AsStream())
+                {
+                    var pixels = new byte[processed.Width * processed.Height * 4];
+                    BitmapData srcData = processed.LockBits(
+                        new Rectangle(0, 0, processed.Width, processed.Height),
+                        ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                    Marshal.Copy(srcData.Scan0, pixels, 0, pixels.Length);
+                    processed.UnlockBits(srcData);
+                    destStream.Write(pixels, 0, pixels.Length);
+                }
                 bg = new ImageBrush
                 {
-                    ImageSource = bitmapImage,
+                    ImageSource = wb,
                     Stretch = Stretch.UniformToFill,
                     Opacity = Math.Clamp(settings.BackgroundImageOpacity, 0, 1)
                 };
-                if (applyBlur) processed.Dispose();
             }
             catch (Exception ex)
             {
