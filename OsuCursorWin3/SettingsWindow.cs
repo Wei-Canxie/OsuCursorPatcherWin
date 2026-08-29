@@ -128,10 +128,6 @@ internal sealed class SettingsWindow : Window
 
             // Rounded clip for non-Border panes
             ApplyRoundedClip(pane);
-
-            // Drop shadow matching the pane box
-            if (_nav != null)
-                ApplyPaneShadow(pane, _nav);
         }
         catch (Exception ex)
         {
@@ -194,34 +190,6 @@ internal sealed class SettingsWindow : Window
         clip.Top = 0f;
         clip.Right = (float)pane.ActualWidth;
         clip.Bottom = (float)pane.ActualHeight;
-    }
-
-    /// <summary>
-    /// Cast a ThemeShadow from the pane element itself: the shadow shape
-    /// automatically follows the pane (including its rounded clip), so it
-    /// always matches the sidebar box. Receivers let it project onto the
-    /// content area instead of being clipped by the pane's own bounds.
-    /// </summary>
-    private void ApplyPaneShadow(FrameworkElement pane, NavigationView nav)
-    {
-        try
-        {
-            var shadow = new Microsoft.UI.Xaml.Media.ThemeShadow();
-            if (nav.Content is UIElement c)
-                shadow.Receivers.Add(c);
-            if (Content is UIElement r)
-                shadow.Receivers.Add(r);
-
-            pane.Shadow = shadow;
-
-            // Elevate the pane so the shadow is actually cast
-            ElementCompositionPreview.SetIsTranslationEnabled(pane, true);
-            pane.Translation = new Vector3(0f, 0f, 32f);
-        }
-        catch (Exception ex)
-        {
-            AppLog.Log($"ApplyPaneShadow failed: {ex.Message}");
-        }
     }
 
     private bool IsDarkTheme() =>
