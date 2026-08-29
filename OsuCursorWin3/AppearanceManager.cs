@@ -154,24 +154,10 @@ internal static class AppearanceManager
                 AppLog.Log($"DwmExtendFrameIntoClientArea result: {hr3}");
             }
 
-            // Apply blur intensity via dark mode attribute + opacity layering
-            // Higher intensity = darker background (for Mica) or more transparent (for Acrylic)
-            int darkMode = settings.BackgroundBlurIntensity > 0.5 ? 1 : 0;
+            // Apply blur radius via DWM (Mica/Acrylic use system blur, radius is advisory)
+            // For custom pixel-level blur, Composition API would be needed
+            int darkMode = settings.BackgroundBlurRadius > 128 ? 1 : 0;
             DwmSetWindowAttribute(hwnd, DwmWindowAttribute.DWMWA_USE_IMMERSIVE_DARK_MODE, ref darkMode, sizeof(int));
-
-            // For intensity < 1.0, overlay a semi-transparent layer to reduce blur strength
-            if (settings.BackgroundBlurIntensity < 1.0)
-            {
-                // Add a semi-transparent overlay to reduce blur appearance
-                var overlayColor = (byte)((1.0 - settings.BackgroundBlurIntensity) * 128);
-                var isDark = settings.Theme == AppSettings.ThemeMode.Dark ||
-                             (settings.Theme == AppSettings.ThemeMode.FollowSystem && IsSystemDark());
-                var overlay = new SolidColorBrush(isDark
-                    ? Windows.UI.Color.FromArgb(overlayColor, 0, 0, 0)
-                    : Windows.UI.Color.FromArgb(overlayColor, 255, 255, 255));
-                // Note: We can't easily overlay on top of DWM backdrop
-                // The intensity control mainly works via the color tint overlay
-            }
 
             mainGrid.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
             return;

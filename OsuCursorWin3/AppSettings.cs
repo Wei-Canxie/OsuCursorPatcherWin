@@ -27,8 +27,8 @@ internal sealed class AppSettings
     public double BackgroundImageOpacity { get; set; } = 1.0;
     /// <summary>Background blur type: default (solid), Mica, Acrylic.</summary>
     public BlurMode BackgroundBlur { get; set; } = BlurMode.Default;
-    /// <summary>Background blur intensity. 0.0 – 1.0.</summary>
-    public double BackgroundBlurIntensity { get; set; } = 1.0;
+    /// <summary>Background blur radius in pixels. 0 – 255.</summary>
+    public int BackgroundBlurRadius { get; set; } = 128;
 
     public enum ThemeMode { FollowSystem, Light, Dark }
     public enum BlurMode { Default, Mica, Acrylic }

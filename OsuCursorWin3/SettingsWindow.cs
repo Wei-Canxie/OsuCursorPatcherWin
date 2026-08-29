@@ -174,12 +174,12 @@ internal sealed class SettingsWindow : Window
         blurPanel.Children.Add(blurAcrylicRadio);
         panel.Children.Add(blurPanel);
 
-        // Blur intensity slider
-        var blurIntensityLabel = new TextBlock { Text = $"模糊强度: {_settings.BackgroundBlurIntensity:P0}", FontWeight = FontWeights.SemiBold };
-        panel.Children.Add(blurIntensityLabel);
-        panel.Children.Add(BuildSliderWithTextBox("模糊强度", _settings.BackgroundBlurIntensity, 0.0, 1.0,
-            v => { _settings.BackgroundBlurIntensity = v; blurIntensityLabel.Text = $"模糊强度: {v:P0}"; ApplyAppearance(); },
-            step: 0.05, format: "0%"));
+        // Blur radius slider (pixel radius, slider 0-255, text can go up to 1024)
+        var blurRadiusLabel = new TextBlock { Text = $"模糊半径: {_settings.BackgroundBlurRadius}px", FontWeight = FontWeights.SemiBold };
+        panel.Children.Add(blurRadiusLabel);
+        panel.Children.Add(BuildSliderWithTextBox("模糊半径", _settings.BackgroundBlurRadius, 0, 255,
+            v => { _settings.BackgroundBlurRadius = (int)v; blurRadiusLabel.Text = $"模糊半径: {(int)v}px"; ApplyAppearance(); },
+            step: 1, format: "0", textMin: 0, textMax: 1024));
 
         if (!IsBlurSupported())
         {
@@ -317,10 +317,14 @@ internal sealed class SettingsWindow : Window
 
     /// <summary>
     /// Build a row with: label | Slider | TextBox | + / - buttons.
-    /// The Slider provides quick drag adjustment, TextBox allows precise input.
+    /// The Slider provides quick drag adjustment within sliderMin/sliderMax.
+    /// TextBox allows precise input within textMin/textMax (can exceed slider range).
     /// </summary>
-    private FrameworkElement BuildSliderWithTextBox(string label, double value, double min, double max, Action<double> apply, double step = 1.0, string format = "0.##")
+    private FrameworkElement BuildSliderWithTextBox(string label, double value, double sliderMin, double sliderMax, Action<double> apply, double step = 1.0, string format = "0.##", double? textMin = null, double? textMax = null)
     {
+        double tMin = textMin ?? sliderMin;
+        double tMax = textMax ?? sliderMax;
+
         var grid = new Grid { Margin = new Thickness(0, 2, 0, 2) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100, GridUnitType.Pixel) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -330,9 +334,9 @@ internal sealed class SettingsWindow : Window
         var labelText = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
         var slider = new Slider
         {
-            Minimum = min,
-            Maximum = max,
-            Value = value,
+            Minimum = sliderMin,
+            Maximum = sliderMax,
+            Value = Math.Clamp(value, sliderMin, sliderMax),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(8, 0, 8, 0),
             SmallChange = step,
@@ -346,18 +350,20 @@ internal sealed class SettingsWindow : Window
         // Slider value changed -> update textbox and apply
         slider.ValueChanged += (_, _) =>
         {
-            var v = Math.Clamp(slider.Value, min, max);
+            var v = Math.Clamp(slider.Value, sliderMin, sliderMax);
             valueBox.Text = v.ToString(format);
             apply(v);
         };
 
-        // TextBox input
+        // TextBox input (can exceed slider range)
         void ApplyFromText()
         {
             if (double.TryParse(valueBox.Text, out var v))
             {
-                v = Math.Clamp(v, min, max);
-                slider.Value = v;
+                v = Math.Clamp(v, tMin, tMax);
+                // Only update slider if value is within slider range
+                if (v >= sliderMin && v <= sliderMax)
+                    slider.Value = v;
                 valueBox.Text = v.ToString(format);
                 apply(v);
             }
@@ -376,13 +382,12 @@ internal sealed class SettingsWindow : Window
         // +/- buttons
         minusBtn.Click += (_, _) =>
         {
-            var v = Math.Max(min, slider.Value - step);
+            var v = Math.Max(sliderMin, slider.Value - step);
             slider.Value = v;
-            // ValueChanged event fires automatically and calls apply
         };
         plusBtn.Click += (_, _) =>
         {
-            var v = Math.Min(max, slider.Value + step);
+            var v = Math.Min(sliderMax, slider.Value + step);
             slider.Value = v;
         };
 
