@@ -29,21 +29,6 @@ internal static class AppearanceManager
     [DllImport("dwmapi.dll", SetLastError = true)]
     private static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref MARGINS pMarInset);
 
-    [DllImport("dwmapi.dll", SetLastError = true)]
-    private static extern int DwmEnableBlurBehindWindow(IntPtr hwnd, ref DWM_BLURBEHIND pBlurBehind);
-
-    private const int DWM_BB_ENABLE = 0x00000001;
-    private const int DWM_BB_BLURREGION = 0x00000002;
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct DWM_BLURBEHIND
-    {
-        public int dwFlags;
-        public int fEnable;
-        public IntPtr hRgnBlur;
-        public int fTransitionOnMaximized;
-    }
-
     private const int GWL_EXSTYLE = -20;
     private const int WS_EX_LAYERED = 0x00080000;
     private const uint LWA_ALPHA = 0x00000002;
@@ -52,17 +37,16 @@ internal static class AppearanceManager
     {
         DWMWA_USE_IMMERSIVE_DARK_MODE = 20,
         DWMWA_SYSTEMBACKDROP_TYPE = 38,
-        DWMWA_MICA_EFFECT = 1029,
-        DWMWA_BLURBEHIND = 2
+        DWMWA_MICA_EFFECT = 1029
     }
 
     private enum DwmSystemBackdropType
     {
         DWMSBT_AUTO = 0,
         DWMSBT_NONE = 1,
-        DWMSBT_MAINWINDOW = 2,    // Mica
-        DWMSBT_TRANSIENTWINDOW = 3, // Acrylic
-        DWMSBT_TABBEDWINDOW = 4    // Tabbed
+        DWMSBT_MAINWINDOW = 2,
+        DWMSBT_TRANSIENTWINDOW = 3,
+        DWMSBT_TABBEDWINDOW = 4
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -74,12 +58,6 @@ internal static class AppearanceManager
         public int cyBottomHeight;
     }
 
-    private static MicaController? _micaController;
-    private static DesktopAcrylicController? _acrylicController;
-
-    /// <summary>
-    /// Apply all appearance settings: theme, opacity, background.
-    /// </summary>
     public static void ApplyAll(Window window, AppSettings settings)
     {
         ApplyTheme(window, settings);
@@ -100,10 +78,6 @@ internal static class AppearanceManager
         }
     }
 
-    /// <summary>
-    /// Apply window opacity using layered window attributes.
-    /// This affects the entire window including title bar via Win32.
-    /// </summary>
     public static void ApplyOpacity(Window window, AppSettings settings)
     {
         try
@@ -125,21 +99,16 @@ internal static class AppearanceManager
         }
     }
 
-    /// <summary>
-    /// Apply background: blur (Mica/Acrylic) or solid color/image.
-    /// Uses DWM API for blur effects on Windows 10/11.
-    /// </summary>
     public static void ApplyBackground(Window window, AppSettings settings)
     {
         if (window.Content is not Grid mainGrid) return;
 
         var hwnd = WindowNative.GetWindowHandle(window);
-
         bool useBlur = settings.BackgroundBlur != AppSettings.BlurMode.Default;
 
         if (useBlur)
         {
-            // Try Windows 11 SystemBackdropType first (build 22000+)
+            // Windows 11 22H2+ (build 22621+) - use DWM_SYSTEMBACKDROP_TYPE
             int backdropType = settings.BackgroundBlur switch
             {
                 AppSettings.BlurMode.Mica => (int)DwmSystemBackdropType.DWMSBT_MAINWINDOW,
@@ -147,35 +116,32 @@ internal static class AppearanceManager
                 _ => (int)DwmSystemBackdropType.DWMSBT_NONE
             };
 
+            // First try the Windows 11 backdrop type attribute
             int hr = DwmSetWindowAttribute(hwnd, DwmWindowAttribute.DWMWA_SYSTEMBACKDROP_TYPE, ref backdropType, sizeof(int));
 
-            if (hr < 0) // Failed, try Windows 10 Mica effect
+            // Fallback: DWM_MICA_EFFECT for Windows 10 / early Windows 11
+            if (hr < 0 && settings.BackgroundBlur == AppSettings.BlurMode.Mica)
             {
-                int micaEnabled = settings.BackgroundBlur == AppSettings.BlurMode.Mica ? 1 : 0;
-                DwmSetWindowAttribute(hwnd, DwmWindowAttribute.DWMWA_MICA_EFFECT, ref micaEnabled, sizeof(int));
-
-                // Fallback: blur behind
-                if (micaEnabled == 0 && settings.BackgroundBlur == AppSettings.BlurMode.Acrylic)
-                {
-                    var blurBehind = new DWM_BLURBEHIND
-                    {
-                        dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION,
-                        fEnable = 1,
-                        hRgnBlur = IntPtr.Zero,
-                        fTransitionOnMaximized = 0
-                    };
-                    DwmEnableBlurBehindWindow(hwnd, ref blurBehind);
-                }
+                int mica = 1;
+                DwmSetWindowAttribute(hwnd, DwmWindowAttribute.DWMWA_MICA_EFFECT, ref mica, sizeof(int));
             }
 
-            // Make background transparent so backdrop shows through
+            // Extend frame to enable glass effect
+            var margins = new MARGINS { cxLeftWidth = -1, cxRightWidth = -1, cyTopHeight = -1, cyBottomHeight = -1 };
+            DwmExtendFrameIntoClientArea(hwnd, ref margins);
+
+            // Make background transparent so DWM backdrop shows through
             mainGrid.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
             return;
         }
 
-        // Disable blur
+        // Disable blur: set backdrop to none
         int noneType = (int)DwmSystemBackdropType.DWMSBT_NONE;
         DwmSetWindowAttribute(hwnd, DwmWindowAttribute.DWMWA_SYSTEMBACKDROP_TYPE, ref noneType, sizeof(int));
+
+        // Collapse margins when no blur
+        var noMargins = new MARGINS { cxLeftWidth = 0, cxRightWidth = 0, cyTopHeight = 0, cyBottomHeight = 0 };
+        DwmExtendFrameIntoClientArea(hwnd, ref noMargins);
 
         // Default mode: solid color or image
         Brush? bg = null;
@@ -223,17 +189,5 @@ internal static class AppearanceManager
         catch { return false; }
     }
 
-    public static void Cleanup()
-    {
-        if (_micaController != null)
-        {
-            _micaController.Dispose();
-            _micaController = null;
-        }
-        if (_acrylicController != null)
-        {
-            _acrylicController.Dispose();
-            _acrylicController = null;
-        }
-    }
+    public static void Cleanup() { }
 }

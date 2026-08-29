@@ -13,10 +13,6 @@ using Microsoft.Win32;
 
 namespace OsuCursorWin;
 
-/// <summary>
-/// WinUI 3 settings window with custom title bar for opacity control.
-/// NavigationView, TextBox (with +/- buttons), ToggleSwitch.
-/// </summary>
 internal sealed class SettingsWindow : Window
 {
     private readonly AppSettings _settings;
@@ -31,26 +27,19 @@ internal sealed class SettingsWindow : Window
         Title = "osu! Cursor 设置";
         AppWindow.Resize(new Windows.Graphics.SizeInt32(960, 680));
 
-        // Intercept WM_CLOSE: hide the window instead of destroying it.
         AppWindow.Closing += (_, e) =>
         {
             e.Cancel = true;
             AppWindow.Hide();
         };
 
-        // Use custom title bar for opacity control.
         ExtendsContentIntoTitleBar = true;
 
         var root = new Grid();
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // title bar
-        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // content
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-        // Custom title bar
-        _titleBarRoot = new Border
-        {
-            Height = 32,
-            Background = GetTitleBarBrush()
-        };
+        _titleBarRoot = new Border { Height = 32, Background = GetTitleBarBrush() };
         _titleBarText = new TextBlock
         {
             Text = Title,
@@ -62,7 +51,6 @@ internal sealed class SettingsWindow : Window
         _titleBarRoot.Child = _titleBarText;
         Grid.SetRow(_titleBarRoot, 0);
 
-        // NavigationView
         var nav = new NavigationView
         {
             IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed,
@@ -155,12 +143,12 @@ internal sealed class SettingsWindow : Window
         themePanel.Children.Add(themeDarkRadio);
         panel.Children.Add(themePanel);
 
-        // Window opacity (global, affects content + title bar)
+        // Window opacity: Slider + TextBox + buttons
         var opacityLabel = new TextBlock { Text = $"窗口不透明度: {_settings.WindowOpacity:P0}", FontWeight = FontWeights.SemiBold };
         panel.Children.Add(opacityLabel);
-        panel.Children.Add(BuildSliderRow("窗口透明度", _settings.WindowOpacity, 0.3, 1.0,
+        panel.Children.Add(BuildSliderWithTextBox("窗口透明度", _settings.WindowOpacity, 0.3, 1.0,
             v => { _settings.WindowOpacity = v; opacityLabel.Text = $"窗口不透明度: {v:P0}"; ApplyAppearance(); },
-            step: 0.05));
+            step: 0.05, format: "0%"));
 
         // Background blur type
         panel.Children.Add(new TextBlock { Text = "背景效果", FontWeight = FontWeights.SemiBold });
@@ -228,12 +216,12 @@ internal sealed class SettingsWindow : Window
         bgPanel.Children.Add(clearBgBtn);
         panel.Children.Add(bgPanel);
 
-        // Background image opacity
+        // Background image opacity: Slider + TextBox + buttons
         var bgOpacityLabel = new TextBlock { Text = $"背景图片不透明度: {_settings.BackgroundImageOpacity:P0}", FontWeight = FontWeights.SemiBold };
         panel.Children.Add(bgOpacityLabel);
-        panel.Children.Add(BuildSliderRow("背景图片透明度", _settings.BackgroundImageOpacity, 0.0, 1.0,
+        panel.Children.Add(BuildSliderWithTextBox("背景图片透明度", _settings.BackgroundImageOpacity, 0.0, 1.0,
             v => { _settings.BackgroundImageOpacity = v; bgOpacityLabel.Text = $"背景图片不透明度: {v:P0}"; ApplyAppearance(); },
-            step: 0.05));
+            step: 0.05, format: "0%"));
 
         return panel;
     }
@@ -242,7 +230,6 @@ internal sealed class SettingsWindow : Window
     {
         AppearanceManager.ApplyAll(this, _settings);
 
-        // Update title bar opacity
         if (_titleBarRoot != null)
         {
             _titleBarRoot.Background = GetTitleBarBrush();
@@ -321,49 +308,102 @@ internal sealed class SettingsWindow : Window
         FontWeight = FontWeights.SemiBold
     };
 
+    /// <summary>
+    /// Build a row with: label | Slider | TextBox | + / - buttons.
+    /// The Slider provides quick drag adjustment, TextBox allows precise input.
+    /// </summary>
+    private FrameworkElement BuildSliderWithTextBox(string label, double value, double min, double max, Action<double> apply, double step = 1.0, string format = "0.##")
+    {
+        var grid = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100, GridUnitType.Pixel) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70, GridUnitType.Pixel) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var labelText = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
+        var slider = new Slider
+        {
+            Minimum = min,
+            Maximum = max,
+            Value = value,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(8, 0, 8, 0),
+            SmallChange = step,
+            LargeChange = step * 10,
+            StepFrequency = step
+        };
+        var valueBox = new TextBox { Text = value.ToString(format), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 4, 0) };
+        var minusBtn = new Button { Content = "−", Width = 28, Height = 28, Margin = new Thickness(2, 0, 1, 0) };
+        var plusBtn = new Button { Content = "+", Width = 28, Height = 28, Margin = new Thickness(1, 0, 2, 0) };
+
+        // Slider value changed -> update textbox and apply
+        slider.ValueChanged += (_, _) =>
+        {
+            var v = Math.Clamp(slider.Value, min, max);
+            valueBox.Text = v.ToString(format);
+            apply(v);
+        };
+
+        // TextBox input
+        void ApplyFromText()
+        {
+            if (double.TryParse(valueBox.Text, out var v))
+            {
+                v = Math.Clamp(v, min, max);
+                slider.Value = v;
+                valueBox.Text = v.ToString(format);
+                apply(v);
+            }
+            else
+            {
+                valueBox.Text = slider.Value.ToString(format);
+            }
+        }
+
+        valueBox.KeyDown += (_, e) =>
+        {
+            if (e.Key == Windows.System.VirtualKey.Enter) { ApplyFromText(); e.Handled = true; }
+        };
+        valueBox.LostFocus += (_, _) => ApplyFromText();
+
+        // +/- buttons
+        minusBtn.Click += (_, _) =>
+        {
+            var v = Math.Max(min, slider.Value - step);
+            slider.Value = v;
+            // ValueChanged event fires automatically and calls apply
+        };
+        plusBtn.Click += (_, _) =>
+        {
+            var v = Math.Min(max, slider.Value + step);
+            slider.Value = v;
+        };
+
+        var buttonsPanel = new StackPanel { Orientation = Orientation.Horizontal };
+        buttonsPanel.Children.Add(minusBtn);
+        buttonsPanel.Children.Add(plusBtn);
+
+        Grid.SetColumn(labelText, 0);
+        Grid.SetColumn(slider, 1);
+        Grid.SetColumn(valueBox, 2);
+        Grid.SetColumn(buttonsPanel, 3);
+        grid.Children.Add(labelText);
+        grid.Children.Add(slider);
+        grid.Children.Add(valueBox);
+        grid.Children.Add(buttonsPanel);
+
+        return grid;
+    }
+
     private FrameworkElement BuildCursorPage()
     {
         var panel = new StackPanel { Spacing = 16, Padding = new Thickness(24, 16, 24, 16) };
         panel.Children.Add(Header("光标外观"));
 
-        var sizeRow = new Grid();
-        sizeRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        sizeRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        sizeRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        panel.Children.Add(BuildSliderWithTextBox("光标大小", _settings.CursorWidth, 16, 64,
+            v => { _settings.CursorWidth = v; _settings.Save(); _engine?.ApplyCursorWidth(v); },
+            step: 1, format: "0.#"));
 
-        var sizeLabel = new TextBlock { Text = "光标大小", VerticalAlignment = VerticalAlignment.Center };
-        var sizeBox = new TextBox { Text = _settings.CursorWidth.ToString("0.#"), Width = 80, VerticalAlignment = VerticalAlignment.Center };
-        var sizeMinus = new Button { Content = "−", Width = 32, Height = 32, Margin = new Thickness(4, 0, 2, 0) };
-        var sizePlus = new Button { Content = "+", Width = 32, Height = 32, Margin = new Thickness(2, 0, 0, 0) };
-
-        void ApplySize()
-        {
-            if (double.TryParse(sizeBox.Text, out var v))
-            {
-                v = Math.Clamp(v, 16, 64);
-                _settings.CursorWidth = v;
-                sizeBox.Text = v.ToString("0.#");
-                _settings.Save();
-                _engine?.ApplyCursorWidth(v);
-            }
-        }
-
-        sizeBox.KeyDown += (_, e) => { if (e.Key == Windows.System.VirtualKey.Enter) { ApplySize(); e.Handled = true; } };
-        sizeBox.LostFocus += (_, _) => ApplySize();
-        sizeMinus.Click += (_, _) => { if (double.TryParse(sizeBox.Text, out var v)) { v = Math.Max(16, v - 1); sizeBox.Text = v.ToString("0.#"); ApplySize(); } };
-        sizePlus.Click += (_, _) => { if (double.TryParse(sizeBox.Text, out var v)) { v = Math.Min(64, v + 1); sizeBox.Text = v.ToString("0.#"); ApplySize(); } };
-
-        var sizeButtons = new StackPanel { Orientation = Orientation.Horizontal };
-        sizeButtons.Children.Add(sizeMinus);
-        sizeButtons.Children.Add(sizePlus);
-
-        Grid.SetColumn(sizeBox, 1);
-        Grid.SetColumn(sizeButtons, 2);
-        sizeRow.Children.Add(sizeLabel);
-        sizeRow.Children.Add(sizeBox);
-        sizeRow.Children.Add(sizeButtons);
-
-        panel.Children.Add(sizeRow);
         return panel;
     }
 
@@ -373,21 +413,19 @@ internal sealed class SettingsWindow : Window
         panel.Children.Add(Header("场景对齐"));
 
         panel.Children.Add(new TextBlock { Text = "主窗口场景", FontWeight = FontWeights.SemiBold, Opacity = 0.8 });
-
-        var hotX = BuildSliderRow("热点 X", _settings.NormalHotspotX, -64, 64, v => { _settings.NormalHotspotX = v; _settings.Save(); }, () => _engine?.RefreshNormalSceneTuning());
-        var hotY = BuildSliderRow("热点 Y", _settings.NormalHotspotY, -64, 64, v => { _settings.NormalHotspotY = v; _settings.Save(); }, () => _engine?.RefreshNormalSceneTuning());
-        panel.Children.Add(hotX);
-        panel.Children.Add(hotY);
+        panel.Children.Add(BuildSliderWithTextBox("热点 X", _settings.NormalHotspotX, -64, 64,
+            v => { _settings.NormalHotspotX = v; _settings.Save(); }, step: 0.5));
+        panel.Children.Add(BuildSliderWithTextBox("热点 Y", _settings.NormalHotspotY, -64, 64,
+            v => { _settings.NormalHotspotY = v; _settings.Save(); }, step: 0.5));
 
         panel.Children.Add(new TextBlock { Text = "DC 场景（系统光标）", FontWeight = FontWeights.SemiBold, Opacity = 0.8, Margin = new Thickness(0, 12, 0, 0) });
 
-        var dSize = BuildSliderRow("光标大小", _settings.DcCursorSize > 0 ? _settings.DcCursorSize : _settings.CursorWidth, 16, 64,
-            v => { _settings.DcCursorSize = v; _settings.Save(); }, () => _engine?.ApplyDcSceneTuning());
-        var dHotX = BuildSliderRow("热点 X", _settings.DcHotspotX, -64, 64, v => { _settings.DcHotspotX = v; _settings.Save(); }, () => _engine?.ApplyDcSceneTuning());
-        var dHotY = BuildSliderRow("热点 Y", _settings.DcHotspotY, -64, 64, v => { _settings.DcHotspotY = v; _settings.Save(); }, () => _engine?.ApplyDcSceneTuning());
-        panel.Children.Add(dSize);
-        panel.Children.Add(dHotX);
-        panel.Children.Add(dHotY);
+        panel.Children.Add(BuildSliderWithTextBox("光标大小", _settings.DcCursorSize > 0 ? _settings.DcCursorSize : _settings.CursorWidth, 16, 64,
+            v => { _settings.DcCursorSize = v; _settings.Save(); _engine?.ApplyDcSceneTuning(); }, step: 1));
+        panel.Children.Add(BuildSliderWithTextBox("热点 X", _settings.DcHotspotX, -64, 64,
+            v => { _settings.DcHotspotX = v; _settings.Save(); _engine?.ApplyDcSceneTuning(); }, step: 0.5));
+        panel.Children.Add(BuildSliderWithTextBox("热点 Y", _settings.DcHotspotY, -64, 64,
+            v => { _settings.DcHotspotY = v; _settings.Save(); _engine?.ApplyDcSceneTuning(); }, step: 0.5));
 
         return panel;
     }
@@ -401,13 +439,15 @@ internal sealed class SettingsWindow : Window
         tapToggle.Toggled += (_, _) => { _settings.TapSoundEnabled = tapToggle.IsOn; _settings.Save(); _engine?.SetTapSoundEnabled(tapToggle.IsOn); };
         panel.Children.Add(tapToggle);
 
-        panel.Children.Add(BuildSliderRow("音量", _settings.TapSoundVolume * 100, 0, 100, v => { _settings.TapSoundVolume = v / 100.0; _settings.Save(); }, step: 5));
+        panel.Children.Add(BuildSliderWithTextBox("敲击音量", _settings.TapSoundVolume * 100, 0, 100,
+            v => { _settings.TapSoundVolume = v / 100.0; _settings.Save(); }, step: 5, format: "0"));
 
         var hoverToggle = new ToggleSwitch { Header = "悬停音效", IsOn = _settings.HoverSoundEnabled, OnContent = "开", OffContent = "关" };
         hoverToggle.Toggled += (_, _) => { _settings.HoverSoundEnabled = hoverToggle.IsOn; _settings.Save(); _engine?.SetHoverSoundEnabled(hoverToggle.IsOn); };
         panel.Children.Add(hoverToggle);
 
-        panel.Children.Add(BuildSliderRow("音量", _settings.HoverSoundVolume * 100, 0, 100, v => { _settings.HoverSoundVolume = v / 100.0; _settings.Save(); }, step: 5));
+        panel.Children.Add(BuildSliderWithTextBox("悬停音量", _settings.HoverSoundVolume * 100, 0, 100,
+            v => { _settings.HoverSoundVolume = v / 100.0; _settings.Save(); }, step: 5, format: "0"));
 
         return panel;
     }
@@ -458,73 +498,6 @@ internal sealed class SettingsWindow : Window
         return panel;
     }
 
-    /// <summary>
-    /// A label + TextBox (with +/- buttons) row for numeric settings.
-    /// </summary>
-    private FrameworkElement BuildSliderRow(string label, double value, double min, double max, Action<double> apply, Action? onChanged = null, double step = 1.0)
-    {
-        var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100, GridUnitType.Pixel) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80, GridUnitType.Pixel) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        var labelText = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
-        var valueBox = new TextBox { Text = value.ToString("0.##"), VerticalAlignment = VerticalAlignment.Center };
-        var minusBtn = new Button { Content = "−", Width = 28, Height = 28, Margin = new Thickness(2, 0, 1, 0) };
-        var plusBtn = new Button { Content = "+", Width = 28, Height = 28, Margin = new Thickness(1, 0, 2, 0) };
-
-        void ApplyValue()
-        {
-            if (double.TryParse(valueBox.Text, out var v))
-            {
-                v = Math.Clamp(v, min, max);
-                valueBox.Text = v.ToString("0.##");
-                apply(v);
-                onChanged?.Invoke();
-            }
-            else
-            {
-                valueBox.Text = value.ToString("0.##");
-            }
-        }
-
-        valueBox.KeyDown += (_, e) =>
-        {
-            if (e.Key == Windows.System.VirtualKey.Enter) { ApplyValue(); e.Handled = true; }
-        };
-        valueBox.LostFocus += (_, _) => ApplyValue();
-
-        minusBtn.Click += (_, _) =>
-        {
-            if (double.TryParse(valueBox.Text, out var v))
-            {
-                v = Math.Max(min, v - step);
-                valueBox.Text = v.ToString("0.##");
-                ApplyValue();
-            }
-        };
-        plusBtn.Click += (_, _) =>
-        {
-            if (double.TryParse(valueBox.Text, out var v))
-            {
-                v = Math.Min(max, v + step);
-                valueBox.Text = v.ToString("0.##");
-                ApplyValue();
-            }
-        };
-
-        var buttonsPanel = new StackPanel { Orientation = Orientation.Horizontal };
-        buttonsPanel.Children.Add(minusBtn);
-        buttonsPanel.Children.Add(plusBtn);
-
-        Grid.SetColumn(valueBox, 1);
-        Grid.SetColumn(buttonsPanel, 2);
-        row.Children.Add(labelText);
-        row.Children.Add(valueBox);
-        row.Children.Add(buttonsPanel);
-        return row;
-    }
-
     private static bool IsSystemDark()
     {
         try
@@ -535,16 +508,11 @@ internal sealed class SettingsWindow : Window
         catch { return false; }
     }
 
-    /// <summary>
-    /// Check if DWM blur (Mica/Acrylic) is supported on this Windows version.
-    /// </summary>
     private static bool IsBlurSupported()
     {
         try
         {
             var os = Environment.OSVersion;
-            // Windows 10 1809+ (build 17763) supports blur behind
-            // Windows 11 21H2+ (build 22000) supports backdrop types
             return os.Version.Build >= 17763;
         }
         catch { return false; }
