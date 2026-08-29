@@ -143,12 +143,82 @@ internal static class AppearanceManager
 
         if (useBlur)
         {
-            ApplySolidBackground(mainGrid, settings, applyBlur: true);
+            ApplyBlurBackground(mainGrid, settings);
         }
         else
         {
             ApplySolidBackground(mainGrid, settings, applyBlur: false);
         }
+    }
+
+    private static void ApplyBlurBackground(Grid mainGrid, AppSettings settings)
+    {
+        XamlBrush? bg = null;
+
+        if (!string.IsNullOrEmpty(settings.BackgroundImagePath) && File.Exists(settings.BackgroundImagePath))
+        {
+            try
+            {
+                using var bitmap = new Bitmap(settings.BackgroundImagePath);
+                int radius = Math.Clamp(settings.BackgroundBlurRadius, 0, 255);
+                using var processed = ApplyGaussianBlur(bitmap, radius);
+
+                // Mica/Acrylic overlay tint
+                if (settings.BackgroundBlur != AppSettings.BlurMode.Default)
+                {
+                    ApplyOverlayTint(processed, settings.BackgroundBlur);
+                }
+
+                var wb = new WriteableBitmap(processed.Width, processed.Height);
+                using (var destStream = wb.PixelBuffer.AsStream())
+                {
+                    var pixels = new byte[processed.Width * processed.Height * 4];
+                    BitmapData srcData = processed.LockBits(
+                        new Rectangle(0, 0, processed.Width, processed.Height),
+                        ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                    Marshal.Copy(srcData.Scan0, pixels, 0, pixels.Length);
+                    processed.UnlockBits(srcData);
+                    destStream.Write(pixels, 0, pixels.Length);
+                }
+                bg = new ImageBrush
+                {
+                    ImageSource = wb,
+                    Stretch = Stretch.UniformToFill,
+                    Opacity = Math.Clamp(settings.BackgroundImageOpacity, 0, 1)
+                };
+            }
+            catch (Exception ex)
+            {
+                AppLog.Log($"Background image failed: {ex.Message}");
+            }
+        }
+
+        if (bg == null)
+        {
+            var isDark = settings.Theme == AppSettings.ThemeMode.Dark ||
+                         (settings.Theme == AppSettings.ThemeMode.FollowSystem && IsSystemDark());
+            bg = new XamlSolidColorBrush(isDark
+                ? Windows.UI.Color.FromArgb(0xFF, 0x1E, 0x1E, 0x1E)
+                : Windows.UI.Color.FromArgb(0xFF, 0xF0, 0xF0, 0xF0));
+        }
+
+        mainGrid.Background = bg;
+    }
+
+    private static void ApplyOverlayTint(Bitmap bitmap, AppSettings.BlurMode mode)
+    {
+        Color tintColor = mode switch
+        {
+            AppSettings.BlurMode.Mica => Color.FromArgb(30, 240, 240, 240),     // Light warm gray
+            AppSettings.BlurMode.Acrylic => Color.FromArgb(60, 40, 40, 40),     // Dark semi-transparent
+            _ => Color.Transparent
+        };
+
+        if (tintColor == Color.Transparent) return;
+
+        using var g = Graphics.FromImage(bitmap);
+        using var brush = new SolidBrush(tintColor);
+        g.FillRectangle(brush, 0, 0, bitmap.Width, bitmap.Height);
     }
 
     private static bool TryAccentPolicyBlur(IntPtr hwnd, AppSettings settings)
