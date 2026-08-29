@@ -160,6 +160,8 @@ internal sealed class SettingsWindow : Window
     /// <summary>
     /// Apply a 12px rounded clip to the pane's visual (Composition layer,
     /// because WinUI RectangleGeometry has no rounded radii).
+    /// NOTE: RectangleClip bounds must be set explicitly — its default
+    /// bounds can collapse the clip region to zero and hide the element.
     /// </summary>
     private static void ApplyRoundedClip(FrameworkElement pane)
     {
@@ -171,12 +173,27 @@ internal sealed class SettingsWindow : Window
             clip.TopRightRadius = new Vector2(12, 12);
             clip.BottomLeftRadius = new Vector2(12, 12);
             clip.BottomRightRadius = new Vector2(12, 12);
+            SyncClipBounds(clip, pane);
             ElementCompositionPreview.GetElementVisual(pane).Clip = clip;
+
+            pane.SizeChanged += (s, e) =>
+            {
+                try { SyncClipBounds(clip, pane); }
+                catch (Exception ex) { AppLog.Log($"ApplyRoundedClip SizeChanged failed: {ex.Message}"); }
+            };
         }
         catch (Exception ex)
         {
             AppLog.Log($"ApplyRoundedClip failed: {ex.Message}");
         }
+    }
+
+    private static void SyncClipBounds(Microsoft.UI.Composition.RectangleClip clip, FrameworkElement pane)
+    {
+        clip.Left = 0f;
+        clip.Top = 0f;
+        clip.Right = (float)pane.ActualWidth;
+        clip.Bottom = (float)pane.ActualHeight;
     }
 
     /// <summary>
