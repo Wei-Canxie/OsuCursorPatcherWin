@@ -9,7 +9,7 @@ internal sealed class AppSettings
     private const double MinCursorWidth = 16.0;
     private const double MaxCursorWidth = 64.0;
 
-    public double CursorWidth { get; set; } = 30.0;
+    public double CursorWidth { get; set; } = 32.0;
     public bool AutoStart { get; set; }
     public bool TapSoundEnabled { get; set; } = true;
     public double TapSoundVolume { get; set; } = 1.0;
@@ -18,17 +18,17 @@ internal sealed class AppSettings
     public bool HoverSoundAsResizePrompt { get; set; }
 
     /// <summary>Theme mode: follow system, light, or dark.</summary>
-    public ThemeMode Theme { get; set; } = ThemeMode.FollowSystem;
+    public ThemeMode Theme { get; set; } = ThemeMode.Dark;
     /// <summary>Window content opacity. 0.3 – 1.0.</summary>
     public double WindowOpacity { get; set; } = 1.0;
     /// <summary>Background image file path. Empty = none.</summary>
-    public string BackgroundImagePath { get; set; } = "";
+    public string BackgroundImagePath { get; set; } = @"C:\Users\The_R\Desktop\Files\Downloads\1926c7b2-d369-4140-8a02-b7d1c28ae729.jpg";
     /// <summary>Background image opacity. 0.0 – 1.0.</summary>
-    public double BackgroundImageOpacity { get; set; } = 1.0;
+    public double BackgroundImageOpacity { get; set; } = 0.8;
     /// <summary>Background blur type: default (solid), Mica, Acrylic.</summary>
     public BlurMode BackgroundBlur { get; set; } = BlurMode.Default;
     /// <summary>Background blur radius in pixels. 0 – 255.</summary>
-    public int BackgroundBlurRadius { get; set; } = 128;
+    public int BackgroundBlurRadius { get; set; } = 8;
 
     public enum ThemeMode { FollowSystem, Light, Dark }
     public enum BlurMode { Default, Mica, Acrylic }

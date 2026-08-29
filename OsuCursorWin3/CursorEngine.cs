@@ -104,6 +104,12 @@ internal sealed class CursorEngine : IDisposable
     private double _perfTotalMs, _perfMouseMs, _perfAnimMs, _perfVisualMs, _perfTickMs;
     private double _perfNextLog;
 
+    // UIA hover detection (throttled; cross-process COM query is expensive)
+    private readonly Stopwatch _uiaThrottle = Stopwatch.StartNew();
+    private IntPtr _lastUiaWindow = IntPtr.Zero;
+    private IntPtr _lastUiaCursorHandle = IntPtr.Zero;
+    private bool _lastUiaClickable;
+
     public CursorEngine(AppSettings settings, GdiCursorOverlay overlay,
         TapSoundPlayer tapPlayer, TapSoundPlayer hoverPlayer)
     {
@@ -642,11 +648,65 @@ internal sealed class CursorEngine : IDisposable
 
     private bool IsHoverClickable()
     {
-        // Fast path: hand cursor detection via cursor handle is the primary
-        // mechanism (handled in UpdatePointerState). The UIA-based clickable
-        // detection is omitted in the WinUI 3 port as it requires WPF
-        // assemblies not available here.
-        return false;
+        // UIA.FromPoint is a cross-process COM query; it must NOT run on every
+        // mouse move. Only recompute when the window under the cursor changed,
+        // when the system cursor handle changed (the OS signals the hover
+        // context changed), or when a short throttle window has elapsed.
+        var window = NativeMethods.WindowFromPoint(_cursorPoint);
+        var contextChanged = window != _lastUiaWindow
+            || _lastUiaCursorHandle != _lastCursorHandle;
+        if (!contextChanged && _uiaThrottle.ElapsedMilliseconds < 25)
+        {
+            return _lastUiaClickable;
+        }
+
+        _lastUiaWindow = window;
+        _lastUiaCursorHandle = _lastCursorHandle;
+        _uiaThrottle.Restart();
+        _lastUiaClickable = ComputeHoverClickable(_cursorPoint);
+        return _lastUiaClickable;
+    }
+
+    private static bool ComputeHoverClickable(NativeMethods.POINT pt)
+    {
+        try
+        {
+            var element = System.Windows.Automation.AutomationElement.FromPoint(new System.Windows.Point(pt.X, pt.Y));
+            if (element is null)
+            {
+                return false;
+            }
+
+            if (!element.Current.IsEnabled)
+            {
+                return false;
+            }
+
+            var type = element.Current.ControlType;
+            if (type == System.Windows.Automation.ControlType.Button
+                || type == System.Windows.Automation.ControlType.CheckBox
+                || type == System.Windows.Automation.ControlType.RadioButton
+                || type == System.Windows.Automation.ControlType.ComboBox
+                || type == System.Windows.Automation.ControlType.ListItem
+                || type == System.Windows.Automation.ControlType.MenuItem
+                || type == System.Windows.Automation.ControlType.TabItem
+                || type == System.Windows.Automation.ControlType.Hyperlink
+                || type == System.Windows.Automation.ControlType.SplitButton
+                || type == System.Windows.Automation.ControlType.Spinner
+                || type == System.Windows.Automation.ControlType.DataItem)
+            {
+                return true;
+            }
+
+            // Many WPF/custom controls expose no specific ControlType (Custom);
+            // treat them as clickable only when they accept keyboard focus.
+            return type == System.Windows.Automation.ControlType.Custom && element.Current.IsKeyboardFocusable;
+        }
+        catch
+        {
+            // UIA provider failures (rare) degrade to "not clickable".
+            return false;
+        }
     }
 
     private void SetCursorVisible(bool visible)
