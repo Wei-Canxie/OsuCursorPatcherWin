@@ -5,12 +5,13 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI;
-using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Composition;
+using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using WinRT;
 using WinRT.Interop;
 using XamlBrush = Microsoft.UI.Xaml.Media.Brush;
 using XamlSolidColorBrush = Microsoft.UI.Xaml.Media.SolidColorBrush;
@@ -28,62 +29,13 @@ internal static class AppearanceManager
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
 
-    [DllImport("dwmapi.dll", SetLastError = true)]
-    private static extern int DwmGetWindowAttribute(IntPtr hwnd, DwmWindowAttribute attribute, out int pvAttribute, int cbAttribute);
-
-    [DllImport("dwmapi.dll", SetLastError = true)]
-    private static extern int DwmSetWindowAttribute(IntPtr hwnd, DwmWindowAttribute attribute, ref int pvAttribute, int cbAttribute);
-
-    [DllImport("dwmapi.dll", SetLastError = true)]
-    private static extern int DwmIsCompositionEnabled(ref int pfEnabled);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern int SetWindowCompositionAttribute(IntPtr hwnd, ref WindowCompositionAttributeData data);
-
     private const int GWL_EXSTYLE = -20;
     private const int WS_EX_LAYERED = 0x00080000;
     private const uint LWA_ALPHA = 0x00000002;
 
-    private enum DwmWindowAttribute
-    {
-        DWMWA_SYSTEMBACKDROP_TYPE = 38
-    }
-
-    private enum DwmSystemBackdropType
-    {
-        DWMSBT_NONE = 1,
-        DWMSBT_MAINWINDOW = 2,
-        DWMSBT_TRANSIENTWINDOW = 3
-    }
-
-    private enum WindowCompositionAttribute
-    {
-        WCA_ACCENT_POLICY = 19
-    }
-
-    private enum AccentState
-    {
-        ACCENT_DISABLED = 0,
-        ACCENT_ENABLE_BLURBEHIND = 3,
-        ACCENT_ENABLE_ACRYLICBLURBEHIND = 4
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct AccentPolicy
-    {
-        public AccentState AccentState;
-        public int AccentFlags;
-        public int GradientColor;
-        public int AnimationId;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct WindowCompositionAttributeData
-    {
-        public WindowCompositionAttribute Attribute;
-        public IntPtr Data;
-        public int SizeOfData;
-    }
+    private static MicaController? _micaController;
+    private static DesktopAcrylicController? _acrylicController;
+    private static SystemBackdropConfiguration? _backdropConfig;
 
     public static void ApplyAll(Window window, AppSettings settings)
     {
@@ -112,6 +64,7 @@ internal static class AppearanceManager
 
         if (settings.BackgroundBlur != AppSettings.BlurMode.Default)
         {
+            // Remove WS_EX_LAYERED when DWM glass is active
             if ((exStyle & WS_EX_LAYERED) != 0)
             {
                 SetWindowLong(hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_LAYERED);
@@ -143,12 +96,90 @@ internal static class AppearanceManager
 
         if (useBlur)
         {
+            if (TrySetCompositionBackdrop(window, settings))
+            {
+                AppLog.Log("WASDK 2.4 Composition backdrop applied");
+                return;
+            }
+
+            // Fallback to GDI+ Gaussian blur
+            AppLog.Log("Composition backdrop failed, falling back to GDI+ blur");
             ApplyBlurBackground(mainGrid, settings);
         }
         else
         {
+            ClearBackdrop();
             ApplySolidBackground(mainGrid, settings, applyBlur: false);
         }
+    }
+
+    private static bool TrySetCompositionBackdrop(Window window, AppSettings settings)
+    {
+        try
+        {
+            var backdropTarget = window.As<ICompositionSupportsSystemBackdrop>();
+            if (backdropTarget == null)
+            {
+                AppLog.Log("Window does not support ICompositionSupportsSystemBackdrop");
+                return false;
+            }
+
+            // Clean up previous controllers
+            ClearBackdrop();
+
+            // Create controller based on mode
+            if (settings.BackgroundBlur == AppSettings.BlurMode.Mica && MicaController.IsSupported())
+            {
+                _micaController = new MicaController { Kind = MicaKind.Base };
+                _backdropConfig = new SystemBackdropConfiguration
+                {
+                    IsInputActive = true,
+                    Theme = SystemBackdropTheme.Default
+                };
+
+                _micaController!.AddSystemBackdropTarget(backdropTarget);
+                _micaController!.SetSystemBackdropConfiguration(_backdropConfig);
+                AppLog.Log("MicaController applied");
+                return true;
+            }
+            else if (settings.BackgroundBlur == AppSettings.BlurMode.Acrylic && DesktopAcrylicController.IsSupported())
+            {
+                _acrylicController = new DesktopAcrylicController();
+                _backdropConfig = new SystemBackdropConfiguration
+                {
+                    IsInputActive = true,
+                    Theme = SystemBackdropTheme.Default
+                };
+
+                _acrylicController!.AddSystemBackdropTarget(backdropTarget);
+                _acrylicController!.SetSystemBackdropConfiguration(_backdropConfig);
+                AppLog.Log("DesktopAcrylicController applied");
+                return true;
+            }
+
+            AppLog.Log($"Controller not supported: Mica={MicaController.IsSupported()}, Acrylic={DesktopAcrylicController.IsSupported()}");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Log($"TrySetCompositionBackdrop failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    private static void ClearBackdrop()
+    {
+        if (_micaController != null)
+        {
+            try { _micaController.Dispose(); } catch { }
+            _micaController = null;
+        }
+        if (_acrylicController != null)
+        {
+            try { _acrylicController.Dispose(); } catch { }
+            _acrylicController = null;
+        }
+        _backdropConfig = null;
     }
 
     private static void ApplyBlurBackground(Grid mainGrid, AppSettings settings)
@@ -162,12 +193,7 @@ internal static class AppearanceManager
                 using var bitmap = new Bitmap(settings.BackgroundImagePath);
                 int radius = Math.Clamp(settings.BackgroundBlurRadius, 0, 255);
                 using var processed = ApplyGaussianBlur(bitmap, radius);
-
-                // Mica/Acrylic overlay tint
-                if (settings.BackgroundBlur != AppSettings.BlurMode.Default)
-                {
-                    ApplyOverlayTint(processed, settings.BackgroundBlur);
-                }
+                ApplyOverlayTint(processed, settings.BackgroundBlur);
 
                 var wb = new WriteableBitmap(processed.Width, processed.Height);
                 using (var destStream = wb.PixelBuffer.AsStream())
@@ -209,8 +235,8 @@ internal static class AppearanceManager
     {
         Color tintColor = mode switch
         {
-            AppSettings.BlurMode.Mica => Color.FromArgb(30, 240, 240, 240),     // Light warm gray
-            AppSettings.BlurMode.Acrylic => Color.FromArgb(60, 40, 40, 40),     // Dark semi-transparent
+            AppSettings.BlurMode.Mica => Color.FromArgb(30, 240, 240, 240),
+            AppSettings.BlurMode.Acrylic => Color.FromArgb(60, 40, 40, 40),
             _ => Color.Transparent
         };
 
@@ -219,65 +245,6 @@ internal static class AppearanceManager
         using var g = Graphics.FromImage(bitmap);
         using var brush = new SolidBrush(tintColor);
         g.FillRectangle(brush, 0, 0, bitmap.Width, bitmap.Height);
-    }
-
-    private static bool TryAccentPolicyBlur(IntPtr hwnd, AppSettings settings)
-    {
-        try
-        {
-            var accent = new AccentPolicy();
-            accent.AccentState = settings.BackgroundBlur switch
-            {
-                AppSettings.BlurMode.Acrylic => AccentState.ACCENT_ENABLE_ACRYLICBLURBEHIND,
-                AppSettings.BlurMode.Mica => AccentState.ACCENT_ENABLE_BLURBEHIND,
-                _ => AccentState.ACCENT_DISABLED
-            };
-
-            int alpha = Math.Clamp((int)(settings.BackgroundBlurRadius * 255.0 / 1024.0), 0, 255);
-            accent.GradientColor = (alpha << 24) | 0x00B0B0B0;
-            accent.AccentFlags = 0x20 | 0x40 | 0x80 | 0x100;
-
-            int accentSize = Marshal.SizeOf(accent);
-            IntPtr accentPtr = Marshal.AllocHGlobal(accentSize);
-            Marshal.StructureToPtr(accent, accentPtr, false);
-
-            var data = new WindowCompositionAttributeData
-            {
-                Attribute = WindowCompositionAttribute.WCA_ACCENT_POLICY,
-                Data = accentPtr,
-                SizeOfData = accentSize
-            };
-
-            int hr = SetWindowCompositionAttribute(hwnd, ref data);
-            Marshal.FreeHGlobal(accentPtr);
-            AppLog.Log($"AccentPolicy hr={hr}");
-            return hr == 0 || hr == 1;
-        }
-        catch (Exception ex)
-        {
-            AppLog.Log($"AccentPolicy error: {ex.Message}");
-            return false;
-        }
-    }
-
-    private static void DisableBlur(IntPtr hwnd)
-    {
-        var accent = new AccentPolicy { AccentState = AccentState.ACCENT_DISABLED };
-        int accentSize = Marshal.SizeOf(accent);
-        IntPtr accentPtr = Marshal.AllocHGlobal(accentSize);
-        Marshal.StructureToPtr(accent, accentPtr, false);
-
-        var data = new WindowCompositionAttributeData
-        {
-            Attribute = WindowCompositionAttribute.WCA_ACCENT_POLICY,
-            Data = accentPtr,
-            SizeOfData = accentSize
-        };
-        SetWindowCompositionAttribute(hwnd, ref data);
-        Marshal.FreeHGlobal(accentPtr);
-
-        int noneType = (int)DwmSystemBackdropType.DWMSBT_NONE;
-        DwmSetWindowAttribute(hwnd, DwmWindowAttribute.DWMWA_SYSTEMBACKDROP_TYPE, ref noneType, sizeof(int));
     }
 
     private static void ApplySolidBackground(Grid mainGrid, AppSettings settings, bool applyBlur)
@@ -289,7 +256,7 @@ internal static class AppearanceManager
             try
             {
                 using var bitmap = new Bitmap(settings.BackgroundImagePath);
-                using var processed = applyBlur ? ApplyGaussianBlur(bitmap, settings.BackgroundBlurRadius) : new Bitmap(bitmap);
+                var processed = applyBlur ? ApplyGaussianBlur(bitmap, Math.Clamp(settings.BackgroundBlurRadius, 0, 255)) : new Bitmap(bitmap);
                 var wb = new WriteableBitmap(processed.Width, processed.Height);
                 using (var destStream = wb.PixelBuffer.AsStream())
                 {
@@ -307,6 +274,7 @@ internal static class AppearanceManager
                     Stretch = Stretch.UniformToFill,
                     Opacity = Math.Clamp(settings.BackgroundImageOpacity, 0, 1)
                 };
+                if (applyBlur) processed.Dispose();
             }
             catch (Exception ex)
             {
@@ -354,7 +322,6 @@ internal static class AppearanceManager
         int height = source.Height;
         int stride = srcData.Stride;
 
-        // Separable Gaussian blur
         byte[] tempBytes = new byte[bytes];
         for (int y = 0; y < height; y++)
         {
@@ -435,5 +402,8 @@ internal static class AppearanceManager
         catch { return false; }
     }
 
-    public static void Cleanup() { }
+    public static void Cleanup()
+    {
+        ClearBackdrop();
+    }
 }

@@ -1,0 +1,3664 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark"><head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <link rel="canonical" href="https://www.nuget.org/packages/WinUIEssential.WinUI3/">
+
+    
+            <meta property="fb:app_id" content="235682883225736">
+        <meta name="twitter:card" content="summary">
+        <meta name="twitter:site" content="@nuget">
+        <meta property="og:title" content="WinUIEssential.WinUI3 1.7.2">
+        <meta property="og:type" content="nugetgallery:package">
+        <meta property="og:url" content="https://nuget.org/packages/WinUIEssential.WinUI3/">
+        <meta property="og:description" content="Essential helpers for developing WinUI(UWP)">
+        <meta property="og:determiner" content="a">
+        <meta property="og:image" content="https://api.nuget.org/v3-flatcontainer/winuiessential.winui3/1.7.2/icon">
+            <link rel="alternate" type="application/atom+xml" title="Subscribe to WinUIEssential.WinUI3 updates" href="/packages/WinUIEssential.WinUI3/atom.xml">
+
+    
+        <meta name="description" content="Essential helpers for developing WinUI(UWP)">
+
+
+    <title>
+        NuGet Gallery
+        | WinUIEssential.WinUI3 1.7.2
+    </title>
+
+    <link href="/favicon.ico" rel="shortcut icon" type="image/x-icon">
+        <link title="NuGet.org" type="application/opensearchdescription+xml" href="/opensearch.xml" rel="search">
+
+    <link href="/Content/gallery/css/site.min.css?v=1na5Q3HPVSkugniYsNxjmE134E1C4dpzFOT5rmDYA-E1" rel="stylesheet">
+
+    <link href="/Content/gallery/css/bootstrap.min.css" rel="stylesheet">
+
+
+    <script nonce="">
+        // Check the browser preferred color scheme
+        const prefersDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const defaultTheme = prefersDarkMode ? "dark" : "light";
+        const preferredTheme = localStorage.getItem("theme")
+
+        // Check if the localStorage item is set, if not set it to the system theme
+        if (!preferredTheme || !(preferredTheme === "dark" || preferredTheme === "light")) {
+            localStorage.setItem("theme", "system");
+        }
+
+        if (preferredTheme === "light" || preferredTheme === "dark") {
+            document.documentElement.setAttribute('data-theme', preferredTheme);
+        }
+        else {
+            document.documentElement.setAttribute('data-theme', defaultTheme);
+        }
+    </script>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    
+    
+    
+    
+                <script type="text/javascript">
+                var appInsights = window.appInsights || function (config) {
+                    function s(config) {
+                        t[config] = function () {
+                            var i = arguments;
+                            t.queue.push(function () { t[config].apply(t, i) })
+                        }
+                    }
+
+                    var t = { config: config }, r = document, f = window, e = "script", o = r.createElement(e), i, u;
+                    for (o.src = config.url || "//js.monitor.azure.com/scripts/a/ai.0.js", r.getElementsByTagName(e)[0].parentNode.appendChild(o), t.cookie = r.cookie, t.queue = [], i = ["Event", "Exception", "Metric", "PageView", "Trace"]; i.length;) s("track" + i.pop());
+                    return config.disableExceptionTracking || (i = "onerror", s("_" + i), u = f[i], f[i] = function (config, r, f, e, o) {
+                        var s = u && u(config, r, f, e, o);
+                        return s !== !0 && t["_" + i](config, r, f, e, o), s
+                    }), t
+                }({
+                    instrumentationKey: 'df3a36b9-dfba-401c-82ab-35690083be3e',
+                    samplingPercentage: 100
+                });
+
+                window.appInsights = appInsights;
+                appInsights.trackPageView();
+            </script><script src="//js.monitor.azure.com/scripts/a/ai.0.js"></script>
+
+</head>
+<body>
+    
+
+<div id="cookie-banner"></div>
+
+
+
+
+<nav class="navbar navbar-inverse" role="navigation">
+    <div class="container">
+        <div class="row">
+            <div class="col-sm-12 text-center">
+                <a href="#" id="skipToContent" class="showOnFocus" title="Skip To Content">Skip To Content</a>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a href="/" class="home-link">
+                        <div class="navbar-logo nuget-logo-image" alt="NuGet home" role="img" aria-label="NuGet Home" onerror="this.src='https://nuget.org/Content/gallery/img/logo-header-94x29.png'; this.onerror = null;"></div>
+                    </a>
+                </div>
+                <div id="navbar" class="navbar-collapse collapse">
+                    <ul class="nav navbar-nav">
+                            <li class="active">
+        <a name="Packages" aria-current="page" href="/packages" title="" class="link-to-add-local-search-filters">
+            <span>Packages</span>
+        </a>
+    </li>
+
+                            <li class="">
+        <a name="Upload" href="/packages/manage/upload" title="" class="">
+            <span>Upload</span>
+        </a>
+    </li>
+
+    <li class="">
+        <a name="Statistics" href="/stats" title="" class="">
+            <span>Statistics</span>
+        </a>
+    </li>
+                                                    <li class="">
+        <a name="Documentation" href="https://docs.microsoft.com/nuget/" title="" class="">
+            <span>Documentation</span>
+        </a>
+    </li>
+
+                            <li class="">
+        <a name="Downloads" href="/downloads" title="" class="">
+            <span>Downloads</span>
+        </a>
+    </li>
+
+                            <li class="">
+        <a name="Blog" href="https://blog.nuget.org/" title="" class="">
+            <span>Blog</span>
+        </a>
+    </li>
+
+                    </ul>
+                        <ul class="nav navbar-nav navbar-right">
+    <li class="">
+        <a name="Sign in" href="/users/account/LogOn?returnUrl=%2Fpackages%2FWinUIEssential.WinUI3%2F" title="Sign in to an existing NuGet.org account" class="">
+            <span>Sign in</span>
+        </a>
+    </li>
+                        </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <div id="search-bar-header" class="container search-container">
+            <div class="row">
+                <form aria-label="Package search bar" class="col-sm-12" id="form-to-add-local-search-filters" action="/packages" method="get">
+                    <div class="input-group">
+    <input name="q" type="text" class="form-control input-brand" id="search" aria-label="Enter packages to search" placeholder="Search for packages..." autocomplete="off" value="">
+    <span class="input-group-btn">
+        <button class="btn btn-brand btn-search" type="submit" title="Search for packages" aria-label="Search">
+            <span class="ms-Icon ms-Icon--Search" aria-hidden="true"></span>
+        </button>
+    </span>
+</div>
+                    <div id="autocomplete-results-container" class="text-left" tabindex="0"></div>
+
+<script type="text/html" id="autocomplete-results-row">
+    <!-- ko if: $data -->
+    <!-- ko if: $data.PackageRegistration -->
+    <div class="col-sm-4 autocomplete-row-id autocomplete-row-data">
+        <span data-bind="attr: { id: 'autocomplete-result-id-' + $data.PackageRegistration.Id, title: $data.PackageRegistration.Id }, text: $data.PackageRegistration.Id"></span>
+    </div>
+    <div class="col-sm-4 autocomplete-row-downloadcount text-right autocomplete-row-data">
+        <span data-bind="text: $data.DownloadCount + ' downloads'"></span>
+    </div>
+    <div class="col-sm-4 autocomplete-row-owners text-left autocomplete-row-data">
+        <span data-bind="text: $data.OwnersString + ' '"></span>
+    </div>
+    <!-- /ko -->
+    <!-- ko ifnot: $data.PackageRegistration -->
+    <div class="col-sm-12 autocomplete-row-id autocomplete-row-data">
+        <span data-bind="attr: { id: 'autocomplete-result-id-' + $data, title: $data  }, text: $data"></span>
+    </div>
+    <!-- /ko -->
+    <!-- /ko -->
+</script>
+
+<script type="text/html" id="autocomplete-results-template">
+    <!-- ko if: $data.data.length > 0 -->
+    <div data-bind="foreach: $data.data" id="autocomplete-results-list">
+        <a data-bind="attr: { id: 'autocomplete-result-row-' + $data, href: '/packages/' + $data, title: $data }" tabindex="-1">
+            <div data-bind="attr:{ id: 'autocomplete-container-' + $data }" class="autocomplete-results-row">
+            </div>
+        </a>
+    </div>
+    <!-- /ko -->
+</script>
+
+                </form>
+            </div>
+        </div>
+</nav>
+
+
+
+
+
+
+    <div id="skippedToContent">
+    ﻿
+
+
+
+
+
+
+
+
+
+
+<section role="main" class="container main-container page-package-details">
+    <div class="row">
+        <div class="col-sm-9 package-details-main">
+            <div class="package-header">
+                    <div class="package-title">
+                        <h1>
+                            <span class="pull-left">
+                                <img class="package-icon img-responsive" aria-hidden="true" alt="" src="https://api.nuget.org/v3-flatcontainer/winuiessential.winui3/1.7.2/icon" onerror="this.src='https://nuget.org/Content/gallery/img/default-package-icon-256x256.png'; this.onerror = null;">
+                            </span>
+                            <span class="title">
+                                WinUIEssential.<wbr>WinUI3
+                            </span>
+                            <span class="version-title">
+                                1.7.2
+                            </span>
+                        </h1>
+
+                    </div>
+
+
+
+
+
+
+<div class="framework framework-badges">
+            </div>
+
+
+
+
+
+
+
+
+
+                    <div class="install-tabs">
+                        <ul class="nav nav-tabs" role="tablist">
+
+    <li role="presentation" class="active">
+        <a href="#dotnet-cli" id="dotnet-cli-tab" class="package-manager-tab" aria-selected="true" tabindex="0" aria-controls="dotnet-cli" role="tab" data-toggle="tab" title="Switch to tab panel which contains package installation command for .NET CLI">
+            .NET CLI
+        </a>
+    </li>
+    <li role="presentation" class="">
+        <a href="#package-manager" id="package-manager-tab" class="package-manager-tab" aria-selected="false" tabindex="-1" aria-controls="package-manager" role="tab" data-toggle="tab" title="Switch to tab panel which contains package installation command for Package Manager Console">
+            PMC
+        </a>
+    </li>
+    <li role="presentation" class="">
+        <a href="#package-reference" id="package-reference-tab" class="package-manager-tab" aria-selected="false" tabindex="-1" aria-controls="package-reference" role="tab" data-toggle="tab" title="Switch to tab panel which contains package installation command for PackageReference">
+            PackageReference
+        </a>
+    </li>
+    <li role="presentation" class="">
+        <a href="#package-version" id="package-version-tab" class="package-manager-tab" aria-selected="false" tabindex="-1" aria-controls="package-version" role="tab" data-toggle="tab" title="Switch to tab panel which contains package installation command for Central Package Management">
+            CPM
+        </a>
+    </li>
+    <li role="presentation" class="">
+        <a href="#paket-cli" id="paket-cli-tab" class="package-manager-tab" aria-selected="false" tabindex="-1" aria-controls="paket-cli" role="tab" data-toggle="tab" title="Switch to tab panel which contains package installation command for Paket CLI">
+            Paket CLI
+        </a>
+    </li>
+    <li role="presentation" class="">
+        <a href="#script-interactive" id="script-interactive-tab" class="package-manager-tab" aria-selected="false" tabindex="-1" aria-controls="script-interactive" role="tab" data-toggle="tab" title="Switch to tab panel which contains package installation command for Script &amp; Interactive">
+            Script &amp; Interactive
+        </a>
+    </li>
+    <li role="presentation" class="">
+        <a href="#dotnet-run-file" id="dotnet-run-file-tab" class="package-manager-tab" aria-selected="false" tabindex="-1" aria-controls="dotnet-run-file" role="tab" data-toggle="tab" title="Switch to tab panel which contains package installation command for File-Based Apps">
+            File-Based Apps
+        </a>
+    </li>
+    <li role="presentation" class="">
+        <a href="#cake" id="cake-tab" class="package-manager-tab" aria-selected="false" tabindex="-1" aria-controls="cake" role="tab" data-toggle="tab" title="Switch to tab panel which contains package installation command for Cake">
+            Cake
+        </a>
+    </li>
+                        </ul>
+                        <div class="tab-content">
+
+    <div role="tabpanel" class="tab-pane active" id="dotnet-cli">
+            <div class="install-script-row">
+                
+                <pre class="install-script" id="dotnet-cli-0001-text"><span class="install-command-row">dotnet add package WinUIEssential.WinUI3 --version 1.7.2</span>
+                    <div class="copy-button">
+<button id="dotnet-cli-0001-button" class="btn btn-brand-icon" type="button" data-toggle="popover" data-placement="bottom" data-content="Copied." aria-label="Copy the .NET CLI command" role="button" data-original-title="" title="">
+                            <span class="ms-Icon ms-Icon--Copy" aria-hidden="true"></span>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                </pre>
+            </div>
+            </div>
+    <div role="tabpanel" class="tab-pane " id="package-manager">
+            <div class="install-script-row">
+                
+                <pre class="install-script" id="package-manager-0001-text"><span class="install-command-row">NuGet\Install-Package WinUIEssential.WinUI3 -Version 1.7.2</span>
+                    <div class="copy-button">
+<button id="package-manager-0001-button" class="btn btn-brand-icon" type="button" data-toggle="popover" data-placement="bottom" data-content="Copied." aria-label="Copy the PMC command" role="button" data-original-title="" title="">
+                            <span class="ms-Icon ms-Icon--Copy" aria-hidden="true"></span>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                </pre>
+            </div>
+            <div class="icon-text alert alert-brand-info">
+        <i class="ms-Icon ms-Icon--Info" aria-hidden="true"></i>
+        
+This command is intended to be used within the Package Manager Console in Visual Studio, as it uses the NuGet module's version of <a href="https://docs.microsoft.com/nuget/reference/ps-reference/ps-ref-install-package">Install-Package</a>.
+                    
+    </div>
+    </div>
+    <div role="tabpanel" class="tab-pane " id="package-reference">
+            <div class="install-script-row">
+                
+                <pre class="install-script" id="package-reference-0001-text"><span class="install-command-row">&lt;PackageReference Include="WinUIEssential.WinUI3" Version="1.7.2" /&gt;</span>
+                    <div class="copy-button">
+<button id="package-reference-0001-button" class="btn btn-brand-icon" type="button" data-toggle="popover" data-placement="bottom" data-content="Copied." aria-label="Copy the PackageReference XML node" role="button" data-original-title="" title="">
+                            <span class="ms-Icon ms-Icon--Copy" aria-hidden="true"></span>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                </pre>
+            </div>
+            <div class="icon-text alert alert-brand-info">
+        <i class="ms-Icon ms-Icon--Info" aria-hidden="true"></i>
+        
+For projects that support <a href="https://docs.microsoft.com/nuget/consume-packages/package-references-in-project-files">PackageReference</a>, copy this XML node into the project file to reference the package.
+                    
+    </div>
+    </div>
+    <div role="tabpanel" class="tab-pane " id="package-version">
+            <div class="install-script-row">
+                
+                <pre class="install-script" id="package-version-0001-text"><span class="install-command-row">&lt;PackageVersion Include="WinUIEssential.WinUI3" Version="1.7.2" /&gt;</span>
+                    <div class="copy-button">
+<span class="package-manager-command-header">
+                            Directory.Packages.props
+                        </span>
+<button id="package-version-0001-button" class="btn btn-brand-icon" type="button" data-toggle="popover" data-placement="bottom" data-content="Copied." aria-label="Copy the PackageVersion XML node" role="button" data-original-title="" title="">
+                            <span class="ms-Icon ms-Icon--Copy" aria-hidden="true"></span>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                </pre>
+            </div>
+            <div class="install-script-row">
+                
+                <pre class="install-script" id="package-version-0002-text"><span class="install-command-row">&lt;PackageReference Include="WinUIEssential.WinUI3" /&gt;</span>
+                    <div class="copy-button">
+<span class="package-manager-command-header">
+                            Project file
+                        </span>
+<button id="package-version-0002-button" class="btn btn-brand-icon" type="button" data-toggle="popover" data-placement="bottom" data-content="Copied." aria-label="Copy the PackageVersion XML node" role="button" data-original-title="" title="">
+                            <span class="ms-Icon ms-Icon--Copy" aria-hidden="true"></span>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                </pre>
+            </div>
+            <div class="icon-text alert alert-brand-info">
+        <i class="ms-Icon ms-Icon--Info" aria-hidden="true"></i>
+        
+For projects that support <a href="https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management">Central Package Management (CPM)</a>, copy this XML node into the solution Directory.Packages.props file to version the package.
+                    
+    </div>
+    </div>
+    <div role="tabpanel" class="tab-pane " id="paket-cli">
+            <div class="install-script-row">
+                
+                <pre class="install-script" id="paket-cli-0001-text"><span class="install-command-row">paket add WinUIEssential.WinUI3 --version 1.7.2</span>
+                    <div class="copy-button">
+<button id="paket-cli-0001-button" class="btn btn-brand-icon" type="button" data-toggle="popover" data-placement="bottom" data-content="Copied." aria-label="Copy the Paket CLI command" role="button" data-original-title="" title="">
+                            <span class="ms-Icon ms-Icon--Copy" aria-hidden="true"></span>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                </pre>
+            </div>
+            <div class="icon-text alert alert-brand-warning" role="alert" aria-live="assertive">
+        <i class="ms-Icon ms-Icon--Warning" aria-hidden="true"></i>
+        
+<b display="none" aria-label="warning" role="alert"></b> The NuGet Team does not provide support for this client. Please contact its <a href="https://fsprojects.github.io/Paket/contact.html" aria-label="Contact the maintainers of the Paket CLI client">maintainers</a> for support.
+                    
+    </div>
+    </div>
+    <div role="tabpanel" class="tab-pane " id="script-interactive">
+            <div class="install-script-row">
+                
+                <pre class="install-script" id="script-interactive-0001-text"><span class="install-command-row">#r "nuget: WinUIEssential.WinUI3, 1.7.2"</span>
+                    <div class="copy-button">
+<button id="script-interactive-0001-button" class="btn btn-brand-icon" type="button" data-toggle="popover" data-placement="bottom" data-content="Copied." aria-label="Copy the Script &amp; Interactive command" role="button" data-original-title="" title="">
+                            <span class="ms-Icon ms-Icon--Copy" aria-hidden="true"></span>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                </pre>
+            </div>
+            <div class="icon-text alert alert-brand-info">
+        <i class="ms-Icon ms-Icon--Info" aria-hidden="true"></i>
+        
+#r directive can be used in F# Interactive and Polyglot Notebooks. Copy this into the interactive tool or source code of the script to reference the package.
+                    
+    </div>
+    </div>
+    <div role="tabpanel" class="tab-pane " id="dotnet-run-file">
+            <div class="install-script-row">
+                
+                <pre class="install-script" id="dotnet-run-file-0001-text"><span class="install-command-row">#:package WinUIEssential.WinUI3@1.7.2</span>
+                    <div class="copy-button">
+<button id="dotnet-run-file-0001-button" class="btn btn-brand-icon" type="button" data-toggle="popover" data-placement="bottom" data-content="Copied." aria-label="Copy the File-Based Apps command" role="button" data-original-title="" title="">
+                            <span class="ms-Icon ms-Icon--Copy" aria-hidden="true"></span>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                </pre>
+            </div>
+            <div class="icon-text alert alert-brand-info">
+        <i class="ms-Icon ms-Icon--Info" aria-hidden="true"></i>
+        
+#:package directive can be used in C# file-based apps starting in .NET 10 preview 4. Copy this into a .cs file before any lines of code to reference the package.
+                    
+    </div>
+    </div>
+    <div role="tabpanel" class="tab-pane " id="cake">
+            <div class="install-script-row">
+                
+                <pre class="install-script" id="cake-0001-text"><span class="install-command-row">#addin nuget:?package=WinUIEssential.WinUI3&amp;version=1.7.2</span>
+                    <div class="copy-button">
+<span class="package-manager-command-header">
+                            Install as a Cake Addin
+                        </span>
+<button id="cake-0001-button" class="btn btn-brand-icon" type="button" data-toggle="popover" data-placement="bottom" data-content="Copied." aria-label="Copy the Cake command" role="button" data-original-title="" title="">
+                            <span class="ms-Icon ms-Icon--Copy" aria-hidden="true"></span>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                </pre>
+            </div>
+            <div class="install-script-row">
+                
+                <pre class="install-script" id="cake-0002-text"><span class="install-command-row">#tool nuget:?package=WinUIEssential.WinUI3&amp;version=1.7.2</span>
+                    <div class="copy-button">
+<span class="package-manager-command-header">
+                            Install as a Cake Tool
+                        </span>
+<button id="cake-0002-button" class="btn btn-brand-icon" type="button" data-toggle="popover" data-placement="bottom" data-content="Copied." aria-label="Copy the Cake command" role="button" data-original-title="" title="">
+                            <span class="ms-Icon ms-Icon--Copy" aria-hidden="true"></span>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                </pre>
+            </div>
+            <div class="icon-text alert alert-brand-warning" role="alert" aria-live="assertive">
+        <i class="ms-Icon ms-Icon--Warning" aria-hidden="true"></i>
+        
+<b display="none" aria-label="warning" role="alert"></b> The NuGet Team does not provide support for this client. Please contact its <a href="https://cakebuild.net/support/nuget" aria-label="Contact the maintainers of the Cake client">maintainers</a> for support.
+                    
+    </div>
+    </div>
+                        </div>
+                    </div>
+            </div>
+
+            <div class="body-tabs">
+                <ul class="nav nav-tabs" role="tablist">
+
+                        <li role="presentation" class="active" id="show-readme-container">
+                            <a href="#readme-body-tab" role="tab" data-toggle="tab" data-target="#readme-tab" id="readme-body-tab" class="body-tab" aria-controls="readme-tab" aria-selected="true" tabindex="0">
+                                    <i class="ms-Icon ms-Icon--Dictionary" aria-hidden="true"></i>
+                                README
+                            </a>
+                        </li>
+                        <li role="presentation" id="show-supportedframeworks-container">
+                            <a href="#supportedframeworks-body-tab" role="tab" data-toggle="tab" data-target="#supportedframeworks-tab" id="supportedframeworks-body-tab" class="body-tab" aria-controls="supportedframeworks-tab" aria-selected="false" tabindex="-1">
+                                <i class="ms-Icon ms-Icon--Package" aria-hidden="true"></i>
+                                Frameworks
+                            </a>
+                        </li>
+                        <li role="presentation">
+                            <a href="#dependencies-body-tab" role="tab" data-toggle="tab" data-target="#dependencies-tab" id="dependencies-body-tab" class="body-tab" aria-controls="dependencies-tab" aria-selected="false" tabindex="-1">
+                                <i class="ms-Icon ms-Icon--Packages" aria-hidden="true"></i>
+                                Dependencies
+                            </a>
+                        </li>
+
+                        <li role="presentation">
+                            <a href="#usedby-body-tab" role="tab" data-toggle="tab" data-target="#usedby-tab" id="usedby-body-tab" class="body-tab" aria-controls="usedby-tab" aria-selected="false" tabindex="-1">
+                                <i class="ms-Icon ms-Icon--BranchFork2" aria-hidden="true"></i>
+                                Used By
+                            </a>
+                        </li>
+
+
+                    <li role="presentation">
+                        <a href="#versions-body-tab" role="tab" data-toggle="tab" data-target="#versions-tab" id="versions-body-tab" class="body-tab" aria-controls="versions-tab" aria-selected="false" tabindex="-1">
+                            <i class="ms-Icon ms-Icon--Stopwatch" aria-hidden="true"></i>
+                            Versions
+                        </a>
+                    </li>
+
+                </ul>
+            </div>
+
+            <div class="tab-content body-tab-content">
+                    <div role="tabpanel" class="tab-pane active" id="readme-tab" aria-label="Readme tab content">
+                            <div class="readme-common">
+                                <div id="readme-container">
+
+
+                                    <p><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></p>
+<h2 id="winui-essentials">WinUI Essentials</h2>
+<p>A repo dedicated for simplifying C++ development with WinUI2 (Universal Windows Platform) and WinUI3 (Windows App SDK).</p>
+<h3 id="nuget">Nuget</h3>
+<p>For UWP: <a href="https://www.nuget.org/packages/WinUIEssential.UWP" rel="noopener noreferrer nofollow"><img src="https://img.shields.io/nuget/v/WinUIEssential.UWP?label=WinUIEssential.UWP" class="img-fluid" alt="alternate text is missing from this package README image"></a></p>
+<p>For WinUI3 (Windows App SDK): <a href="https://www.nuget.org/packages/WinUIEssential.WinUI3" rel="noopener noreferrer nofollow"><img src="https://img.shields.io/nuget/v/WinUIEssential.WinUI3?label=WinUIEssential.WinUI3" class="img-fluid" alt="alternate text is missing from this package README image"></a></p>
+<p>UWP Svg: <a href="https://www.nuget.org/packages/WinUIEssential.UWP.Svg" rel="noopener noreferrer nofollow"><img src="https://img.shields.io/nuget/v/WinUIEssential.UWP.Svg?label=WinUIEssential.UWP.Svg" class="img-fluid" alt="alternate text is missing from this package README image"></a></p>
+<p>WinUI3 Svg: <a href="https://www.nuget.org/packages/WinUIEssential.WinUI3.Svg" rel="noopener noreferrer nofollow"><img src="https://img.shields.io/nuget/v/WinUIEssential.WinUI3.Svg?label=WinUIEssential.WinUI3.Svg" class="img-fluid" alt="alternate text is missing from this package README image"></a></p>
+<h3 id="example-gallery">Example Gallery</h3>
+<h4 id="winui3">WinUI3</h4>
+<p><a href="https://apps.microsoft.com/detail/9PCC690BCMT9" rel="noopener noreferrer nofollow">Download from Microsoft Store!</a></p>
+<p>&lt;a href="https://get.microsoft.com/installer/download/9pcc690bcmt9?referrer=appbadge" target="_self" &gt;
+&lt;img src="https://get.microsoft.com/images/en-us%20light.svg" width="200"/&gt;
+&lt;/a&gt;</p>
+<h4 id="uwp">UWP</h4>
+<p><a href="https://apps.microsoft.com/detail/9pg350gp1tbf" rel="noopener noreferrer nofollow">Download from Microsoft Store!</a></p>
+<p>&lt;a href="https://get.microsoft.com/installer/download/9pg350gp1tbf?referrer=appbadge" target="_self" &gt;
+&lt;img src="https://get.microsoft.com/images/en-us%20light.svg" width="200"/&gt;
+&lt;/a&gt;</p>
+<hr>
+<p>Example project build status:</p>
+<table class="table">
+<thead>
+<tr>
+<th>Platform</th>
+<th>Debug</th>
+<th>Release</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>x86</td>
+<td><a href="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build-debug-x86.yml" rel="noopener noreferrer nofollow"><img src="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build-debug-x86.yml/badge.svg" class="img-fluid" alt="Build Debug x86"></a></td>
+<td><a href="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build-release-x86.yml" rel="noopener noreferrer nofollow"><img src="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build-release-x86.yml/badge.svg" class="img-fluid" alt="Build Release x86"></a></td>
+</tr>
+<tr>
+<td>x64</td>
+<td><a href="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build-debug-x64.yml" rel="noopener noreferrer nofollow"><img src="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build-debug-x64.yml/badge.svg" class="img-fluid" alt="Build Debug x64"></a></td>
+<td><a href="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build-release-x64.yml" rel="noopener noreferrer nofollow"><img src="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build-release-x64.yml/badge.svg" class="img-fluid" alt="Build Release x64"></a></td>
+</tr>
+<tr>
+<td><del>ARM</del></td>
+<td><del><a href="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build.yml" rel="noopener noreferrer nofollow"><img src="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build.yml/badge.svg?job=build%20(Debug_CI2,%20ARM)" class="img-fluid" alt="Build Debug ARM"></a></del></td>
+<td><del><a href="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build.yml" rel="noopener noreferrer nofollow"><img src="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build.yml/badge.svg?job=build%20(Release_CI2,%20ARM)" class="img-fluid" alt="Build Release ARM"></a></del></td>
+</tr>
+<tr>
+<td>ARM64</td>
+<td><a href="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build-debug-arm64.yml" rel="noopener noreferrer nofollow"><img src="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build-debug-arm64.yml/badge.svg" class="img-fluid" alt="Build Debug ARM64"></a></td>
+<td><a href="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build-release-arm64.yml" rel="noopener noreferrer nofollow"><img src="https://github.com/HO-COOH/WinUIEssentials/actions/workflows/build-release-arm64.yml/badge.svg" class="img-fluid" alt="Build Release ARM64"></a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="usage">Usage</h3>
+<div class="markdown-alert markdown-alert-note alert alert-primary">
+<p class="mb-0">Update since WinEssential.WinUI3 1.5, you do NOT need to add control resources in <code>Application.Resources</code>!</p>
+</div>
+<div class="markdown-alert markdown-alert-warning alert alert-warning">
+<p class="mb-0">Make sure to set your C++ language version to C++20 first!</p>
+</div>
+<p>Open the <code>WinUIEssential.sln</code> containing 4 projects:</p>
+<ul>
+<li>UWPPackage (project for WinUIEssential.UWP nuget package)</li>
+<li>UWPExample (example gallery for using the above package)</li>
+<li>WinUI3Package (project for WinUIEssential.WinUI3 nuget package)</li>
+<li>WinUI3Example (example gallery for using the above package)</li>
+</ul>
+<p>Build the <code>*Package</code> project will build the project and pack it with nuget, then install the nuget to your project and start using it.</p>
+<p>To build the <code>*Example</code> project, do the same thing. They did not reference <code>*Package</code> for demo purposes.</p>
+<div class="markdown-alert markdown-alert-note alert alert-primary">
+<p class="mb-0">Functionalities for UWP and WinUI3 should be exactly the same unless otherwise noted!</p>
+</div>
+<p>It should be useful until the <a href="https://github.com/CommunityToolkit/WindowsCommunityToolkit" rel="noopener noreferrer nofollow">community toolkit</a> provides C++.</p>
+<hr>
+<h3 id="build-and-contribute">Build and contribute</h3>
+<h4 id="build-requirements">Build requirements</h4>
+<ul>
+<li>You need to have <a href="https://vcpkg.io/en/" rel="noopener noreferrer nofollow">vcpkg</a> installed and integrate setup for msbuild. See <a href="https://learn.microsoft.com/en-us/vcpkg/get_started/get-started-msbuild?pivots=shell-powershell" rel="noopener noreferrer nofollow">this documentation for guide</a>.</li>
+<li>You need to have Visual Studio <strong>2026</strong> with <code>Desktop development with C++</code> and <code>WinUI Application development</code> workload installed. (2022 will NOT work, as we are using the <code>v145</code> C++ tools)</li>
+<li>You need to build both <code>Debug</code> and <code>Release</code> build to successfully build and debug the example project (<strong>this is intentional for not missing debug version of the package</strong>)</li>
+<li>
+<blockquote class="blockquote">
+<p>= Windows 10 17763 (Actually I mostly use Windows 10 17763 to ensure compatibility that WinUI3 claims to support)</p>
+</blockquote>
+</li>
+</ul>
+<p>You can reference Github Action for detailed build steps.</p>
+<h4 id="contribute-a-new-templated-control">Contribute a new templated control</h4>
+<ol start="0">
+<li><strong>DO NOT submit a PR that's purely AI written WITHOUT your reviewing.</strong> I will <strong>NOT</strong> review it.</li>
+<li>If it is a templated control, create a control with the <code>ViewModel</code> file template and a <code>ResourceDictionary</code> xaml file</li>
+<li>Add an entry in the <code>WinUIEssential.WinU3.targets</code> so that the <code>.xbf</code> file is properly copied (see that file for example)</li>
+<li>Please also consider adding a demo page for the control, and add it to <code>MainWindow.xaml.h</code> <code>MainWindow::s_page</code> (see the file for example)</li>
+</ol>
+<hr>
+<h3 id="content">Content</h3>
+<table class="table">
+<thead>
+<tr>
+<th>Component</th>
+<th>UWP</th>
+<th>WinUI3</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WinUIIncludes</td>
+<td>✅</td>
+<td>❌</td>
+<td>Header only</td>
+</tr>
+<tr>
+<td>TemplateControlHelper</td>
+<td>✅</td>
+<td>✅</td>
+<td>Header only</td>
+</tr>
+<tr>
+<td>BadgeGlyphs</td>
+<td>✅</td>
+<td>✅</td>
+<td>Header only</td>
+</tr>
+<tr>
+<td>ToastTemplates</td>
+<td>✅</td>
+<td>✅</td>
+<td>Header only</td>
+</tr>
+<tr>
+<td>ToastBuilder</td>
+<td>✅</td>
+<td>✅</td>
+<td>Header only</td>
+</tr>
+<tr>
+<td>TileTemplates</td>
+<td>✅</td>
+<td>✅</td>
+<td>Header only</td>
+</tr>
+<tr>
+<td>TileBuilder</td>
+<td>✅</td>
+<td>✅</td>
+<td>Header only</td>
+</tr>
+<tr>
+<td>CursorController</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>PropertyChangeHelper</td>
+<td>✅</td>
+<td>✅</td>
+<td>Header only</td>
+</tr>
+<tr>
+<td>NegateBoolConverter</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>BoolToVisibilityConverter</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>ContainerToBoolConverter</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>StringToBoolConverter</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>ReferenceToBoolConverter</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>ConverterGroup</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>Convert</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>IsEqualStringTrigger</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>IsNullOrEmptyStateTrigger</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>ControlSizeTrigger</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>CharmBar</td>
+<td>✅</td>
+<td>❌</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>GroupBox</td>
+<td>✅</td>
+<td>✅</td>
+<td>Control</td>
+</tr>
+<tr>
+<td>SettingsCard</td>
+<td>✅</td>
+<td>✅*</td>
+<td>Control</td>
+</tr>
+<tr>
+<td>SettingsExpander</td>
+<td>✅</td>
+<td>✅*</td>
+<td>Control</td>
+</tr>
+<tr>
+<td>FontIconExtension</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>DependentValue</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>Taskbar</td>
+<td>❌</td>
+<td>✅</td>
+<td>Header only</td>
+</tr>
+<tr>
+<td>MarqueeText</td>
+<td>✅</td>
+<td>✅</td>
+<td>Control</td>
+</tr>
+<tr>
+<td>ProgressBarEx</td>
+<td>✅</td>
+<td>✅</td>
+<td>Control</td>
+</tr>
+<tr>
+<td>WindowEx</td>
+<td>❌</td>
+<td>✅</td>
+<td>Window</td>
+</tr>
+<tr>
+<td>TransparentBackdrop</td>
+<td>❌</td>
+<td>✅</td>
+<td>SystemBackdrop</td>
+</tr>
+<tr>
+<td>Segmented</td>
+<td>✅</td>
+<td>✅</td>
+<td>Control</td>
+</tr>
+<tr>
+<td>CustomMicaBackdrop</td>
+<td>❌</td>
+<td>✅</td>
+<td>Backdrop</td>
+</tr>
+<tr>
+<td>CustomAcrylicBackdrop</td>
+<td>❌</td>
+<td>✅</td>
+<td>Backdrop</td>
+</tr>
+<tr>
+<td>Shimmer</td>
+<td>✅</td>
+<td>✅</td>
+<td>Control</td>
+</tr>
+<tr>
+<td>ImageExtension</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>SwitchPresenter</td>
+<td>✅</td>
+<td>✅</td>
+<td>Control</td>
+</tr>
+<tr>
+<td>ModernStandardWindowContextMenu</td>
+<td>❌</td>
+<td>* ✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>WindowContextMenu</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>NonResizableWindowWhiteBorderWorkaround</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>ComboBoxHelper</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>AutoSuggestBoxHelper</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>WrapPanel</td>
+<td>✅</td>
+<td>✅</td>
+<td>Panel</td>
+</tr>
+<tr>
+<td>ToolTipHelper</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>CommandBarHelper</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>IInitializeWithWindowHelper</td>
+<td>❌</td>
+<td>✅</td>
+<td>Header only</td>
+</tr>
+<tr>
+<td>WindowCaptionButtonThemeWorkaround</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>MicaBackdropWithFallback</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>NonMaximizableWindowWorkaround</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>DatePickerHelper</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>TimePickerHelper</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>FlyoutHelper</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>CalendarDatePickerHelper</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>ModalWindow</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>NavigationViewHelper</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>SliderHelper</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>RevealFocusPanel</td>
+<td>❌</td>
+<td>✅</td>
+<td>Control</td>
+</tr>
+<tr>
+<td>TenMica</td>
+<td>❌</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>WindowedContentDialog</td>
+<td>❌</td>
+<td>✅</td>
+<td>Control</td>
+</tr>
+<tr>
+<td>SvgImageSource</td>
+<td>✅</td>
+<td>✅</td>
+<td>WinRT component</td>
+</tr>
+<tr>
+<td>WebView</td>
+<td>❌</td>
+<td>✅</td>
+<td>Control</td>
+</tr>
+<tr>
+<td>Table</td>
+<td>✅</td>
+<td>✅</td>
+<td>Control</td>
+</tr>
+<tr>
+<td>TypeName</td>
+<td>✅</td>
+<td>✅</td>
+<td>MarkupExtension</td>
+</tr>
+<tr>
+<td>StringResource</td>
+<td>❌</td>
+<td>✅</td>
+<td>MarkupExtension</td>
+</tr>
+</tbody>
+</table>
+<p>*means additional settings required, see the sections for info</p>
+<hr>
+<h3 id="winuiincludes">WinUIIncludes</h3>
+<p>Include the WinUI2 headers in your <code>pch.h</code>, so you don't waste your time figuring out where the compilation error comming from./</p>
+<p>Usage:
+Add this in your <code>pch.h</code></p>
+<pre><code class="language-cpp hljs"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;WinUIIncludes.hpp&gt;</span></span>
+</code></pre>
+<h3 id="templatecontrolhelper">TemplateControlHelper</h3>
+<p>Automatically call <code>DefaultStyleKey()</code> for your templated control so you don't waste your time when you forget to include this line and get an empty control.</p>
+<p>Usage: Inherit this class in your header file, make the template argument your <strong>implementation type</strong>.</p>
+<pre><code class="language-cpp hljs"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;TemplateControlHelper.hpp&gt;</span></span>
+...
+<span class="hljs-keyword">struct</span> <span class="hljs-title class_">MyControl</span> : MyControlT&lt;MyControl&gt;, TemplateControlHelper&lt;MyControl&gt;
+{
+    ...
+};
+</code></pre>
+<h3 id="toasthelper">ToastHelper</h3>
+<p>Helper for creating toast notifications.</p>
+<h4 id="toasttemplates-----namespace-toasttemplates">ToastTemplates --- <em>namespace <code>ToastTemplates</code></em></h4>
+<p>The <a href="https://learn.microsoft.com/en-us/uwp/api/windows.ui.notifications.toasttemplatetype?view=winrt-22621" rel="noopener noreferrer nofollow">built-in templates</a> re-written to strongly-typed classes that derived from <code>winrt::Windows::UI::Notification::ToastNotification</code>, so that you can directly use them as arguments for<code>winrt::Windows::UI::Notifications::ToastNotificationManager</code>. Example usage:</p>
+<pre><code class="language-cpp hljs"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;ToastTemplates.hpp&gt;</span></span>
+winrt::Windows::UI::Notifications::ToastNotificationManager::<span class="hljs-built_in">CreateToastNotifier</span>()
+    .<span class="hljs-built_in">Show</span>(ToastTemplates::ImageWithHeaderAndBody{ <span class="hljs-string">L"ms-appx:///Assets/Windows 11.png"</span>, <span class="hljs-string">L"Header"</span>, <span class="hljs-string">L"body"</span> });
+<span class="hljs-comment">//alternatively use Microsoft's template name</span>
+winrt::Windows::UI::Notifications::ToastNotificationManager::<span class="hljs-built_in">CreateToastNotifier</span>()
+    .<span class="hljs-built_in">Show</span>(ToastTemplates::ToastImageAndText02{ <span class="hljs-string">L"ms-appx:///Assets/Windows 11.png"</span>, <span class="hljs-string">L"Header"</span>, <span class="hljs-string">L"body"</span> });
+</code></pre>
+<table class="table">
+<thead>
+<tr>
+<th>Type</th>
+<th>Template Name(which can also be used as type)</th>
+<th>Sample</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BodyTextOnly</code></td>
+<td><code>ToastText01</code></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+<tr>
+<td><code>SingleLineHeaderWithBody</code></td>
+<td><code>ToastText02</code></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+<tr>
+<td><code>TwoLineHeaderWithBody</code></td>
+<td><code>ToastText03</code></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+<tr>
+<td><code>HeaderWithTwoSingleLineBody</code></td>
+<td><code>ToastText04</code></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+<tr>
+<td><code>ImageWithBodyOnly</code></td>
+<td><code>ToastImageAndText01</code></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+<tr>
+<td><code>ImageWithHeaderAndBody</code></td>
+<td><code>ToastImageAndText02</code></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+<tr>
+<td><code>ImageWithTwoLineHeaderAndBody</code></td>
+<td><code>ToastImageAndText03</code></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+<tr>
+<td><code>ImageWithHeaderAndTwoSingleLineBody</code></td>
+<td><code>ToastImageAndText04</code></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h4 id="toastbuilder-----namespace-toastbuilder">ToastBuilder --- <em>namespace <code>ToastBuilder</code></em></h4>
+<p>Strongly-typed, declarative toast notification elements to quickly build toast notifications, as if you are writing XAML. <a href="https://learn.microsoft.com/en-us/uwp/schemas/tiles/toastschema/root-elements" rel="noopener noreferrer nofollow">Schema here.</a>
+Example usage:
+&lt;table&gt;
+&lt;tr&gt;
+&lt;td&gt;XML&lt;/td&gt; &lt;td&gt;C++&lt;/td&gt;
+&lt;tr&gt;
+&lt;tr&gt;
+&lt;td&gt;</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">toast</span> <span class="hljs-attr">duration</span>=<span class="hljs-string">"long"</span> <span class="hljs-attr">scenario</span>=<span class="hljs-string">"reminder"</span> <span class="hljs-attr">useButtonStyle</span>=<span class="hljs-string">"true"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">visual</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">binding</span> <span class="hljs-attr">template</span>=<span class="hljs-string">"ToastText04"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">text</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"1"</span>&gt;</span>headline<span class="hljs-tag">&lt;/<span class="hljs-name">text</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">text</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"2"</span>&gt;</span>body text1<span class="hljs-tag">&lt;/<span class="hljs-name">text</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">text</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"3"</span>&gt;</span>body text2<span class="hljs-tag">&lt;/<span class="hljs-name">text</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">binding</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">visual</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">actions</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">action</span> <span class="hljs-attr">content</span>=<span class="hljs-string">"Accept"</span> <span class="hljs-attr">arguments</span>=<span class="hljs-string">"accept"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">actions</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">toast</span>&gt;</span>
+</code></pre>
+<p>&lt;/td&gt;
+&lt;td&gt;</p>
+<pre><code class="language-cpp hljs"><span class="hljs-built_in">Toast</span>().<span class="hljs-built_in">Duration</span>(Long).<span class="hljs-built_in">Scenario</span>(Reminder).<span class="hljs-built_in">UseButtonStyle</span>(<span class="hljs-literal">true</span>)
+(
+    <span class="hljs-built_in">Visual</span>()
+    (
+        <span class="hljs-built_in">Binding</span>().<span class="hljs-built_in">Template</span>(<span class="hljs-string">L"ToastText04"</span>)
+        (
+            <span class="hljs-built_in">Text</span>().<span class="hljs-built_in">Id</span>(<span class="hljs-number">1</span>)(<span class="hljs-string">L"headline"</span>),
+            <span class="hljs-built_in">Text</span>().<span class="hljs-built_in">Id</span>(<span class="hljs-number">2</span>)(<span class="hljs-string">L"body text1"</span>),
+            <span class="hljs-built_in">Text</span>().<span class="hljs-built_in">Id</span>(<span class="hljs-number">3</span>)(<span class="hljs-string">L"body text2"</span>)
+        )
+    ),
+    <span class="hljs-built_in">Actions</span>()
+    (
+        <span class="hljs-built_in">Action</span>().<span class="hljs-built_in">Content</span>(<span class="hljs-string">L"Accept"</span>).<span class="hljs-built_in">Arguments</span>(<span class="hljs-string">L"accept"</span>)
+    )
+)
+</code></pre>
+<p>&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;</p>
+<p><code>&lt;tag&gt;...content...&lt;/tag&gt;</code></p>
+<p>&lt;/td&gt;
+&lt;td&gt;</p>
+<p><code>Tag()(...content...)</code></p>
+<p>&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;</p>
+<p><code>attribute="value"</code></p>
+<p>&lt;/td&gt;
+&lt;td&gt;</p>
+<p><code>.Attribute(value)</code></p>
+<p>&lt;/td&gt;
+&lt;/tr&gt;
+&lt;table&gt;</p>
+<p>Optionally add a handler to <code>Action</code> so you can handle toast notification button click right on site. For more info, see the comment documentation.</p>
+<pre><code class="language-cpp hljs"><span class="hljs-built_in">Actions</span>()
+(
+    <span class="hljs-built_in">Action</span>().<span class="hljs-built_in">Content</span>(<span class="hljs-string">L"Accept"</span>).<span class="hljs-built_in">Arguments</span>(<span class="hljs-string">L"accept"</span>)
+    .<span class="hljs-built_in">Click</span>([<span class="hljs-keyword">this</span>](winrt::Windows::ApplicationModel::Activation::ToastNotificationActivatedEventArgs args)
+    {
+        <span class="hljs-comment">//Handle Accept button</span>
+    }),
+    <span class="hljs-built_in">Action</span>().<span class="hljs-built_in">Content</span>(<span class="hljs-string">L"Cancel"</span>).<span class="hljs-built_in">Arguments</span>(<span class="hljs-string">L"cancel"</span>)
+    .<span class="hljs-built_in">Click</span>([<span class="hljs-keyword">this</span>](winrt::Windows::ApplicationModel::Activation::ToastNotificationActivatedEventArgs args)
+    {
+        <span class="hljs-comment">//Handle Cancel button</span>
+    })
+)
+</code></pre>
+<h3 id="tiletemplates-----namespace-tiletemplates">TileTemplates --- <em>namespace <code>TileTemplates</code></em></h3>
+<p>Similar to <a href="#ToastHelper" rel="noopener noreferrer nofollow">ToastTemplates</a>, but for strongly-typed tile templates.</p>
+<h3 id="tilebuilder-----namespace-tilebuilder">TileBuilder --- <em>namespace <code>TileBuilder</code></em></h3>
+<p>Similar to <a href="#ToastHelper" rel="noopener noreferrer nofollow">ToastBuilder</a>, but for building tiles.</p>
+<h3 id="glphys-----namespace-glyphs">Glphys --- <em>namespace <code>Glyphs</code></em></h3>
+<p>Font glyphs value for Segoe MDL2 Assets fonts. Usage:</p>
+<pre><code class="language-cpp hljs"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;Glyphs.hpp&gt;</span></span>
+<span class="hljs-built_in">FontIcon</span>().<span class="hljs-built_in">Glyph</span>(Glyphs::GlobalNavButton);
+</code></pre>
+<h3 id="cursorcontroller-----namespace-cursorcontroller">CursorController --- <em>namespace <code>CursorController</code></em></h3>
+<p>Xaml helper for controlling the cursor type when mouse enters.
+Value for <code>Type</code> is <a href="https://learn.microsoft.com/en-us/uwp/api/windows.ui.core.corecursortype?view=winrt-22621" rel="noopener noreferrer nofollow">CoreCursorType enum</a>. Usage:</p>
+<pre><code class="language-xml hljs">xmlns:essential="using:WinUI3Package"
+...
+<span class="hljs-tag">&lt;<span class="hljs-name">Rectangle</span> <span class="hljs-attr">Fill</span>=<span class="hljs-string">"Red"</span> <span class="hljs-attr">essential:CursorController.Type</span>=<span class="hljs-string">"Hand"</span>/&gt;</span>
+</code></pre>
+<h3 id="propertychangehelper-----namespace-mvvmhelper">PropertyChangeHelper --- <em>namespace <code>MvvmHelper</code></em></h3>
+<p>Helper for <code>OneWay</code> binding.</p>
+<p>Usage:</p>
+<ol>
+<li>Inherit <code>Windows.UI.Xaml.Data.INotifyPropertyChanged</code> in <code>idl</code></li>
+</ol>
+<pre><code class="hljs language-kotlin">[default_interface]
+runtime<span class="hljs-keyword">class</span> <span class="hljs-title class_">MyPage</span> : <span class="hljs-type">Windows.UI.Xaml.Controls.Page</span>, <span class="hljs-type">Windows.UI.Xaml.Data.INotifyPropertyChanged</span>
+{
+    ...
+};
+</code></pre>
+<ol start="2">
+<li>Inherit from this class in the implementation class.</li>
+</ol>
+<pre><code class="language-cpp hljs"><span class="hljs-comment">/*MyPage.xaml.h*/</span>
+<span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;include/PropertyChangeHelper.hpp&gt;</span></span>
+
+<span class="hljs-keyword">namespace</span> winrt::&lt;MyProject&gt;::implementation
+{
+    <span class="hljs-keyword">struct</span> <span class="hljs-title class_">MyPage</span> : MyMusicT&lt;MyMusic&gt;, MvvmHelper::PropertyChangeHelper&lt;MyMusic&gt;
+    {
+        <span class="hljs-type">int</span> m_value;
+        <span class="hljs-function"><span class="hljs-type">void</span> <span class="hljs-title">Value</span><span class="hljs-params">(<span class="hljs-type">int</span> newValue)</span>
+        </span>{
+            <span class="hljs-built_in">compareAndRaise</span>(m_value, newValue, <span class="hljs-string">L"Value"</span>);
+        };
+    }
+}
+</code></pre>
+<h3 id="converters">Converters</h3>
+<ul>
+<li>bool → Visibility <em>namespace <code>BoolToVisibilityConverter</code></em></li>
+<li>bool negation <em>namespace <code>NegateBoolConverter</code></em></li>
+<li>container (IVector, IMap) → bool <em>namespace <code>ContainerToBoolConverter</code></em></li>
+<li>reference (any WinRT runtime type) → bool <em>namespace <code>ReferenceToBoolConverter</code></em></li>
+<li>String → bool <em>namespace <code>StringToBoolConverter</code></em></li>
+<li>ConverterGroups <em>namespace <code>ConverterGroups</code></em>:
+<ul>
+<li>define series of converters, that convert value from converter1 → converter2 → ...</li>
+<li>usage:</li>
+</ul>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">essential:ConverterGroup</span> <span class="hljs-attr">x:Key</span>=<span class="hljs-string">"StringToVisibilityConverter"</span>&gt;</span>
+     <span class="hljs-tag">&lt;<span class="hljs-name">essential:StringToBoolConverter</span>/&gt;</span>
+     <span class="hljs-tag">&lt;<span class="hljs-name">essential:BoolToVisibilityConverter</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">essential:ConverterGroup</span>&gt;</span>
+</code></pre>
+</li>
+</ul>
+<p>And most of the time when you are NOT using <code>ConverterGroup</code>, you should consider using the static functions in <code>Convert</code> class.
+All of the above converters have corresponding static functions in <code>Convert</code> that you can use with <code>x:Bind</code> directly. Here are the complete list.</p>
+<pre><code class="hljs language-scss">runtimeclass Convert 
+{
+    static Single <span class="hljs-built_in">DoubleToSingle</span>(Double value);
+    
+    static Boolean <span class="hljs-built_in">ContainerToBool</span>(Windows.Foundation.Collections.IVector&lt;Object&gt; container);
+    static Boolean <span class="hljs-built_in">ReferenceToBool</span>(Object value);
+    static Boolean <span class="hljs-built_in">StringToBool</span>(String value);
+    static Boolean <span class="hljs-built_in">VisibilityToBool</span>(Microsoft.UI.Xaml.Visibility value);
+
+    static Boolean <span class="hljs-built_in">ContainerToBoolReverse</span>(Windows.Foundation.Collections.IVector&lt;Object&gt; container);
+    static Boolean <span class="hljs-built_in">ReferenceToBoolReverse</span>(Object value);
+    static Boolean <span class="hljs-built_in">StringToBoolReverse</span>(String value);
+    static Boolean <span class="hljs-built_in">VisibilityToBoolReverse</span>(Microsoft.UI.Xaml.Visibility value);
+
+    static Microsoft<span class="hljs-selector-class">.UI</span><span class="hljs-selector-class">.Xaml</span><span class="hljs-selector-class">.Visibility</span> <span class="hljs-built_in">ContainerToVisibility</span>(Windows.Foundation.Collections.IVector&lt;Object&gt; container);
+    static Microsoft<span class="hljs-selector-class">.UI</span><span class="hljs-selector-class">.Xaml</span><span class="hljs-selector-class">.Visibility</span> <span class="hljs-built_in">ReferenceToVisibility</span>(Object value);
+    static Microsoft<span class="hljs-selector-class">.UI</span><span class="hljs-selector-class">.Xaml</span><span class="hljs-selector-class">.Visibility</span> <span class="hljs-built_in">StringToVisibility</span>(String value);
+    static Microsoft<span class="hljs-selector-class">.UI</span><span class="hljs-selector-class">.Xaml</span><span class="hljs-selector-class">.Visibility</span> <span class="hljs-built_in">BoolToVisibility</span>(Boolean value);
+    
+    static Microsoft<span class="hljs-selector-class">.UI</span><span class="hljs-selector-class">.Xaml</span><span class="hljs-selector-class">.Visibility</span> <span class="hljs-built_in">ContainerToVisibilityReverse</span>(Windows.Foundation.Collections.IVector&lt;Object&gt; container);
+    static Microsoft<span class="hljs-selector-class">.UI</span><span class="hljs-selector-class">.Xaml</span><span class="hljs-selector-class">.Visibility</span> <span class="hljs-built_in">ReferenceToVisibilityReverse</span>(Object value);
+    static Microsoft<span class="hljs-selector-class">.UI</span><span class="hljs-selector-class">.Xaml</span><span class="hljs-selector-class">.Visibility</span> <span class="hljs-built_in">StringToVisibilityReverse</span>(String value);
+    static Microsoft<span class="hljs-selector-class">.UI</span><span class="hljs-selector-class">.Xaml</span><span class="hljs-selector-class">.Visibility</span> <span class="hljs-built_in">BoolToVisibilityReverse</span>(Boolean value);
+
+    static Boolean <span class="hljs-built_in">ReverseBool</span>(Boolean value);
+    static Microsoft<span class="hljs-selector-class">.UI</span><span class="hljs-selector-class">.Xaml</span><span class="hljs-selector-class">.Visibility</span> <span class="hljs-built_in">ReverseVisibility</span>(Microsoft.UI.Xaml.Visibility value);
+
+    static Int32 <span class="hljs-built_in">UInt32ToInt32</span>(UInt32 value);
+}
+</code></pre>
+<h3 id="badgeglyphs-----namespace-badgeglyphs">BadgeGlyphs --- <em>namespace <code>BadgeGlyphs</code></em></h3>
+<p>Helpers for creating badge notification xml.
+Usage:</p>
+<pre><code class="language-cpp hljs"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;include/BadgeGlyphs.hpp&gt;</span></span>
+
+<span class="hljs-comment">//glyph badge</span>
+winrt::Windows::UI::Notifications::BadgeUpdateManager::<span class="hljs-built_in">CreateBadgeUpdaterForApplication</span>()
+    .<span class="hljs-built_in">Update</span>(BadgeGlyphs::<span class="hljs-built_in">MakeBadgeNotification</span>(BadgeGlyphs::Alert));
+
+<span class="hljs-comment">//number badge</span>
+winrt::Windows::UI::Notifications::BadgeUpdateManager::<span class="hljs-built_in">CreateBadgeUpdaterForApplication</span>()
+    .<span class="hljs-built_in">Update</span>(BadgeGlyphs::<span class="hljs-built_in">MakeBadgeNotification</span>(<span class="hljs-number">1</span>));
+</code></pre>
+<h3 id="triggers">Triggers</h3>
+<p>See the same class in <a href="https://github.com/CommunityToolkit/Windows" rel="noopener noreferrer nofollow">Community Toolkit</a> for documentation.</p>
+<h4 id="controlsizetrigger-----namespace-controlsizetrigger">ControlSizeTrigger --- <em>namespace <code>ControlSizeTrigger</code></em></h4>
+<h4 id="isequalstringtrigger-----namespace-isequalstringtrigger">IsEqualStringTrigger --- <em>namespace <code>IsEqualStringTrigger</code></em></h4>
+<p>Note: For the reason of lacking reflection, we cannot implement `IsEqualStateTrigger</p>
+<h4 id="isnulloremptystatetrigger-----namespace-isnulloremptystatetrigger">IsNullOrEmptyStateTrigger --- <em>namespace <code>IsNullOrEmptyStateTrigger</code></em></h4>
+<h3 id="settingscard-----namespace-settingscard">SettingsCard --- <em>namespace <code>SettingsCard</code></em></h3>
+<p>See the same class in <a href="https://github.com/CommunityToolkit/Windows" rel="noopener noreferrer nofollow">Community Tookit</a> for documentation.</p>
+<ul>
+<li>Add this to <code>App.xaml</code> (UWP)</li>
+</ul>
+<div class="markdown-alert markdown-alert-note alert alert-primary">
+<p class="mb-0">For WinUI3, add <code>#include #include &lt;winrt/Microsoft.UI.Xaml.Controls.AnimatedVisuals.h&gt;</code> to your <code>pch.h</code></p>
+</div>
+<h3 id="settingsexpander-----namespace-settingsexpander">SettingsExpander --- <em>namespace <code>SettingsExpander</code></em></h3>
+<p>See the same class in <a href="https://github.com/CommunityToolkit/Windows" rel="noopener noreferrer nofollow">Community Tookit</a> for documentation.
+<img src="" class="img-fluid" alt="alternate text is missing from this package README image"></p>
+<div class="markdown-alert markdown-alert-note alert alert-primary">
+<p class="mb-0">For WinUI3, add <code>#include #include &lt;winrt/Microsoft.UI.Xaml.Controls.AnimatedVisuals.h&gt;</code> to your <code>pch.h</code></p>
+</div>
+<h3 id="charmbar">CharmBar</h3>
+<p>Installing this nuget <del>will automatically add <code>Desktop Extension</code> to your UWP project</del>
+<strong>then add a <code>      &lt;WinUIEssentialAddDesktopExtension&gt;true&lt;/WinUIEssentialAddDesktopExtension&gt;</code> under <code>PropertyGroup</code> node in your <code>vcxproj</code> file</strong></p>
+<p>so  you can use the good-ol Windows 8 style charm bar. This package further simplifies it's usage by allowing you to directly define local and global settings, directly in XAML containing UI element.</p>
+<ul>
+<li>Define a global setting in resource section, with <code>SettingsPaneEx.Settings</code></li>
+</ul>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Application.Resources</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">ResourceDictionary</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">essential:SettingsPaneEx.Settings</span>&gt;</span>
+            
+            <span class="hljs-tag">&lt;<span class="hljs-name">essential:SettingsCommandEx</span> <span class="hljs-attr">Id</span>=<span class="hljs-string">"Item1"</span> <span class="hljs-attr">Label</span>=<span class="hljs-string">"Item123"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"Text1 in item1"</span>/&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"Text2 in item1"</span>/&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-name">essential:SettingsCommandEx</span>&gt;</span>=
+            <span class="hljs-tag">&lt;<span class="hljs-name">essential:SettingsCommandEx</span> <span class="hljs-attr">Id</span>=<span class="hljs-string">"Item2"</span> <span class="hljs-attr">Label</span>=<span class="hljs-string">"Item456"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"Text3 in item2"</span>/&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"Text4 in item2"</span>/&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-name">essential:SettingsCommandEx</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">essential:SettingsPaneEx.Settings</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">ResourceDictionary</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">Application.Resources</span>&gt;</span>
+</code></pre>
+<p><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></p>
+<ul>
+<li>Define local settings, where you put instance of <code>SettingsPaneEx</code> directly in UI as any other xaml controls.</li>
+</ul>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Page</span>
+    <span class="hljs-attr">...</span>
+&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span> <span class="hljs-attr">Orientation</span>=<span class="hljs-string">"Horizontal"</span> <span class="hljs-attr">HorizontalAlignment</span>=<span class="hljs-string">"Center"</span> <span class="hljs-attr">VerticalAlignment</span>=<span class="hljs-string">"Center"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">essential:SettingsPaneEx</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"LocalSettings"</span>&gt;</span>
+            
+            ...
+        <span class="hljs-tag">&lt;/<span class="hljs-name">essential:SettingsPaneEx</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">Page</span>&gt;</span>
+</code></pre>
+<p><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></p>
+<p>Define keyboard shortcuts with <code>SettingsPaneEx.KeyboardAccelerator</code> property.</p>
+<pre><code class="hljs language-xml"><span class="hljs-tag">&lt;<span class="hljs-name">essential:SettingsPaneEx.KeyboardAccelerator</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">KeyboardAccelerator</span> <span class="hljs-attr">Modifiers</span>=<span class="hljs-string">"Control"</span> <span class="hljs-attr">Key</span>=<span class="hljs-string">"s"</span>/&gt;</span> 
+<span class="hljs-tag">&lt;/<span class="hljs-name">essential:SettingsPaneEx.KeyboardAccelerator</span>&gt;</span>
+</code></pre>
+<h3 id="dependentvalue----namespace-dependentvalue">DependentValue ---<em>namespace <code>DependentValue</code></em></h3>
+<p>A wrapper around a <code>double</code> which you can target to with a <code>Storyboard</code> and <code>DoubleAnimation</code>, and get value out of it. Value is accessed by <code>.Value</code> property, which is a <code>DependencyProperty</code>, so you can do a <code>OneWay</code> binding to it or listen for value change notification.</p>
+<div class="markdown-alert markdown-alert-note alert alert-primary">
+<p class="mb-0">Remember to set <code>EnableDependentAnimation="True"</code> to make it work!</p>
+</div>
+<p>Usage:</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Page.Resources</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">essential:DependentValue</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"MyDoubleValue"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">Storyboard</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"DoubleValueAnimation"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">DoubleAnimation</span>  
+            <span class="hljs-attr">From</span>=<span class="hljs-string">"0"</span>
+            <span class="hljs-attr">To</span>=<span class="hljs-string">"100"</span>
+            <span class="hljs-attr">Storyboard.TargetName</span>=<span class="hljs-string">"MyDoubleValue"</span>
+            <span class="hljs-attr">Storyboard.TargetProperty</span>=<span class="hljs-string">"Value"</span>
+            <span class="hljs-attr">EnableDependentAnimation</span>=<span class="hljs-string">"True"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">Storyboard</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">Page.Resources</span>&gt;</span>
+
+<span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span> <span class="hljs-attr">Orientation</span>=<span class="hljs-string">"Horizontal"</span> <span class="hljs-attr">HorizontalAlignment</span>=<span class="hljs-string">"Center"</span> <span class="hljs-attr">VerticalAlignment</span>=<span class="hljs-string">"Center"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">Button</span> <span class="hljs-attr">Click</span>=<span class="hljs-string">"ClickHandler"</span>&gt;</span>Click to start storyboard<span class="hljs-tag">&lt;/<span class="hljs-name">Button</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"{x:Bind MyDoubleValue.Value, Mode=OneWay}"</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+</code></pre>
+<h3 id="taskbar-----namespace-taskbar">Taskbar --- <em>namespace <code>Taskbar</code></em></h3>
+<p>Helper for setting taskbar status and progress. Usage:</p>
+<pre><code class="language-cpp hljs"><span class="hljs-comment">//Set taskbar status</span>
+Taskbar::<span class="hljs-built_in">SetProgressState</span>(hwnd, Taskbar::ProgressState::Normal);
+<span class="hljs-comment">//Set taskbar progress value </span>
+Taskbar::<span class="hljs-built_in">SetProgressValue</span>(hwnd, <span class="hljs-number">50</span>); <span class="hljs-comment">//a third optional parameter for total, default -&gt; 100</span>
+</code></pre>
+<h3 id="marqueetext-----namespace-marqueetext">MarqueeText --- <em>namespace <code>MarqueeText</code></em></h3>
+<p>Enhanced version of <code>MarqueeText</code> in the community toolkit.
+<img src="" class="img-fluid" alt="alternate text is missing from this package README image"></p>
+<h3 id="progressbarex-----namespace-progressbarex">ProgressBarEx --- <em>namespace <code>ProgressBarEx</code></em></h3>
+<p>A progress bar with animated highlight colors (and animated progress). Default to vista-like styles but also allows you to customize its color.</p>
+<table class="table">
+<thead>
+<tr>
+<th>Property</th>
+<th>DependencyProperty?</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HighColor</td>
+<td>✅</td>
+<td>the shimmer highlight color</td>
+</tr>
+<tr>
+<td>BaseColor</td>
+<td>✅</td>
+<td>the base background color of the finish part</td>
+</tr>
+<tr>
+<td>Background</td>
+<td>✅</td>
+<td>the color of the rest part</td>
+</tr>
+<tr>
+<td>Percent</td>
+<td>✅</td>
+<td>range: 0~100</td>
+</tr>
+<tr>
+<td>Value</td>
+<td>✅</td>
+<td>normalized percent, range: 0.0~1.0</td>
+</tr>
+</tbody>
+</table>
+<p><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></p>
+<h3 id="windowex-----namespace-windowex">WindowEx --- <em>namespace <code>WindowEx</code></em></h3>
+<h4 id="basic-property">Basic Property</h4>
+<table class="table">
+<thead>
+<tr>
+<th>name</th>
+<th>DependencyProperty?</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>String Title</td>
+<td>✅</td>
+<td>Window title</td>
+</tr>
+<tr>
+<td>Boolean ExtendsContentIntoTitleBar</td>
+<td>✅</td>
+<td>...</td>
+</tr>
+<tr>
+<td>Microsoft.UI.Xaml.Media.SystemBackdrop SystemBackdrop</td>
+<td>✅</td>
+<td>...</td>
+</tr>
+<tr>
+<td>Double MinWidth</td>
+<td>✅</td>
+<td>Minimum width in DIP, inherited from <code>FrameworkElement</code></td>
+</tr>
+<tr>
+<td>Double MaxWidth</td>
+<td>✅</td>
+<td>Maximum width in DIP, inherited from <code>FrameworkElement</code></td>
+</tr>
+<tr>
+<td>Double MinHeight</td>
+<td>✅</td>
+<td>...</td>
+</tr>
+<tr>
+<td>Double MaxHeight</td>
+<td>✅</td>
+<td>...</td>
+</tr>
+<tr>
+<td>Double Width</td>
+<td>✅</td>
+<td>The whole window in DIP, the size Spy++ reports divided by the dpi scale</td>
+</tr>
+<tr>
+<td>Double Height</td>
+<td>✅</td>
+<td>...</td>
+</tr>
+<tr>
+<td>Int32 RawWidth{ get; }</td>
+<td>❌</td>
+<td>Actual width in pixel, raises <code>PropertyChanged</code></td>
+</tr>
+<tr>
+<td>Int32 RawHeight{ get; }</td>
+<td>❌</td>
+<td>Actual height in pixel, raises <code>PropertyChanged</code></td>
+</tr>
+<tr>
+<td>UInt32 Dpi{ get; }</td>
+<td>❌</td>
+<td>Current window dpi</td>
+</tr>
+<tr>
+<td>Int32 LeftInset{ get; }</td>
+<td>❌</td>
+<td>Titlebar inset on the left in DIP</td>
+</tr>
+<tr>
+<td>Int32 RightInset{ get; }</td>
+<td>❌</td>
+<td>Titlebar inset on the right in DIP</td>
+</tr>
+<tr>
+<td>Int32 LeftInsetRaw{ get; }</td>
+<td>❌</td>
+<td>Same in pixel</td>
+</tr>
+<tr>
+<td>Int32 RightInsetRaw{ get; }</td>
+<td>❌</td>
+<td>Same in pixel</td>
+</tr>
+<tr>
+<td>Boolean IsMinimizable</td>
+<td>✅</td>
+<td>...</td>
+</tr>
+<tr>
+<td>Boolean IsMaximizable</td>
+<td>✅</td>
+<td>...</td>
+</tr>
+<tr>
+<td>Boolean HasBorder</td>
+<td>✅</td>
+<td>...</td>
+</tr>
+<tr>
+<td>Boolean HasTitleBar</td>
+<td>✅</td>
+<td>...</td>
+</tr>
+<tr>
+<td>Boolean IsResizable</td>
+<td>✅</td>
+<td>...</td>
+</tr>
+<tr>
+<td>Boolean IsAlwaysOnTop</td>
+<td>✅</td>
+<td>...</td>
+</tr>
+<tr>
+<td>Boolean IsShownInSwitcher</td>
+<td>✅</td>
+<td>...</td>
+</tr>
+<tr>
+<td>Microsoft.UI.Windowing.TitleBarHeightOption TitleBarHeight;</td>
+<td>✅</td>
+<td>...</td>
+</tr>
+<tr>
+<td>String Icon</td>
+<td>✅</td>
+<td>Set <code>.ico</code> icon used for win32 titlebar</td>
+</tr>
+<tr>
+<td>Microsoft.UI.Xaml.Controls.MenuFlyout ContextMenu</td>
+<td>✅</td>
+<td>Win32 titlebar context menu, see <a href="#modernstandardwindowcontextmenu" rel="noopener noreferrer nofollow">ModernStandardWindowContextMenu</a></td>
+</tr>
+<tr>
+<td>Microsoft.UI.Xaml.Window Window{ get; }</td>
+<td>❌</td>
+<td>The window hosting the control</td>
+</tr>
+<tr>
+<td>Microsoft.UI.Windowing.AppWindow AppWindow{ get; }</td>
+<td>❌</td>
+<td>...</td>
+</tr>
+<tr>
+<td>UInt64 Hwnd{ get; }</td>
+<td>❌</td>
+<td><code>reinterpret_cast&lt;HWND&gt;</code> to get a <code>HWND</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="extensions">Extensions</h4>
+<p><code>WindowEx.NonClientRegionKind</code>: is an attached <code>DependencyProperty</code> used when customizing a title bar, automatically calculate and update <code>InputNonClientPointerSource</code> for you when the control size changed.</p>
+<p>Usage:</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Grid</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"AppTitleBar"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">Grid.ColumnDefinitions</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">ColumnDefinition</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"LeftPaddingColumn"</span> <span class="hljs-attr">Width</span>=<span class="hljs-string">"10"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">ColumnDefinition</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"IconColumn"</span> <span class="hljs-attr">Width</span>=<span class="hljs-string">"Auto"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">ColumnDefinition</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"TitleColumn"</span> <span class="hljs-attr">Width</span>=<span class="hljs-string">"Auto"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">ColumnDefinition</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"LeftDragColumn"</span> <span class="hljs-attr">Width</span>=<span class="hljs-string">"*"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">ColumnDefinition</span>
+            <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"SearchColumn"</span>
+            <span class="hljs-attr">Width</span>=<span class="hljs-string">"4*"</span>
+            <span class="hljs-attr">MinWidth</span>=<span class="hljs-string">"220"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">ColumnDefinition</span>
+            <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"RightDragColumn"</span>
+            <span class="hljs-attr">Width</span>=<span class="hljs-string">"*"</span>
+            <span class="hljs-attr">MinWidth</span>=<span class="hljs-string">"48"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">ColumnDefinition</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"AccountColumn"</span> <span class="hljs-attr">Width</span>=<span class="hljs-string">"Auto"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">ColumnDefinition</span> <span class="hljs-attr">Width</span>=<span class="hljs-string">"140"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">Grid.ColumnDefinitions</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">Image</span>
+        <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"TitleBarIcon"</span>
+        <span class="hljs-attr">Grid.Column</span>=<span class="hljs-string">"1"</span>
+        <span class="hljs-attr">Width</span>=<span class="hljs-string">"16"</span>
+        <span class="hljs-attr">Height</span>=<span class="hljs-string">"16"</span>
+        <span class="hljs-attr">Margin</span>=<span class="hljs-string">"8,0,16,0"</span>
+        <span class="hljs-attr">Source</span>=<span class="hljs-string">"ms-appx:///Assets/StoreLogo.png"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span>
+        <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"TitleBarTextBlock"</span>
+        <span class="hljs-attr">Grid.Column</span>=<span class="hljs-string">"2"</span>
+        <span class="hljs-attr">VerticalAlignment</span>=<span class="hljs-string">"Center"</span>
+        <span class="hljs-attr">Style</span>=<span class="hljs-string">"{StaticResource CaptionTextBlockStyle}"</span>
+        <span class="hljs-attr">Text</span>=<span class="hljs-string">"App title"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">AutoSuggestBox</span>
+        <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"TitleBarSearchBox"</span>
+        <span class="hljs-attr">Grid.Column</span>=<span class="hljs-string">"4"</span>
+        <span class="hljs-attr">MaxWidth</span>=<span class="hljs-string">"600"</span>
+        <span class="hljs-attr">VerticalAlignment</span>=<span class="hljs-string">"Center"</span>
+        <span class="hljs-attr">essential:WindowEx.NonClientRegionKind</span>=<span class="hljs-string">"Passthrough"</span>
+        <span class="hljs-attr">PlaceholderText</span>=<span class="hljs-string">"Search"</span>
+        <span class="hljs-attr">QueryIcon</span>=<span class="hljs-string">"Find"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span>
+        <span class="hljs-attr">Grid.Column</span>=<span class="hljs-string">"6"</span>
+        <span class="hljs-attr">Margin</span>=<span class="hljs-string">"0,0,16,0"</span>
+        <span class="hljs-attr">essential:WindowEx.NonClientRegionKind</span>=<span class="hljs-string">"Passthrough"</span>
+        <span class="hljs-attr">Orientation</span>=<span class="hljs-string">"Horizontal"</span>
+        <span class="hljs-attr">Spacing</span>=<span class="hljs-string">"10"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">ToggleButton</span>&gt;</span>Button on titlebar<span class="hljs-tag">&lt;/<span class="hljs-name">ToggleButton</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">PersonPicture</span>
+            <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"PersonPic"</span>
+            <span class="hljs-attr">Height</span>=<span class="hljs-string">"32"</span>
+            <span class="hljs-attr">PointerPressed</span>=<span class="hljs-string">"PersonPic_PointerPressed"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">PersonPicture.ContextFlyout</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-name">MenuFlyout</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"PersonPicMenu"</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-name">MenuFlyoutItem</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"Settings"</span> /&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-name">MenuFlyoutSeparator</span> /&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-name">MenuFlyoutItem</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"About Me"</span> /&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-name">MenuFlyout</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-name">PersonPicture.ContextFlyout</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">PersonPicture</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">Grid</span>&gt;</span>
+</code></pre>
+<h3 id="transparentbackdrop-----namespace-transparentbackdrop">TransparentBackdrop --- <em>namespace `TransparentBackdrop</em></h3>
+<p>Make your <code>WindowEx</code> fully transparent.</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">essential:WindowEx</span>
+    <span class="hljs-attr">...</span>
+    &lt;<span class="hljs-attr">essential:WindowEx.SystemBackdrop</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">essential:TransparentBackdrop</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">essential:WindowEx.SystemBackdrop</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">essential:WindowEx</span>&gt;</span>
+</code></pre>
+<p><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></p>
+<ul>
+<li>left: ExtendContentIntoTitleBar</li>
+<li>right: Win32 Titlebar</li>
+</ul>
+<h3 id="uielementextension-----namespace-uielementextension">UIElementExtension --- <em>namespace <code>UIElementExtension</code></em></h3>
+<p>See the same class in <a href="https://github.com/CommunityToolkit/Windows" rel="noopener noreferrer nofollow">Community Toolkit</a> for documentation.
+Usage:</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Grid</span> <span class="hljs-attr">Width</span>=<span class="hljs-string">"148"</span>
+    <span class="hljs-attr">Height</span>=<span class="hljs-string">"148"</span>
+    <span class="hljs-attr">essential:UIElementExtension.ClipToBounds</span>=<span class="hljs-string">"True"</span>
+    <span class="hljs-attr">...</span>/&gt;</span>
+</code></pre>
+<h3 id="segmented-----namespace-segmented">Segmented --- <em>namespace <code>Segmented</code></em></h3>
+<p>Almost like the <code>Segmented</code> control in <a href="https://github.com/CommunityToolkit/Windows" rel="noopener noreferrer nofollow">Community Toolkit</a> but with more customizations.</p>
+<ul>
+<li>Animated selected-item transition
+<img src="" class="img-fluid" alt="alternate text is missing from this package README image"></li>
+<li>Does not limited to <code>Icon + Text</code>. Use any UIElement</li>
+</ul>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">essential:SegmentedItem</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span> <span class="hljs-attr">Orientation</span>=<span class="hljs-string">"Horizontal"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">FontIcon</span> <span class="hljs-attr">Glyph</span>=<span class="hljs-string">"<span class="hljs-symbol">&amp;#xE8C0;</span>"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"Week"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">essential:SegmentedItem</span>&gt;</span>
+</code></pre>
+<ul>
+<li>Button style has 0 size margin</li>
+</ul>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">essential:Segmented</span> <span class="hljs-attr">Style</span>=<span class="hljs-string">"{StaticResource ButtonSegmentedStyle}"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">essential:SegmentedItem</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span> <span class="hljs-attr">Orientation</span>=<span class="hljs-string">"Horizontal"</span> <span class="hljs-attr">Spacing</span>=<span class="hljs-string">"4"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">FontIcon</span> <span class="hljs-attr">Glyph</span>=<span class="hljs-string">"<span class="hljs-symbol">&amp;#xE8BF;</span>"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"Day"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">essential:SegmentedItem</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">essential:SegmentedItem</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span> <span class="hljs-attr">Orientation</span>=<span class="hljs-string">"Horizontal"</span> <span class="hljs-attr">Spacing</span>=<span class="hljs-string">"4"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">FontIcon</span> <span class="hljs-attr">Glyph</span>=<span class="hljs-string">"<span class="hljs-symbol">&amp;#xE8C0;</span>"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"Week"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">essential:SegmentedItem</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">essential:SegmentedItem</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span> <span class="hljs-attr">Orientation</span>=<span class="hljs-string">"Horizontal"</span> <span class="hljs-attr">Spacing</span>=<span class="hljs-string">"4}"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">FontIcon</span> <span class="hljs-attr">Glyph</span>=<span class="hljs-string">"<span class="hljs-symbol">&amp;#xE787;</span>"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"Month"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">essential:SegmentedItem</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">essential:Segmented</span>&gt;</span>
+</code></pre>
+<p><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></p>
+<ul>
+<li>Support vertical layout</li>
+</ul>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">essential:Segmented</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">essential:SegmentedItem</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span> <span class="hljs-attr">Orientation</span>=<span class="hljs-string">"Horizontal"</span> <span class="hljs-attr">Spacing</span>=<span class="hljs-string">"7"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">SymbolIcon</span> <span class="hljs-attr">Symbol</span>=<span class="hljs-string">"Accept"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"Content1"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">essential:SegmentedItem</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-name">essential:SegmentedItem</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span> <span class="hljs-attr">Orientation</span>=<span class="hljs-string">"Horizontal"</span> <span class="hljs-attr">Spacing</span>=<span class="hljs-string">"7"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">SymbolIcon</span> <span class="hljs-attr">Symbol</span>=<span class="hljs-string">"Add"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"Content2"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">essential:SegmentedItem</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-name">essential:SegmentedItem</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span> <span class="hljs-attr">Orientation</span>=<span class="hljs-string">"Horizontal"</span> <span class="hljs-attr">Spacing</span>=<span class="hljs-string">"7"</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">SymbolIcon</span> <span class="hljs-attr">Symbol</span>=<span class="hljs-string">"Admin"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span> <span class="hljs-attr">Orientation</span>=<span class="hljs-string">"Vertical"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"Content longerrrrrrrrrr"</span>/&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"Content 2nd line"</span>/&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">essential:SegmentedItem</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-name">essential:Segmented.ItemsPanel</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">ItemsPanelTemplate</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span> <span class="hljs-attr">Orientation</span>=<span class="hljs-string">"Vertical"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">ItemsPanelTemplate</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">essential:Segmented.ItemsPanel</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">essential:Segmented</span>&gt;</span>
+</code></pre>
+<ul>
+<li>Allow reordering items</li>
+</ul>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">essential:Segmented</span> <span class="hljs-attr">CanReorderItems</span>=<span class="hljs-string">"True"</span> <span class="hljs-attr">AllowDrop</span>=<span class="hljs-string">"True"</span>
+    <span class="hljs-attr">...</span>
+</span></code></pre>
+<h3 id="customacrylicbackdrop">CustomAcrylicBackdrop</h3>
+<p>A customizable acrylic backdrop with bindable properties, and can be set as active when the window is inactive.</p>
+<table class="table">
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>DependencyProperty?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FallbackColor</td>
+<td>Color</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>TintColor</td>
+<td>Color</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Kind</td>
+<td>DesktopAcrylicKind</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>LuminosityOpacity</td>
+<td>Single</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>TintOpacity</td>
+<td>Single</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>EnableWhenInactive</td>
+<td>Boolean</td>
+<td>✅</td>
+</tr>
+</tbody>
+</table>
+<h3 id="custommicabackdrop">CustomMicaBackdrop</h3>
+<p><img src="" class="img-fluid" alt="alternate text is missing from this package README image">
+A customizable mica backdrop with bindable properties, and can be set as active when the window is inactive.</p>
+<table class="table">
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>DependencyProperty?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FallbackColor</td>
+<td>Color</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>TintColor</td>
+<td>Color</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Kind</td>
+<td>MicaKind</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>LuminosityOpacity</td>
+<td>Single</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>TintOpacity</td>
+<td>Single</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>EnableWhenInactive</td>
+<td>Boolean</td>
+<td>✅</td>
+</tr>
+</tbody>
+</table>
+<h3 id="shimmer">Shimmer</h3>
+<p>Similar to the <code>Shimmer</code> in Community Toolkit, but it's a <code>ContentControl</code>, which allows you to directly put content into it, making it easier to use.
+Also, the <code>ShimmerGradientStops</code> is a resource of type <code>Windows.UI.Xaml.Media.GradientStopCollection</code> which allows to be override.</p>
+<table class="table">
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>DependencyProperty?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IsLoading</td>
+<td>Boolean</td>
+<td>✅</td>
+</tr>
+</tbody>
+</table>
+<table class="table">
+<thead>
+<tr>
+<th>Light</th>
+<th>Dark</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="scopedbuttondisabler">ScopedButtonDisabler</h3>
+<pre><code class="language-cpp hljs"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;ScopedButtonDisabler.hpp&gt;</span></span>
+</code></pre>
+<p>This is a simple header-only RAII-style class that disable a button in a scope.
+When you attach a <code>Click</code> handler of a button and open a <code>FilePicker</code>, when user click fast enough, it will have 2 <code>FilePicker</code> opened at the same time, which is a source of logical bugs.</p>
+<pre><code class="language-cpp hljs">winrt::Windows::Storage::Pickers::FileOpenPicker picker;
+picker.<span class="hljs-built_in">FileTypeFilter</span>().<span class="hljs-built_in">Append</span>(<span class="hljs-string">L"*"</span>);
+<span class="hljs-keyword">auto</span> file = <span class="hljs-keyword">co_await</span> picker.<span class="hljs-built_in">PickSingleFileAsync</span>();
+</code></pre>
+<p>With <code>ScopedButtonDisabler</code>, it will disable the button inside this handler, preventing any logical bugs that might happens.</p>
+<pre><code class="language-cpp hljs">ScopedButtonDisabler disabler{ sender };
+winrt::Windows::Storage::Pickers::FileOpenPicker picker;
+picker.<span class="hljs-built_in">FileTypeFilter</span>().<span class="hljs-built_in">Append</span>(<span class="hljs-string">L"*"</span>);
+<span class="hljs-keyword">auto</span> file = <span class="hljs-keyword">co_await</span> picker.<span class="hljs-built_in">PickSingleFileAsync</span>();
+</code></pre>
+<h3 id="imageextension">ImageExtension</h3>
+<p>Automatically display a fallback image when <code>Image</code> failed to load.
+Usage:</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Image</span>
+    <span class="hljs-attr">essential:ImageExtension.FallbackSource</span>=<span class="hljs-string">"ms-appx:///Assets/Owl.jpg"</span>
+    <span class="hljs-attr">Source</span>=<span class="hljs-string">"https://upload.wikimedia.org/wikipedia/commons/5/5f/Windows_logo_-_2012.svg"</span> /&gt;</span>
+</code></pre>
+<h3 id="switchpresenter">SwitchPresenter</h3>
+<p>Almost the same as community's <code>SwitchPresenter</code>. But lacking reflection in C++ means you need to explicitly write out the value type in xaml in <code>Case.Value</code> property.</p>
+<p>For example, if you binding the <code>SwitchPresenter.Value</code> to a <code>Boolean</code>, you need to write the <code>Case.Value</code> to <code>&lt;x:Boolean&gt;True&lt;/x:String&gt;</code>:</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">essential:SwitchPresenter</span> <span class="hljs-attr">Value</span>=<span class="hljs-string">"{Binding IsOn, ElementName=LoadingState, Mode=OneWay}"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">essential:Case</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">essential:Case.Value</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">x:Boolean</span>&gt;</span>True<span class="hljs-tag">&lt;/<span class="hljs-name">x:Boolean</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">essential:Case.Value</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"True value content"</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">essential:Case</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">essential:SwitchPresenter</span>&gt;</span>
+</code></pre>
+<p>You should most likely use <code>Binding</code> instead of <code>x:Bind</code>, because when <code>{x:Bind}</code> is evaluated the controls are not finished loading, causing a crash</p>
+<h3 id="modernstandardwindowcontextmenu">ModernStandardWindowContextMenu</h3>
+<p>A modern XAML-based window context menu to replace the traditional win32 menu when you right-click the window titlebar.
+It supports uses on both <code>Essential:WindowEx</code> and a normal <code>Microsoft.UI.Xaml.Window</code>.
+The icons are hard-coded glyphs so you get the same appearance on both Windows 10 &amp; Windows 11.
+It also listens to window style changes, so it shows the correct menu item in whatever window styles your window have.</p>
+<ul>
+<li>To use with a <code>essential:Window</code>, simply set it to <code>WindowEx.ContextMenu</code></li>
+</ul>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">essential:WindowEx</span> <span class="hljs-attr">...</span>
+    &lt;<span class="hljs-attr">essential:WindowEx.ContextMenu</span>&gt;</span>
+        
+        <span class="hljs-tag">&lt;<span class="hljs-name">essential:ModernStandardWindowContextMenu</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">essential:WindowEx.ContextMenu</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">essential:WindowEx</span>&gt;</span>
+</code></pre>
+<ul>
+<li>To use with a <code>Microsoft.UI.Xaml.Window</code>, declare it as a <code>Resource</code> with a <code>x:Name</code> and <code>{x:Bind}</code> to <code>ModernStandardWindowContextMenu.Window</code> property
+under <strong>the first element in the window context</strong></li>
+</ul>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Window</span> <span class="hljs-attr">...</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel.Resources</span>&gt;</span>
+            
+            <span class="hljs-tag">&lt;<span class="hljs-name">essential:ModernStandardWindowContextMenu</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"Menu"</span> <span class="hljs-attr">Window</span>=<span class="hljs-string">"{x:Bind}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel.Resources</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">Window</span>&gt;</span>
+</code></pre>
+<p><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></p>
+<h3 id="windowcontextmenu">WindowContextMenu</h3>
+<p>A customized version of <code>ModernStandardWindowContextMenu</code> that allows you to use a custom <code>MenuFlyout</code> with any items you'd like.
+Usage are largely the same to <code>ModernStandardWindowContextMenu</code>, that you still bind a <code>Window</code> with <code>{x:Bind}</code>,
+but you do not need to add a resource to <code>Application.Resources</code></p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Window</span> <span class="hljs-attr">...</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel.Resources</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">essential:WindowContextMenu</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"Menu"</span> <span class="hljs-attr">Window</span>=<span class="hljs-string">"{x:Bind}"</span>&gt;</span>
+                <span class="hljs-tag">&lt;<span class="hljs-name">MenuFlyout</span>&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-name">MenuFlyoutItem</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"Item1"</span> /&gt;</span>
+                    <span class="hljs-tag">&lt;<span class="hljs-name">MenuFlyoutItem</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"Item2"</span> /&gt;</span>
+                <span class="hljs-tag">&lt;/<span class="hljs-name">MenuFlyout</span>&gt;</span>
+            <span class="hljs-tag">&lt;/<span class="hljs-name">essential:WindowContextMenu</span>&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel.Resources</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">Window</span>&gt;</span>
+</code></pre>
+<h3 id="nonresizablewindowwhiteborderworkaround">NonResizableWindowWhiteBorderWorkaround</h3>
+<p>WASDK 1.6 has <a href="https://github.com/microsoft/microsoft-ui-xaml/issues/9978" rel="noopener noreferrer nofollow">this issue</a> that window has a white border when you <code>SetBorderAndTitleBar(false, false)</code>.
+This controls helps to workaround it by providing a simple syntax you declare right in your window's first element's <code>Resource</code></p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Window</span> <span class="hljs-attr">...</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel.Resources</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">essential:NonResizableWindowWhiteBorderWorkaround</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"Workaround"</span> <span class="hljs-attr">Window</span>=<span class="hljs-string">"{x:Bind}"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel.Resources</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">Window</span>&gt;</span>
+</code></pre>
+<table class="table">
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="comboboxhelper">ComboBoxHelper</h3>
+<p>The WinUI3's built-in <code>ComboBox</code> does not have <a href="https://github.com/microsoft/microsoft-ui-xaml/issues/9523" rel="noopener noreferrer nofollow">Acrylic background</a>. We fixed it for you. To use it, simply add <code>ComboBoxHelper.AcrylicWorkaround="True"</code> as an attached property on your <code>ComboBox</code>.</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">ComboBox</span>
+    <span class="hljs-attr">Width</span>=<span class="hljs-string">"200"</span>
+    <span class="hljs-attr">essential:ComboBoxHelper.AcrylicWorkaround</span>=<span class="hljs-string">"True"</span>
+    <span class="hljs-attr">Header</span>=<span class="hljs-string">"Colors"</span>
+    <span class="hljs-attr">PlaceholderText</span>=<span class="hljs-string">"Pick a color"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">x:String</span>&gt;</span>Blue<span class="hljs-tag">&lt;/<span class="hljs-name">x:String</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">x:String</span>&gt;</span>Green<span class="hljs-tag">&lt;/<span class="hljs-name">x:String</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">x:String</span>&gt;</span>Red<span class="hljs-tag">&lt;/<span class="hljs-name">x:String</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">x:String</span>&gt;</span>Yellow<span class="hljs-tag">&lt;/<span class="hljs-name">x:String</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">ComboBox</span>&gt;</span>
+</code></pre>
+<table class="table">
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="autosuggestboxhelper">AutoSuggestBoxHelper</h3>
+<p>The WinUI3's built-in <code>AutoSuggestBox</code> does not have <a href="https://github.com/microsoft/microsoft-ui-xaml/issues/10590" rel="noopener noreferrer nofollow">Acrylic background</a>. We fixed it for you. To use it, simply add <code>AutoSuggestBoxHelper.AcrylicWorkaround="True"</code> as an attached property on your <code>AutoSuggestBox</code>.</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">AutoSuggestBox</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"Control2"</span> <span class="hljs-attr">Width</span>=<span class="hljs-string">"300"</span>
+    <span class="hljs-attr">essential:AutoSuggestBoxHelper.AcrylicWorkaround</span>=<span class="hljs-string">"True"</span>/&gt;</span>
+</code></pre>
+<table class="table">
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="wrappanel">WrapPanel</h3>
+<p>A panel that position child elements from left to right first then wrap to new row when the width is not enough.
+Switching orientation to position child elements from top to bottom first then wrap to new column when the height is not enough.</p>
+<p>A better implementation to community toolkit that does NOT crash!</p>
+<p>Usage:</p>
+<pre><code class="language-xml hljs"> <span class="hljs-tag">&lt;<span class="hljs-name">ListView</span> <span class="hljs-attr">ItemsSource</span>=<span class="hljs-string">"{x:Bind WrapPanelCollection, Mode=OneWay}"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">ListView.ItemsPanel</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">ItemsPanelTemplate</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">essential:WrapPanel</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"sampleWrapPanel"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">ItemsPanelTemplate</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">ListView.ItemsPanel</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">ListView</span>&gt;</span>
+</code></pre>
+<p><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></p>
+<h3 id="tooltiphelper">ToolTipHelper</h3>
+<p>The WinUI3's built-in <code>ToolTip</code> does not have Acrylic background. We fixed it for you. To use it, simply add <code>ToolTipHelper.AcrylicWorkaround="True"</code> as an attached property on your <code>ToolTip</code>.</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Button</span> <span class="hljs-attr">Content</span>=<span class="hljs-string">"Button with a simple ToolTip."</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">ToolTipService.ToolTip</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">ToolTip</span> <span class="hljs-attr">essential:ToolTipHelper.AcrylicWorkaround</span>=<span class="hljs-string">"True"</span> <span class="hljs-attr">Content</span>=<span class="hljs-string">"Simple ToolTip"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">ToolTipService.ToolTip</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">Button</span>&gt;</span>
+</code></pre>
+<table class="table">
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="commandbarhelper">CommandBarHelper</h3>
+<p>The WinUI3's built-in <code>CommandBar</code> does not have Acrylic background. We fixed it for you. To use it, simply add <code>CommandBarHelper.AcrylicWorkaround="True"</code> as an attached property on your <code>CommandBar</code>.</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">CommandBar</span> <span class="hljs-attr">essential:CommandBarHelper.AcrylicWorkaround</span>=<span class="hljs-string">"True"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">AppBarButton</span> <span class="hljs-attr">Icon</span>=<span class="hljs-string">"Add"</span> <span class="hljs-attr">Label</span>=<span class="hljs-string">"Add"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">AppBarButton</span> <span class="hljs-attr">Icon</span>=<span class="hljs-string">"Edit"</span> <span class="hljs-attr">Label</span>=<span class="hljs-string">"Edit"</span>/&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">AppBarButton</span> <span class="hljs-attr">Icon</span>=<span class="hljs-string">"Delete"</span> <span class="hljs-attr">Label</span>=<span class="hljs-string">"Delete"</span>/&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">CommandBar</span>&gt;</span>
+</code></pre>
+<table class="table">
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="iinitializewithwindowhelper">IInitializeWithWindowHelper</h3>
+<p>A header-only helper for <a href="https://learn.microsoft.com/en-us/windows/apps/develop/ui-input/display-ui-objects" rel="noopener noreferrer nofollow">initializing</a> WinRT objects that requires a <code>hwnd</code>.</p>
+<p>To use, simply change the namespace <code>winrt</code> to <code>WinUIEssentials</code> of your objects that needs to be initialized, and pass either a <code>HWND</code> or a <code>Microsoft.UI.Xaml.Window</code> to the constructor.</p>
+<p>Take <code>FileOpenPicker</code> as an example:</p>
+<pre><code class="language-cpp hljs"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&lt;include/IInitializeWithWindowHelper.hpp&gt;</span></span>
+
+WinUIEssentials::Windows::Storage::Pickers::FileOpenPicker picker{ MainWindow::Hwnd };
+<span class="hljs-comment">//or</span>
+WinUIEssentials::Windows::Storage::Pickers::FileOpenPicker picker{ MainWindow::Instance };
+
+<span class="hljs-comment">//...</span>
+picker.<span class="hljs-built_in">PickSingleFileAsync</span>();
+</code></pre>
+<h3 id="windowcaptionbuttonthemeworkaround">WindowCaptionButtonThemeWorkaround</h3>
+<p>When you have <code>Window.ExtendsContentIntoTitleBar(true)</code>, the caption buttons often comes out with broken color regarding to theme.
+This helper fixed it by working as a hidden control and listens to theme change message, and make corresponding changes to caption buttons.</p>
+<p>To use, simply put it under a Xaml control (such as <code>Grid</code>) that can accept child contents.</p>
+<p>For UWP:</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Page</span>&gt;</span>
+    ...
+    <span class="hljs-tag">&lt;<span class="hljs-name">Grid</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"RootGrid"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">essential:WindowCaptionButtonThemeWorkaround</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">Grid</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">Page</span>&gt;</span>
+</code></pre>
+<p>For WinUI3:</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Window</span>&gt;</span>
+    ...
+    <span class="hljs-tag">&lt;<span class="hljs-name">Grid</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"RootGrid"</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">essential:WindowCaptionButtonThemeWorkaround</span> <span class="hljs-attr">Window</span>=<span class="hljs-string">"{x:Bind}"</span> /&gt;</span>
+        &lt;-- Other contents --&gt;
+    <span class="hljs-tag">&lt;/<span class="hljs-name">Grid</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">Window</span>&gt;</span>
+</code></pre>
+<table class="table">
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="micabackdropwithfallback">MicaBackdropWithFallback</h3>
+<p>The default mica backdrop, but with automatic fallback to any other kind of backdrop (mainly <code>DesktopAcrylicBackdrop</code> from WASDK).</p>
+<p>Usage:</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Window.SystemBackdrop</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">essential:MicaBackdropWithFallback</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">essential:MicaBackdropWithFallback.Fallback</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">DesktopAcrylicBackdrop</span> /&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">essential:MicaBackdropWithFallback.Fallback</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">essential:MicaBackdropWithFallback</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">Window.SystemBackdrop</span>&gt;</span>
+</code></pre>
+<h3 id="nonmaximizablewindowworkaround">NonMaximizableWindowWorkaround</h3>
+<p>Helper for workaround setting <code>IsMaximizable=false</code> but you are still able to maximize the window but double-tapping on the title bar.</p>
+<p>Simply delcare it under any <code>Resource</code> under a control that is inside a <code>Window</code>. Usage:</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Window</span> <span class="hljs-attr">...</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel.Resource</span>&gt;</span>
+            <span class="hljs-tag">&lt;<span class="hljs-name">essential:NonMaximizableWindowWorkaround</span> <span class="hljs-attr">Window</span>=<span class="hljs-string">"{x:Bind}"</span>/&gt;</span>
+        <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel.Resource</span>&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+    ...
+<span class="hljs-tag">&lt;/<span class="hljs-name">Window</span>&gt;</span>
+</code></pre>
+<h3 id="datepickerhelper">DatePickerHelper</h3>
+<p>The WinUI3's built-in <code>DatePicker</code> does not have Acrylic background. We fixed it for you. To use it, simply add <code>DatePickerHelper.AcrylicWorkaround="True"</code> as an attached property on your <code>DatePicker</code>.</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">DatePicker</span> <span class="hljs-attr">essential:DatePickerHelper.AcrylicWorkaround</span>=<span class="hljs-string">"True"</span> <span class="hljs-attr">Header</span>=<span class="hljs-string">"Pick a date"</span> /&gt;</span>
+</code></pre>
+<table class="table">
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="timepickerhelper">TimePickerHelper</h3>
+<p>The WinUI3's built-in <code>TimePicker</code> does not have Acrylic background. We fixed it for you. To use it, simply add <code>TimePickerHelper.AcrylicWorkaround="True"</code> as an attached property on your <code>TimePicker</code>.</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">TimePicker</span> <span class="hljs-attr">essential:TimePickerHelper.AcrylicWorkaround</span>=<span class="hljs-string">"True"</span> <span class="hljs-attr">Header</span>=<span class="hljs-string">"Pick a time"</span> /&gt;</span>
+</code></pre>
+<table class="table">
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="flyouthelper">FlyoutHelper</h3>
+<p>The WinUI3's built-in <code>Flyout</code> does not have Acrylic background. We fixed it for you. To use it, simply add <code>Flyout.AcrylicWorkaround="True"</code> as an attached property on your <code>Flyout</code>.</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Flyout</span> <span class="hljs-attr">essential:FlyoutHelper.AcrylicWorkaround</span>=<span class="hljs-string">"True"</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">StackPanel</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span>
+            <span class="hljs-attr">Margin</span>=<span class="hljs-string">"0,0,0,12"</span>
+            <span class="hljs-attr">Style</span>=<span class="hljs-string">"{ThemeResource BaseTextBlockStyle}"</span>
+            <span class="hljs-attr">Text</span>=<span class="hljs-string">"All items will be removed. Do you want to continue?"</span> /&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">Button</span> <span class="hljs-attr">Content</span>=<span class="hljs-string">"Yes, empty my cart"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">StackPanel</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">Flyout</span>&gt;</span>
+</code></pre>
+<table class="table">
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="calendardatepickerhelper">CalendarDatePickerHelper</h3>
+<p>The WinUI3's built-in <code>TimePickerHelper</code> does not have Acrylic background. We fixed it for you. To use it, simply add <code>TimePickerHelper.AcrylicWorkaround="True"</code> as an attached property on your <code>TimePickerHelper</code>.</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">CalendarDatePicker</span>
+    <span class="hljs-attr">essential:CalendarDatePickerHelper.AcrylicWorkaround</span>=<span class="hljs-string">"True"</span>
+    <span class="hljs-attr">Header</span>=<span class="hljs-string">"Calendar"</span>
+    <span class="hljs-attr">PlaceholderText</span>=<span class="hljs-string">"Pick a date"</span> /&gt;</span>
+</code></pre>
+<table class="table">
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="modalwindow">ModalWindow</h3>
+<p>A WinUI3 modal window (meaning that it has an owner window, and take its focus) that you can directly use in xaml, just like the good-ol <code>Window</code>.</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">essential:ModalWindow</span>
+    <span class="hljs-attr">x:Class</span>=<span class="hljs-string">"WinUI3Example.SampleModalWindow"</span>
+    <span class="hljs-attr">xmlns</span>=<span class="hljs-string">"http://schemas.microsoft.com/winfx/2006/xaml/presentation"</span>
+    <span class="hljs-attr">xmlns:x</span>=<span class="hljs-string">"http://schemas.microsoft.com/winfx/2006/xaml"</span>
+    <span class="hljs-attr">xmlns:d</span>=<span class="hljs-string">"http://schemas.microsoft.com/expression/blend/2008"</span>
+    <span class="hljs-attr">xmlns:essential</span>=<span class="hljs-string">"using:WinUI3Package"</span>
+    <span class="hljs-attr">xmlns:local</span>=<span class="hljs-string">"using:WinUI3Example"</span>
+    <span class="hljs-attr">xmlns:mc</span>=<span class="hljs-string">"http://schemas.openxmlformats.org/markup-compatibility/2006"</span>
+    <span class="hljs-attr">Title</span>=<span class="hljs-string">"Sample Modal Window"</span>
+    <span class="hljs-attr">mc:Ignorable</span>=<span class="hljs-string">"d"</span>&gt;</span>
+
+    <span class="hljs-tag">&lt;<span class="hljs-name">TextBlock</span> <span class="hljs-attr">Text</span>=<span class="hljs-string">"This is a ModalWindow"</span> /&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">essential:ModalWindow</span>&gt;</span>
+</code></pre>
+<h3 id="navigationviewhelper">NavigationViewHelper</h3>
+<p>The WinUI3's built-in <code>NavigationView</code> does not have Acrylic background with the dropdown menu and the overflow menu when it's at top. We fixed it for you. To use it, simply add <code>TimePickerHelper.AcrylicWorkaround="True"</code> as an attached property on your <code>NavigationView</code> when it has <code>PaneDisplayMode="Top"</code>.</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">NavigationView</span>
+    <span class="hljs-attr">...</span>
+    <span class="hljs-attr">essential:NavigationViewHelper.AcrylicWorkaround</span>=<span class="hljs-string">"True"</span>
+    <span class="hljs-attr">PaneDisplayMode</span>=<span class="hljs-string">"Top"</span>&gt;</span>
+
+    ...Other contents...
+<span class="hljs-tag">&lt;/<span class="hljs-name">NavigationView</span>&gt;</span>
+</code></pre>
+<table class="table">
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="sliderhelper">SliderHelper</h3>
+<p>The WinUI3's built-in <code>Slider</code> does not have Acrylic background on its tooltip. We fixed it for you. To use it, simply add <code>SliderHelper.AcrylicWorkaround="True"</code> as an attached property on your <code>Slider</code>.</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Slider</span>
+    <span class="hljs-attr">Width</span>=<span class="hljs-string">"200"</span>
+    <span class="hljs-attr">VerticalAlignment</span>=<span class="hljs-string">"Center"</span>
+    <span class="hljs-attr">essential:SliderHelper.AcrylicWorkaround</span>=<span class="hljs-string">"True"</span> /&gt;</span>
+</code></pre>
+<table class="table">
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="revealfocuspanel">RevealFocusPanel</h3>
+<p>Missing the good-ol Reveal Focus effect from UWP? We bring it back to you! For detailed usage, please download the <a href="https://apps.microsoft.com/detail/9PCC690BCMT9?hl=en-us&amp;gl=US&amp;ocid=pdpshare" rel="noopener noreferrer nofollow">Example Gallery</a> and see for yourself!
+|Light|Dark|
+|-----|----|
+|<img src="" class="img-fluid" alt="alternate text is missing from this package README image">|<img src="" class="img-fluid" alt="alternate text is missing from this package README image">|
+|<img src="" class="img-fluid" alt="alternate text is missing from this package README image">|<img src="" class="img-fluid" alt="alternate text is missing from this package README image">|
+|<img src="" class="img-fluid" alt="alternate text is missing from this package README image">|<img src="" class="img-fluid" alt="alternate text is missing from this package README image">|</p>
+<h3 id="tenmica">TenMica</h3>
+<p>Simulated <a href="https://learn.microsoft.com/en-us/windows/apps/design/style/mica" rel="noopener noreferrer nofollow">Mica effect</a> for Windows 10 (that also works on Windows 11 if you want to force the effect even when the user disabled it in system settings).
+This is a drop-in replacement for WinUI3's built-in <code>MicaBackdrop</code>, and it automatically handles:</p>
+<ul>
+<li>Cross-screen window moving with different dpi</li>
+<li>Wallpaper changes</li>
+<li>Theme changes</li>
+<li>Monitor changes</li>
+<li>GPU driver reset / GPU changes</li>
+<li>Works with software (no GPU) and hardware rendering</li>
+</ul>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Window</span> <span class="hljs-attr">...</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">Window.SystemBackdrop</span>&gt;</span>
+        <span class="hljs-tag">&lt;<span class="hljs-name">essential:TenMicaBackdrop</span> <span class="hljs-attr">BindThemeTo</span>=<span class="hljs-string">"{x:Bind RootGrid}"</span> <span class="hljs-attr">EnableWhenInactive</span>=<span class="hljs-string">"{x:Bind EnableInactiveSwitch.IsOn, Mode=OneWay}"</span> /&gt;</span>
+    <span class="hljs-tag">&lt;/<span class="hljs-name">Window.SystemBackdrop</span>&gt;</span>
+
+    ...
+<span class="hljs-tag">&lt;/<span class="hljs-name">Window</span>&gt;</span>
+</code></pre>
+<table class="table">
+<thead>
+<tr>
+<th>Light</th>
+<th>Dark</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="windowedcontentdialog">WindowedContentDialog</h3>
+<p><code>ContentDialog</code> but shown inside a window that has exactly the same <code>ShowAsync()</code> api that you are familiar with.</p>
+<ul>
+<li>If you <code>ShowAsync()</code> with a parent window, it automatically center (but clamped to visible monitor area) inside the parent, theme synced with the parent, and you can also specify the underlay (with a nice animation)</li>
+<li>If you <code>ShowAsync()</code> without a parent window, it shows as a free top-level window.</li>
+</ul>
+<pre><code class="language-idl">Windows.Foundation.IAsyncOperation&lt;Microsoft.UI.Xaml.Controls.ContentDialogResult&gt; ShowAsync();
+Windows.Foundation.IAsyncOperation&lt;Microsoft.UI.Xaml.Controls.ContentDialogResult&gt; ShowAsync(Microsoft.UI.Xaml.Window parentWindow);
+Windows.Foundation.IAsyncOperation&lt;Microsoft.UI.Xaml.Controls.ContentDialogResult&gt; ShowAsync(
+    Microsoft.UI.Xaml.Window parentWindow,
+    UnderlayMode underlay
+);
+</code></pre>
+<table class="table">
+<thead>
+<tr>
+<th>UnderlayMode</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>None</td>
+</tr>
+<tr>
+<td>Blur</td>
+</tr>
+<tr>
+<td>Smoke</td>
+</tr>
+</tbody>
+</table>
+<table class="table">
+<thead>
+<tr>
+<th>Smoke</th>
+<th>Blur</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+<td><img src="" class="img-fluid" alt="alternate text is missing from this package README image"></td>
+</tr>
+</tbody>
+</table>
+<h3 id="svgimagesource">SvgImageSource</h3>
+<p><strong>This component is in a dedicated <code>WinUIEssential.WinUI3.Svg</code> package.</strong></p>
+<p>This component is based on <a href="https://github.com/linebender/resvg" rel="noopener noreferrer nofollow">the great resvg project</a>.
+It is meant to be a drop-in replacement for the WinUI3's built-in <code>SvgImageSource</code>, but offers much better rendering capabilities.
+The WinUI3's built-in <code>SvgImageSource</code> has these <a href="https://learn.microsoft.com/en-us/windows/win32/direct2d/svg-support" rel="noopener noreferrer nofollow">known limitations</a>, one of the most limiting one being:
+<strong>unable to render <code>&lt;text&gt;</code></strong>.</p>
+<p>Using this component, you get the majority of svg1.1 features supported (download the WinEssentials.WinUI3Example app from the store and see for yourself), plus easier sizing control,
+supporting binding the rasterization size directly with the <code>Image</code> control.</p>
+<p>Example usage:</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Image</span> <span class="hljs-attr">x:Name</span>=<span class="hljs-string">"SvgUrlImage"</span>&gt;</span>
+   <span class="hljs-tag">&lt;<span class="hljs-name">Image.Source</span>&gt;</span>
+       <span class="hljs-tag">&lt;<span class="hljs-name">svg:SvgImageSource</span> <span class="hljs-attr">BindSizeTo</span>=<span class="hljs-string">"{x:Bind SvgUrlImage}"</span> <span class="hljs-attr">UriSource</span>=<span class="hljs-string">"https://img.shields.io/nuget/v/WinUIEssential.WinUI3?label=WinUIEssential.WinUI3"</span> /&gt;</span>
+   <span class="hljs-tag">&lt;/<span class="hljs-name">Image.Source</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">Image</span>&gt;</span>
+</code></pre>
+<p><img src="" class="img-fluid" alt="alternate text is missing from this package README image">
+<img src="" class="img-fluid" alt="alternate text is missing from this package README image"></p>
+<table class="table">
+<thead>
+<tr>
+<th>Property</th>
+<th>DependencyProperty?</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>UriSource</td>
+<td>✅</td>
+<td>Set the svg source by <code>Uri</code></td>
+</tr>
+<tr>
+<td>StringSource</td>
+<td>✅</td>
+<td>Set the svg source by the svg content string</td>
+</tr>
+<tr>
+<td>RasterizePixelWidth</td>
+<td>✅</td>
+<td>The pixel width of the svg rasterized, not compatible with <code>BindSizeTo</code></td>
+</tr>
+<tr>
+<td>RasterizePixelHeight</td>
+<td>✅</td>
+<td>The pixel height of the svg rasterized, not compatible with <code>BindSizeTo</code></td>
+</tr>
+<tr>
+<td>BindSizeTo</td>
+<td>✅</td>
+<td>The <code>Image</code> control to bind to automatically adjust rasterized size. Not compatible with <code>RasterizedPixelWidth</code> and <code>RasterizedPixelHeight</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="webview">WebView</h3>
+<p>I brought back the WebView (based on legacy EdgeHTML) control, and it should have exactly the same API
+surfaces (except for <code>CornerRadius</code>) as the <code>Windows.UI.Xaml.Controls.WebView</code> in UWP.
+It is more efficient and has better performance than WebView2, making it more preferrable the web content
+you are showing is simple and target older version of browsers.</p>
+<p>Usage:</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">essential:WebView</span> <span class="hljs-attr">Source</span>=<span class="hljs-string">"https://www.microsoft.com"</span> /&gt;</span>
+</code></pre>
+<h4 id="properties">Properties</h4>
+<table class="table">
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>DependencyProperty?</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Source</td>
+<td>Windows.Foundation.Uri</td>
+<td>✅</td>
+<td>The <code>Uri</code> currently navigated to; set it to navigate</td>
+</tr>
+<tr>
+<td>CanGoBack</td>
+<td>Boolean</td>
+<td>✅</td>
+<td><code>true</code> if there is a page to navigate back to (read-only)</td>
+</tr>
+<tr>
+<td>CanGoForward</td>
+<td>Boolean</td>
+<td>✅</td>
+<td><code>true</code> if there is a page to navigate forward to (read-only)</td>
+</tr>
+<tr>
+<td>ContainsFullScreenElement</td>
+<td>Boolean</td>
+<td>✅</td>
+<td><code>true</code> while the page has an element in full-screen mode (read-only)</td>
+</tr>
+<tr>
+<td>DocumentTitle</td>
+<td>String</td>
+<td>✅</td>
+<td>The title of the current document (read-only)</td>
+</tr>
+<tr>
+<td>DefaultBackgroundColor</td>
+<td>Windows.UI.Color</td>
+<td>✅</td>
+<td>The background color shown before/behind page content</td>
+</tr>
+<tr>
+<td>DeferredPermissionRequests</td>
+<td>IVector&lt;WebViewDeferredPermissionRequest&gt;</td>
+<td>❌</td>
+<td>The permission requests that were deferred (read-only)</td>
+</tr>
+<tr>
+<td>Settings</td>
+<td>Windows.Web.UI.WebViewControlSettings</td>
+<td>❌</td>
+<td>The underlying control settings, e.g. scripting/IndexedDB toggles (read-only)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="methods">Methods</h4>
+<table class="table">
+<thead>
+<tr>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>void Navigate(Uri source)</td>
+<td>Navigate to the given <code>Uri</code></td>
+</tr>
+<tr>
+<td>void NavigateToString(String text)</td>
+<td>Load the given HTML string as the page content</td>
+</tr>
+<tr>
+<td>void NavigateToLocalStreamUri(Uri source, IUriToStreamResolver streamResolver)</td>
+<td>Navigate to a local <code>ms-local-stream://</code> <code>Uri</code> resolved through a custom resolver</td>
+</tr>
+<tr>
+<td>void NavigateWithHttpRequestMessage(HttpRequestMessage requestMessage)</td>
+<td>Navigate using a fully-specified HTTP request</td>
+</tr>
+<tr>
+<td>Uri BuildLocalStreamUri(String contentIdentifier, String relativePath)</td>
+<td>Build an <code>ms-local-stream://</code> <code>Uri</code> for use with <code>NavigateToLocalStreamUri</code></td>
+</tr>
+<tr>
+<td>void GoBack()</td>
+<td>Navigate to the previous page in history</td>
+</tr>
+<tr>
+<td>void GoForward()</td>
+<td>Navigate to the next page in history</td>
+</tr>
+<tr>
+<td>void Refresh()</td>
+<td>Reload the current page</td>
+</tr>
+<tr>
+<td>void Stop()</td>
+<td>Stop the current navigation</td>
+</tr>
+<tr>
+<td>void Close()</td>
+<td>Close the webview and release the underlying process</td>
+</tr>
+<tr>
+<td>void AddInitializeScript(String script)</td>
+<td>Register a script that runs before any page script on every navigation</td>
+</tr>
+<tr>
+<td>IAsyncOperation&lt;String&gt; InvokeScriptAsync(String scriptName, IIterable&lt;String&gt; arguments)</td>
+<td>Invoke a JavaScript function on the current page and return its result</td>
+</tr>
+<tr>
+<td>IAsyncAction CapturePreviewToStreamAsync(IRandomAccessStream stream)</td>
+<td>Write a preview image of the current page into the stream</td>
+</tr>
+<tr>
+<td>IAsyncOperation&lt;DataPackage&gt; CaptureSelectedContentToDataPackageAsync()</td>
+<td>Capture the current selection into a <code>DataPackage</code></td>
+</tr>
+<tr>
+<td>void MoveFocus(WebViewControlMoveFocusReason reason)</td>
+<td>Move focus into the webview content</td>
+</tr>
+<tr>
+<td>void GetDeferredPermissionRequestById(UInt32 id, out WebViewControlDeferredPermissionRequest request)</td>
+<td>Retrieve a previously deferred permission request by id</td>
+</tr>
+</tbody>
+</table>
+<h4 id="events">Events</h4>
+<table class="table">
+<thead>
+<tr>
+<th>Event</th>
+<th>EventArgs</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NavigationStarting</td>
+<td>WebViewControlNavigationStartingEventArgs</td>
+<td>The top-level page is about to navigate; cancelable</td>
+</tr>
+<tr>
+<td>ContentLoading</td>
+<td>WebViewControlContentLoadingEventArgs</td>
+<td>The top-level content has started loading</td>
+</tr>
+<tr>
+<td>DOMContentLoaded</td>
+<td>WebViewControlDOMContentLoadedEventArgs</td>
+<td>The top-level DOM content has finished loading</td>
+</tr>
+<tr>
+<td>NavigationCompleted</td>
+<td>WebViewControlNavigationCompletedEventArgs</td>
+<td>The top-level navigation has completed (success or failure)</td>
+</tr>
+<tr>
+<td>FrameNavigationStarting</td>
+<td>WebViewControlNavigationStartingEventArgs</td>
+<td>A subframe is about to navigate</td>
+</tr>
+<tr>
+<td>FrameContentLoading</td>
+<td>WebViewControlContentLoadingEventArgs</td>
+<td>A subframe has started loading content</td>
+</tr>
+<tr>
+<td>FrameDOMContentLoaded</td>
+<td>WebViewControlDOMContentLoadedEventArgs</td>
+<td>A subframe's DOM content has finished loading</td>
+</tr>
+<tr>
+<td>ScriptNotify</td>
+<td>WebViewControlScriptNotifyEventArgs</td>
+<td>The page called <code>window.external.notify</code></td>
+</tr>
+<tr>
+<td>LongRunningScriptDetected</td>
+<td>WebViewControlLongRunningScriptDetectedEventArgs</td>
+<td>A long-running script was detected; can be halted</td>
+</tr>
+<tr>
+<td>UnsafeContentWarningDisplaying</td>
+<td>/</td>
+<td>A SmartScreen unsafe-content warning is being displayed</td>
+</tr>
+<tr>
+<td>UnsupportedUriSchemeIdentified</td>
+<td>WebViewControlUnsupportedUriSchemeIdentifiedEventArgs</td>
+<td>Navigation to an unsupported URI scheme was requested; cancelable</td>
+</tr>
+<tr>
+<td>UnviewableContentIdentified</td>
+<td>WebViewControlUnviewableContentIdentifiedEventArgs</td>
+<td>The content cannot be displayed (e.g. a download)</td>
+</tr>
+<tr>
+<td>NewWindowRequested</td>
+<td>WebViewControlNewWindowRequestedEventArgs</td>
+<td>The page requested a new window; cancelable</td>
+</tr>
+<tr>
+<td>PermissionRequested</td>
+<td>WebViewControlPermissionRequestedEventArgs</td>
+<td>The page requested a permission (geolocation, media, etc.)</td>
+</tr>
+<tr>
+<td>WebResourceRequested</td>
+<td>WebViewControlWebResourceRequestedEventArgs</td>
+<td>A web resource is being requested; allows interception</td>
+</tr>
+<tr>
+<td>MoveFocusRequested</td>
+<td>WebViewControlMoveFocusRequestedEventArgs</td>
+<td>The content requested focus be moved out of the webview</td>
+</tr>
+</tbody>
+</table>
+<div class="markdown-alert markdown-alert-note alert alert-primary">
+<p class="mb-0">Right-clicks inside the webview are intercepted so the win32 window context menu is never raised
+(see the <code>WebViewMouseHook</code>); this also suppresses the webview's own native context menu within its bounds.</p>
+</div>
+<h3 id="table">Table</h3>
+<p>A lightweight yet extremely high performance Table / DataGrid control for displaying structured data.</p>
+<h4 id="property">Property</h4>
+<table class="table">
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>DependencyProperty?</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Columns</td>
+<td>TableColumnCollection</td>
+<td>❌</td>
+<td>Define table columns in xaml</td>
+</tr>
+<tr>
+<td>ItemsSource</td>
+<td>ITableData</td>
+<td>❌</td>
+<td>Provide row data in code</td>
+</tr>
+<tr>
+<td>Items</td>
+<td>IVector&lt;TableRow&gt;</td>
+<td>❌</td>
+<td>Provide row data in xaml</td>
+</tr>
+<tr>
+<td>HeaderForeground</td>
+<td>Windows.UI.Color</td>
+<td>✅</td>
+<td>\</td>
+</tr>
+<tr>
+<td>ContentForeground</td>
+<td>Windows.UI.Color</td>
+<td>✅</td>
+<td>\</td>
+</tr>
+<tr>
+<td>HeaderBackground</td>
+<td>Windows.UI.Color</td>
+<td>✅</td>
+<td>\</td>
+</tr>
+<tr>
+<td>AlternateRowColors</td>
+<td>IVector&lt;TableAlternateRowColor&gt;</td>
+<td>✅</td>
+<td>Define row foreground and background colors</td>
+</tr>
+<tr>
+<td>HeaderFontSize</td>
+<td>Double</td>
+<td>✅</td>
+<td>\</td>
+</tr>
+<tr>
+<td>ContentFontSize</td>
+<td>Double</td>
+<td>✅</td>
+<td>\</td>
+</tr>
+<tr>
+<td>HeaderFontStretch</td>
+<td>Windows.UI.Text.FontStretch</td>
+<td>✅</td>
+<td>\</td>
+</tr>
+<tr>
+<td>ContentFontStretch</td>
+<td>Windows.UI.Text.FontStretch</td>
+<td>✅</td>
+<td>\</td>
+</tr>
+<tr>
+<td>HeaderFontStyle</td>
+<td>Windows.UI.Text.FontStyle</td>
+<td>✅</td>
+<td>\</td>
+</tr>
+<tr>
+<td>ContentFontStyle</td>
+<td>Windows.UI.Text.FontStyle</td>
+<td>✅</td>
+<td>\</td>
+</tr>
+<tr>
+<td>FontFamily</td>
+<td>&lt;WinUI Namespace&gt;.UI.Xaml.Media.FontFamily</td>
+<td>✅</td>
+<td>Controls font family for both the header and content</td>
+</tr>
+<tr>
+<td>ContentPadding</td>
+<td>&lt;WinUI Namespace&gt;.UI.Xaml.Thickness</td>
+<td>✅</td>
+<td>Controls text &amp; xaml control padding for both the header and content</td>
+</tr>
+<tr>
+<td>HorizontalLineColor</td>
+<td>Windows.UI.Color</td>
+<td>✅</td>
+<td>Controls the table horizontal lines colors (border line is controled by <code>Border.BorderBrush</code>)</td>
+</tr>
+<tr>
+<td>VerticalLineColor</td>
+<td>Windows.UI.Color</td>
+<td>✅</td>
+<td>Controls the table vertical lines colors</td>
+</tr>
+<tr>
+<td>HorizontalLineThickness</td>
+<td>Double</td>
+<td>✅</td>
+<td>Controls the table horizontal lines thickness (border line is controled by <code>Border.BorderThickness</code>)</td>
+</tr>
+<tr>
+<td>VerticalLineThickness</td>
+<td>Double</td>
+<td>✅</td>
+<td>Controls the table vertical lines thickness</td>
+</tr>
+</tbody>
+</table>
+<h4 id="events-1">Events</h4>
+<p><code>event Windows.Foundation.TypedEventHandler&lt;Table, ContextMenuRequestedEventArgs&gt; ContextMenuRequested</code>: sent when right-clicked on a table cell.</p>
+<h5 id="contextmenurequestedeventargs-object"><code>ContextMenuRequestedEventArgs</code> object</h5>
+<table class="table">
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RowIndex</td>
+<td>Int32</td>
+<td>The row number (starts from 1) of the right-click</td>
+</tr>
+<tr>
+<td>ColumnIndex</td>
+<td>Int32</td>
+<td>The column number (starts from 1) of the right-click</td>
+</tr>
+<tr>
+<td>DataContext</td>
+<td>Object</td>
+<td>The data of the cell content of the right-click</td>
+</tr>
+<tr>
+<td>ContextMenu</td>
+<td>WinUINamespace.UI.Xaml.Controls.MenuFlyout</td>
+<td>The <code>MenuFlyout</code> that you needs to provide for handling this request</td>
+</tr>
+<tr>
+<td>Handled</td>
+<td>Boolean</td>
+<td>Indicate whether you have handled the request, if set to <code>true</code> then the <code>ContextMenu</code> will be used. Otherwise this right-click will be treated as no-op.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="providing-data-to-table">Providing data to Table</h4>
+<p>You can use either <code>TableRow</code> objects for mostly static data or implement the <code>ITableData</code> interface.</p>
+<h5 id="tablerow-object"><code>TableRow</code> object</h5>
+<p>This class is used for defining table data within xaml. It is basically a container of <code>Object</code>, where it can be either a <code>String</code> or a xaml Control.
+A <code>String</code> type will be rendered directly in direct2d.
+The number of elements in a <code>TableRow</code> has to match the number of columns you defined in <code>Table.Columns</code>.</p>
+<h5 id="itabledata-interface"><code>ITableData</code> interface</h5>
+<p>You implement 4 methods:</p>
+<ol>
+<li><code>Int32 RowCount()</code>: Return the number of total rows when called</li>
+<li><code>Int32 RowRequested(RowRequestedEventArgs args)</code>: Return the number of filled rows when called. This is the main mechanism for rendering data in <code>Table</code>. We will break it down later.</li>
+<li><code>void SetData(Int32 row, Int32 column, Object data)</code>: Called when there is an update to a table cell. This is analogous to a <code>TwoWay</code> binding in xaml.</li>
+<li><code>event Windows.Foundation.EventHandler&lt;UpdateRowDataEventArgs&gt; UpdateRowData</code>: This is for you to raise a data change for a specific cell data update. After this event gets raised, <code>Table</code> will call <code>RowRequested</code> for new data retreival.</li>
+</ol>
+<h6 id="rowrequestedeventargs-object"><code>RowRequestedEventArgs</code> object</h6>
+<p>This is the data request from <code>Table</code> to your data. It provides information for this request, and also a function for you to fill-in the actual data.</p>
+<table class="table">
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>StartRow</td>
+<td>Int32</td>
+<td>The start row number of the data you need to provide</td>
+</tr>
+<tr>
+<td>EndRow</td>
+<td>Int32</td>
+<td>The end row number (inclusive) of the data you need to provide</td>
+</tr>
+</tbody>
+</table>
+<p><code>void SetRow(Int32 row, Object[] content)</code>: Fill in one row of data</p>
+<h6 id="updaterowdataeventargs-struct"><code>UpdateRowDataEventArgs</code> struct</h6>
+<p>It is simply a pair of <code>Int32</code> indicating the start row and end row
+|Property| Type | Description
+|---|---|---|
+|StartRow | Int32 | The start row number of the data you need to provide
+|EndRow | Int32 | The end row number (inclusive) of the data you need to provide</p>
+<h5 id="defining-the-columns-with-tablecolumn-object">Defining the columns with <code>TableColumn</code> object</h5>
+<table class="table">
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>DependencyProperty?</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Content</td>
+<td>Object</td>
+<td>✅</td>
+<td>It can be either a <code>String</code> (rendered with D2D) or any Xaml Controls</td>
+</tr>
+<tr>
+<td>ItemTemplate</td>
+<td>DataTemplate</td>
+<td>✅</td>
+<td>Specify the <code>DataTemplate</code> which is used for displaying your cell data of this column</td>
+</tr>
+<tr>
+<td>EditTemplate</td>
+<td>DataTemplate</td>
+<td>✅</td>
+<td>Specify the <code>DataTemplate</code> which is used when user double-click a cell to edit it. If not specified, double-clicking is disabled.</td>
+</tr>
+<tr>
+<td>SortEnabled</td>
+<td>Boolean</td>
+<td>✅</td>
+<td>Controls whether this column is sortable</td>
+</tr>
+<tr>
+<td>IsResizable</td>
+<td>Boolean</td>
+<td>✅</td>
+<td>Controls whether this column is resizable</td>
+</tr>
+<tr>
+<td>HorizontalAlignment</td>
+<td>HorizontalAlignment</td>
+<td>❌</td>
+<td>Controls how the cell content gets horizontally laid out</td>
+</tr>
+<tr>
+<td>MinWidth</td>
+<td>Double</td>
+<td>❌</td>
+<td>Controls the minimum width this column can be resized to</td>
+</tr>
+<tr>
+<td>MaxWidth</td>
+<td>Double</td>
+<td>❌</td>
+<td>Controls the maximum width this column can be resized to</td>
+</tr>
+<tr>
+<td>ContextFlyout</td>
+<td>WinUINamespace.UI.Xaml.Controls.Flyout</td>
+<td>❌</td>
+<td>The right-click flyout to be displayed on this column header. Note: This is different from the table's <code>ContextMenuRequested</code> event.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="typename">TypeName</h3>
+<p>A markup extension for constructing a <code>Windows.UI.Xaml.Interop.TypeName</code> object in xaml. This is typically used for navigation.
+For example, you can assign a <code>TypeName</code> object to a <code>NavigationViewItem.Tag</code> property, then you can easily retrieve it in code-behind to navigate to the page.</p>
+<p>Xaml example:</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">NavigationViewItem</span> <span class="hljs-attr">Content</span>=<span class="hljs-string">"CursorController"</span> <span class="hljs-attr">Tag</span>=<span class="hljs-string">"{essential:TypeName Type=local:CursorControllerPage}"</span> /&gt;</span>
+</code></pre>
+<p>Then in code-behind, you can simply use this to navigate:</p>
+<pre><code class="language-cpp hljs"><span class="hljs-type">void</span> :<span class="hljs-built_in">NavigationView_SelectionChanged</span>(
+    winrt::Microsoft::UI::Xaml::Controls::NavigationView <span class="hljs-type">const</span>&amp; sender,
+    winrt::Microsoft::UI::Xaml::Controls::NavigationViewSelectionChangedEventArgs <span class="hljs-type">const</span>&amp; args)
+{
+	<span class="hljs-keyword">if</span> (<span class="hljs-keyword">auto</span> tag = args.<span class="hljs-built_in">SelectedItemContainer</span>().<span class="hljs-built_in">Tag</span>())
+		<span class="hljs-built_in">ContentFrame</span>().<span class="hljs-built_in">Navigate</span>(winrt::<span class="hljs-built_in">unbox_value</span>&lt;winrt::Windows::UI::Xaml::Interop::TypeName&gt;(tag));
+}
+</code></pre>
+<h3 id="stringresource">StringResource</h3>
+<p>A markup extension for localized string retreival from <code>resw</code> files. This is typically used when <code>x:Uid</code> is either not convenient or not possible.
+For example, currently in order to localize <code>Window.Title</code>, you have to retrieve the string in code-behind.
+Now you can directly assign a <code>StringResource</code> extension to it.</p>
+<pre><code class="language-xml hljs"><span class="hljs-tag">&lt;<span class="hljs-name">Window</span> <span class="hljs-attr">Title</span>=<span class="hljs-string">"{essential:StringResource Name=WindowTitle}"</span>
+    <span class="hljs-attr">...</span>
+&gt;</span>
+</code></pre>
+                                </div>
+                            </div>
+                    </div>
+                    <div role="tabpanel" class="tab-pane " id="supportedframeworks-tab" aria-label="Supported frameworks tab content">
+<table class="framework framework-table" aria-label="Supported frameworks">
+    <thead>
+        <tr>
+            <th scope="col" class="framework-table-title"><b>Product</b></th>
+            <th scope="col" class="framework-table-title">
+                <b aria-hidden="true">Versions</b>
+                <span class="sr-only">Compatible and additional computed target framework versions.</span>
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+                <tr>
+                    <td class="framework-table-product">
+                        native
+                    </td>
+
+                    <td class="framework-table-frameworks">
+                                <span aria-hidden="true" class="framework-badge-asset framework-table-margin" data-original-title="" title="">native</span>
+                                <span class="sr-only">native is compatible.&nbsp;</span>
+                    </td>
+                </tr>
+    </tbody>
+</table>
+<div>
+    <div>
+        <i class="frameworktableinfo-computed-icon framework-badge-computed"></i>
+        <span class="frameworktableinfo-text">Compatible target framework(s)</span>
+    </div>
+    <div>
+        <i class="frameworktableinfo-asset-icon"></i>
+        <span class="frameworktableinfo-text">Included target framework(s) (in package)</span>
+    </div>
+    <span class="frameworktableinfo-text"><i>Learn more about <a href="https://learn.microsoft.com/dotnet/standard/frameworks" aria-label="Learn more about Target Frameworks">Target Frameworks</a> and <a href="https://learn.microsoft.com/dotnet/standard/net-standard" aria-label="Learn more about .NET Standard">.NET Standard</a>.</i></span>
+</div>
+                    </div>
+                    <div role="tabpanel" class="tab-pane " id="dependencies-tab" aria-label="Dependencies tab content">
+                                    <ul class="list-unstyled dependency-groups" id="dependency-groups">
+                                            <li>
+                                                    <h4><span>native 0.0</span></h4>
+                                                <ul class="list-unstyled dependency-group">
+                                                        <li>
+                                                                <a href="/packages/Microsoft.Windows.CppWinRT/">Microsoft.Windows.CppWinRT</a>
+                                                                <span>(&gt;= 2.0.230706.1)</span>
+                                                        </li>
+                                                        <li>
+                                                                <a href="/packages/Microsoft.Windows.ImplementationLibrary/">Microsoft.Windows.ImplementationLibrary</a>
+                                                                <span>(&gt;= 1.0.240803.1)</span>
+                                                        </li>
+                                                        <li>
+                                                                <a href="/packages/Microsoft.WindowsAppSDK/">Microsoft.WindowsAppSDK</a>
+                                                                <span>(&gt;= 1.4.231115000)</span>
+                                                        </li>
+                                                </ul>
+                                            </li>
+                                    </ul>
+                    </div>
+                <div role="tabpanel" class="tab-pane " id="usedby-tab" aria-label="Used by tab content">
+                        <div class="used-by" id="used-by">
+                                    <h3>
+                                        <strong>NuGet packages</strong>
+                                    </h3>
+                                    <p>
+                                        This package is not used by any NuGet packages.
+                                    </p>
+
+                                    <h3>
+                                        <strong>GitHub repositories</strong>
+                                    </h3>
+                                    <p>
+                                        This package is not used by any popular GitHub repositories.
+                                    </p>
+                        </div>
+                </div>
+                <div role="tabpanel" class="tab-pane " id="versions-tab" aria-label="Versions tab content">
+                    <div class="version-history" id="version-history">
+                        <div class="version-filter-container">
+                            <div class="form-group">
+                                <label class="brand-checkbox">
+                                    <input type="checkbox" id="include-prerelease">
+                                    <span>Include prerelease</span>
+                                </label>
+                            </div>
+                                <div class="form-group">
+                                    <label class="brand-checkbox">
+                                        <input type="checkbox" id="include-vulnerable">
+                                        <span>Include vulnerable</span>
+                                    </label>
+                                </div>
+                                                            <div class="form-group">
+                                    <label class="brand-checkbox">
+                                        <input type="checkbox" id="include-deprecated">
+                                        <span>Include deprecated</span>
+                                    </label>
+                                </div>
+                        </div>
+
+                        <table aria-label="Version History of WinUIEssential.WinUI3" class="table borderless" aria-live="polite">
+                            <thead>
+    <tr>
+        <th scope="col" role="columnheader">Version</th>
+        <th scope="col" role="columnheader">Downloads</th>
+        <th scope="col" role="columnheader">
+            Last Updated
+        </th>
+
+                            <th scope="col" role="columnheader" aria-hidden="true" abbr="Package Warnings"></th>
+    </tr>
+</thead>
+<tbody class="no-border">
+            <tr class="bg-brand-info version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.7.2" title="1.7.2">
+                        1.7.2
+                    </a>
+                </td>
+                <td>
+                    0
+                </td>
+                <td>
+                    <span data-datetime="2026-08-29T14:40:09.8930000" title="2026-08-29T14:40:09Z">5 hours ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.7.1" title="1.7.1">
+                        1.7.1
+                    </a>
+                </td>
+                <td>
+                    104
+                </td>
+                <td>
+                    <span data-datetime="2026-08-21T17:19:33.2100000" title="2026-08-21T17:19:33Z">8 days ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.7.0" title="1.7.0">
+                        1.7.0
+                    </a>
+                </td>
+                <td>
+                    93
+                </td>
+                <td>
+                    <span data-datetime="2026-08-21T11:56:35.4230000" title="2026-08-21T11:56:35Z">8 days ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.6.8" title="1.6.8">
+                        1.6.8
+                    </a>
+                </td>
+                <td>
+                    132
+                </td>
+                <td>
+                    <span data-datetime="2026-08-08T10:10:56.1070000" title="2026-08-08T10:10:56Z">21 days ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.6.7" title="1.6.7">
+                        1.6.7
+                    </a>
+                </td>
+                <td>
+                    363
+                </td>
+                <td>
+                    <span data-datetime="2026-05-19T16:45:29.2500000" title="2026-05-19T16:45:29Z">3 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.6.6" title="1.6.6">
+                        1.6.6
+                    </a>
+                </td>
+                <td>
+                    162
+                </td>
+                <td>
+                    <span data-datetime="2026-04-19T16:10:56.6800000" title="2026-04-19T16:10:56Z">4 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.6.4" title="1.6.4">
+                        1.6.4
+                    </a>
+                </td>
+                <td>
+                    156
+                </td>
+                <td>
+                    <span data-datetime="2026-04-11T13:46:26.9200000" title="2026-04-11T13:46:26Z">5 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.6.3" title="1.6.3">
+                        1.6.3
+                    </a>
+                </td>
+                <td>
+                    158
+                </td>
+                <td>
+                    <span data-datetime="2026-04-03T14:24:21.3130000" title="2026-04-03T14:24:21Z">5 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.6.2" title="1.6.2">
+                        1.6.2
+                    </a>
+                </td>
+                <td>
+                    167
+                </td>
+                <td>
+                    <span data-datetime="2026-03-31T14:12:35.5670000" title="2026-03-31T14:12:35Z">5 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.6.1" title="1.6.1">
+                        1.6.1
+                    </a>
+                </td>
+                <td>
+                    229
+                </td>
+                <td>
+                    <span data-datetime="2026-03-25T17:52:05.2700000" title="2026-03-25T17:52:05Z">5 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.6.0" title="1.6.0">
+                        1.6.0
+                    </a>
+                </td>
+                <td>
+                    154
+                </td>
+                <td>
+                    <span data-datetime="2026-03-21T17:50:50.8730000" title="2026-03-21T17:50:50Z">5 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.5.0" title="1.5.0">
+                        1.5.0
+                    </a>
+                </td>
+                <td>
+                    268
+                </td>
+                <td>
+                    <span data-datetime="2026-02-27T14:26:53.2400000" title="2026-02-27T14:26:53Z">6 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.4.4" title="1.4.4">
+                        1.4.4
+                    </a>
+                </td>
+                <td>
+                    222
+                </td>
+                <td>
+                    <span data-datetime="2026-02-22T15:11:19.6170000" title="2026-02-22T15:11:19Z">6 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.4.3" title="1.4.3">
+                        1.4.3
+                    </a>
+                </td>
+                <td>
+                    178
+                </td>
+                <td>
+                    <span data-datetime="2026-02-20T05:03:24.7530000" title="2026-02-20T05:03:24Z">6 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.4.2" title="1.4.2">
+                        1.4.2
+                    </a>
+                </td>
+                <td>
+                    228
+                </td>
+                <td>
+                    <span data-datetime="2026-01-22T17:05:44.6800000" title="2026-01-22T17:05:44Z">7 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.4.1" title="1.4.1">
+                        1.4.1
+                    </a>
+                </td>
+                <td>
+                    167
+                </td>
+                <td>
+                    <span data-datetime="2026-01-12T17:57:57.9800000" title="2026-01-12T17:57:57Z">8 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.4.0" title="1.4.0">
+                        1.4.0
+                    </a>
+                </td>
+                <td>
+                    192
+                </td>
+                <td>
+                    <span data-datetime="2026-01-01T14:55:22.0900000" title="2026-01-01T14:55:22Z">8 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.3.29" title="1.3.29">
+                        1.3.29
+                    </a>
+                </td>
+                <td>
+                    299
+                </td>
+                <td>
+                    <span data-datetime="2025-12-25T14:26:12.8130000" title="2025-12-25T14:26:12Z">8 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.3.28" title="1.3.28">
+                        1.3.28
+                    </a>
+                </td>
+                <td>
+                    236
+                </td>
+                <td>
+                    <span data-datetime="2025-12-25T12:23:45.2070000" title="2025-12-25T12:23:45Z">8 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+            <tr class="version-row" data-prerelease="false" data-vulnerable="false" data-deprecated="false">
+                <td>
+                    <a href="/packages/WinUIEssential.WinUI3/1.3.27" title="1.3.27">
+                        1.3.27
+                    </a>
+                </td>
+                <td>
+                    248
+                </td>
+                <td>
+                    <span data-datetime="2025-12-13T18:16:56.7170000" title="2025-12-13T18:16:56Z">9 months ago</span>
+                </td>
+
+
+                    <td class="package-icon-cell" aria-hidden="true"></td>
+            </tr>
+</tbody>
+
+                        </table>
+
+                            <div>
+                                <button class="btn btn-link" id="load-more-versions" data-url="/packages/WinUIEssential.WinUI3/1.7.2/versiontable">Load more</button>
+                                <div class="hide" id="loading-more-error">Loading failed</div>
+                            </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <aside aria-label="Package details info" class="col-sm-3 package-details-info">
+                <div class="sidebar-section">
+                    <div class="row sidebar-headers">
+                        <div class="col-md-6">
+                            Downloads
+                        </div>
+                        <div class="col-md-6 title-links">
+                                <a href="/stats/packages/WinUIEssential.WinUI3?groupby=Version" title="Package Statistics">Full stats →</a>
+                        </div>
+                    </div>
+                    <div class="download-info">
+                        <div class="download-info-row">
+                            <span class="download-info-header">Total</span>
+                            <span class="download-info-content">13.7K</span>
+                        </div>
+                        <div class="download-info-row">
+                            <span class="download-info-header">Current version</span>
+                            <span class="download-info-content">0</span>
+                        </div>
+                        <div class="download-info-row">
+                            <span class="download-info-header">Per day average</span>
+                            <span class="download-info-content">52</span>
+                        </div>
+                    </div>
+                </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-headers">About</div>
+                <ul class="list-unstyled ms-Icon-ul sidebar-links">
+                    <li>
+                        <i class="ms-Icon ms-Icon--History" aria-hidden="true"></i>
+                        Last updated <span data-datetime="2026-08-29T14:40:09.8930000" title="2026-08-29T14:40:09Z">5 hours ago</span>
+                    </li>
+                        <li>
+                            <i class="ms-Icon ms-Icon--Globe" aria-hidden="true"></i>
+                            <a href="https://github.com/HO-COOH/WinUIEssentials" data-track="outbound-project-url" title="Visit the project site to learn more about this package" rel="nofollow">
+                                Project website
+                            </a>
+                        </li>
+
+                        <li>
+                                    <div class="git-image-icon icon" aria-hidden="true" role="img" alt="Git logo"></div>
+
+                            <a href="https://github.com/HO-COOH/WinUIEssentials" data-track="outbound-repository-url" title="View the source code for this package" rel="nofollow">
+                                Source repository
+                            </a>
+                        </li>
+
+                            <li>
+                                <i class="ms-Icon ms-Icon--Certificate" aria-hidden="true"></i>
+<a href="https://licenses.nuget.org/MIT" aria-label="License MIT">MIT license</a>                            </li>
+
+                        <li>
+                            <i class="ms-Icon ms-Icon--CloudDownload" aria-hidden="true"></i>
+                            <a href="https://www.nuget.org/api/v2/package/WinUIEssential.WinUI3/1.7.2" data-track="outbound-manual-download" title="Download the raw nupkg file." rel="nofollow">Download package</a>
+                            &nbsp;(224.43 MB)
+                        </li>
+
+                        <li>
+                            <i class="ms-Icon ms-Icon--FabricFolderSearch" aria-hidden="true" aria-label="nuget.info is a 3rd party website, not controlled by Microsoft. This link is made available to you per the NuGet Terms of Use." title="nuget.info is a 3rd party website, not controlled by Microsoft. This link is made available to you per the NuGet Terms of Use."></i>
+                            <a href="https://nuget.info/packages/WinUIEssential.WinUI3/1.7.2" data-track="outbound-nugetpackageexplorer-url" aria-label="open in NuGet Package Explorer" title="Explore additional package info on NuGet Package Explorer" target="_blank" rel="nofollow noreferrer">
+                                Open in NuGet Package Explorer
+                            </a>
+                        </li>
+
+
+                        <li>
+                            <img class="icon nuget-trends-icon" aria-label="nugettrends.com is a 3rd party website, not controlled by Microsoft. This link is made available to you per the NuGet Terms of Use." title="nugettrends.com is a 3rd party website, not controlled by Microsoft. This link is made available to you per the NuGet Terms of Use." src="https://nuget.org/Content/gallery/img/nuget-trends.svg" onerror="this.src='https://nuget.org/Content/gallery/img/nuget-trends-32x32.png'; this.onerror = null;">
+                            <a href="https://nugettrends.com/packages?ids=WinUIEssential.WinUI3" data-track="outbound-nuget-trends-url" aria-label="open in nugetrends.com" title="Explore download trends on nugettrends.com" target="_blank" rel="nofollow noreferrer">
+                                Open in NuGet Trends
+                            </a>
+                        </li>
+
+
+                        <li class="report-link">
+                            <i class="ms-Icon ms-Icon--Flag" aria-hidden="true"></i>
+                            <a href="/packages/WinUIEssential.WinUI3/1.7.2/ReportAbuse" title="Report the package as abusive">
+                                Report package
+                            </a>
+                        </li>
+                </ul>
+            </div>
+
+
+
+            <div class="sidebar-section">
+                <div class="row sidebar-headers">
+                    <div class="col-md-6">
+                        Owners
+                    </div>
+                    <div class="col-md-6 title-links">
+                        <a href="/packages/WinUIEssential.WinUI3/1.7.2/ContactOwners" title="Ask the package owners a question">Contact owners →</a>
+                    </div>
+                </div>
+
+                    <ul class="list-unstyled owner-list">
+                            <li>
+                                    <a class="profile-icon" href="/profiles/HO-COOH" title="HO-COOH">
+                                        <img src="/profiles/HO-COOH/avatar?imageSize=64" class="owner-image" height="32" width="32" title="HO-COOH" alt="HO-COOH gravatar">
+                                    </a>
+                                <a class="username" href="/profiles/HO-COOH" title="HO-COOH">
+                                    HO-COOH
+                                </a>
+                            </li>
+                    </ul>
+
+
+            </div>
+                    <p>
+                            <a href="/packages?q=Tags%3A%22c%2B%2B%22" title="Search for c++" class="tag">c++</a>
+                            <a href="/packages?q=Tags%3A%22cpp%22" title="Search for cpp" class="tag">cpp</a>
+                            <a href="/packages?q=Tags%3A%22was%22" title="Search for was" class="tag">was</a>
+                            <a href="/packages?q=Tags%3A%22winui3%22" title="Search for winui3" class="tag">winui3</a>
+                            <a href="/packages?q=Tags%3A%22winui%22" title="Search for winui" class="tag">winui</a>
+                            <a href="/packages?q=Tags%3A%22cpp20%22" title="Search for cpp20" class="tag">cpp20</a>
+                    </p>
+
+                <p class="share-buttons">
+                        <a href="/packages/WinUIEssential.WinUI3/atom.xml" data-track="atom-feed">
+                            <img width="24" height="24" alt="Use the Atom feed to subscribe to new versions of WinUIEssential.WinUI3" src="https://nuget.org/Content/gallery/img/rss.svg" onerror="this.src='https://nuget.org/Content/gallery/img/rss-24x24.png'; this.onerror = null;">
+                        </a>
+                </p>
+        </aside>
+    </div>
+</section>
+
+
+    </div>
+    <footer class="footer">
+    <div class="container">
+        <div class="row">
+            <div class="col-sm-4">
+                <span class="footer-heading"><a href="/policies/Contact">Contact</a></span>
+                <p>
+                    Got questions about NuGet or the NuGet Gallery?
+                </p>
+            </div>
+            <div class="col-sm-4">
+                <span class="footer-heading"><a href="https://status.nuget.org/">Status</a></span>
+                <p>
+                    Find out the service status of NuGet.org and its related services.
+                </p>
+            </div>
+            <div class="col-sm-4">
+                <span class="footer-heading">
+                    <a aria-label="Frequently Asked Questions" href="https://aka.ms/nuget-faq">
+                        <abbr title="Frequently Asked Questions">FAQ</abbr>
+                    </a>
+                </span>
+                <p>
+                    Read the Frequently Asked Questions about NuGet and see if your question made the list.
+                </p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-3 row-gap">
+                <div class="nuget-logo-footer" alt="NuGet home" role="img" aria-label="NuGet Home" onerror="this.src='https://nuget.org/Content/gallery/img/logo-footer-184x57.png'; this.onerror = null;"></div>
+            </div>
+            <div class="col-md-9 row-gap">
+                <div class="row">
+                        <div class="col-md-12 footer-release-info">
+                            <p>
+                                        © Microsoft 2026 -
+
+                                <a href="/policies/About">About</a> -
+                                <a href="/policies/Terms">Terms of Use</a> -
+                                <a href="https://aka.ms/yourcaliforniaprivacychoices">
+                                    <img src="/Content/gallery/img/privacy-choices.svg" height="16" width="43" style="vertical-align:middle" alt="Your Privacy Choices Opt-Out Icon"><span style="font-size: 16px; font-weight:400">Your Privacy Choices</span></a> -
+                                <a href="https://go.microsoft.com/fwlink/?LinkId=521839" id="footer-privacy-policy-link">Privacy Statement</a>
+
+                                    - <a href="https://www.microsoft.com/trademarks">Trademarks</a>
+                                <br>
+                            </p>
+                        </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<!--
+    This is the NuGet Gallery version 5.0.0-main-15122124.
+        Deployed from 320deef43d Link: https://www.github.com/NuGet/NuGetGallery/commit/320deef43d
+        Built on HEAD Link: https://www.github.com/NuGet/NuGetGallery/tree/HEAD
+        Built on 2026-08-27T19:25:08.4544306+00:00
+    Deployment label: PROD-USNC.ASE-5.0.0-main-15122124
+    You are on D16DV40000I0.
+-->
+
+</footer>
+
+        <script src="https://wcpstatic.microsoft.com/mscc/lib/v2/wcp-consent.js" nonce=""></script>
+
+    <script src="/Scripts/gallery/site.min.js?v=9352ShibzZ-oY8G2paDIJFoRoTrWghNF7YlXi2tc4d01" nonce=""></script>
+
+    
+
+
+    <style type="text/css" nonce="">
+        #dotnet-cli .install-command-row::before {    content: "> "}#package-manager .install-command-row::before {    content: "PM> "}#script-interactive .install-command-row::before {    content: "> "}
+    </style>
+
+    <script type="text/javascript" nonce="">
+        window.nuget = window.nuget || {};
+        window.nuget.packageId = "WinUIEssential.WinUI3";
+        window.nuget.packageVersion = "1.7.2";
+        window.nuget.packageManagers = ["dotnet-cli-0001","package-manager-0001","package-reference-0001","package-version-0001","package-version-0002","paket-cli-0001","script-interactive-0001","dotnet-run-file-0001","cake-0001","cake-0002"];
+        window.nuget.sponsorshipUrlCount = 0;
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js" integrity="sha512-gU7kztaQEl7SHJyraPfZLQCNnrKdaQi5ndOyt4L4UPL/FHDd/uB9Je6KDARIqwnNNE27hnqoWLBq+Kpe4iHfeQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/fsharp.min.js" integrity="sha512-DXYctkkhmMYJ4vYp4Dm6jprD4ZareZ7ud/d9mGCKif/Dt3FnN95SjogHvwKvxXHoMAAkZX6EO6ePwpDIR1Y8jw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/dos.min.js" integrity="sha512-mz4SrGyk+dtPY9MNYOMkD81gp8ajViZ4S0VDuM/Zqg40cg9xgIBYSiL5fN79Htbz4f2+uR9lrDO6mgcjM+NAXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/powershell.min.js" integrity="sha512-pnt8OPBTOklRd4/iSW7msOiCVO4uvffF17Egr3c7AaN0h3qFnSu7L6UmdZJUCednMhhruTLRq7X9WbyAWNBegw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script nonce="">
+        document.addEventListener('DOMContentLoaded', (event) => {
+            document.querySelectorAll('pre code').forEach((el) => {
+                hljs.highlightElement(el);
+            });
+        });
+        </script>
+
+    <script src="/Scripts/gallery/page-display-package.min.js?v=kx7nle07rCr8OpYGs7DwyfOpB5ksysuLkM_xkwX61iw1" nonce=""></script>
+
+
+        <form aria-hidden="true" id="AntiForgeryForm">
+        <input name="__RequestVerificationToken" type="hidden" value="nnbYuosxFlIF-z7KIRX1eourSN0mPlJ5ovPFHJd3nWynxeYyiFOQH0Fw8OAQV4SbovbJ0HNTtQpTAi93advTJabldHvzcSm_ywRIpgJe5XA1">
+    </form>
+
+
+
+
+</body></html>
