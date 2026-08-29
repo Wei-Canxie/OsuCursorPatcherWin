@@ -344,8 +344,8 @@ internal sealed class SettingsWindow : Window
             StepFrequency = step
         };
         var valueBox = new TextBox { Text = value.ToString(format), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 4, 0) };
-        var minusBtn = new Button { Content = "-", Width = 28, Height = 28, Margin = new Thickness(2, 0, 1, 0) };
-        var plusBtn = new Button { Content = "+", Width = 28, Height = 28, Margin = new Thickness(1, 0, 2, 0) };
+        var minusBtn = new Button { Content = new SymbolIcon(Symbol.Remove), Width = 28, Height = 28, Margin = new Thickness(2, 0, 1, 0) };
+        var plusBtn = new Button { Content = new SymbolIcon(Symbol.Add), Width = 28, Height = 28, Margin = new Thickness(1, 0, 2, 0) };
 
         // Slider value changed -> update textbox and apply
         slider.ValueChanged += (_, _) =>
