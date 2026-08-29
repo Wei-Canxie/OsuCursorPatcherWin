@@ -29,6 +29,9 @@ internal static class AppearanceManager
     private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
 
     [DllImport("dwmapi.dll", SetLastError = true)]
+    private static extern int DwmGetWindowAttribute(IntPtr hwnd, DwmWindowAttribute attribute, out int pvAttribute, int cbAttribute);
+
+    [DllImport("dwmapi.dll", SetLastError = true)]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, DwmWindowAttribute attribute, ref int pvAttribute, int cbAttribute);
 
     [DllImport("dwmapi.dll", SetLastError = true)]
@@ -155,8 +158,13 @@ internal static class AppearanceManager
             };
 
             int hr = DwmSetWindowAttribute(hwnd, DwmWindowAttribute.DWMWA_SYSTEMBACKDROP_TYPE, ref backdropType, sizeof(int));
-            AppLog.Log($"DWM SystemBackdrop hr={hr}, type={backdropType}");
-            success = hr >= 0;
+
+            // Verify it actually took effect
+            int verifyType = 0;
+            int verifyHr = DwmGetWindowAttribute(hwnd, DwmWindowAttribute.DWMWA_SYSTEMBACKDROP_TYPE, out verifyType, sizeof(int));
+            bool verified = verifyHr >= 0 && verifyType == backdropType;
+            AppLog.Log($"DWM SystemBackdrop hr={hr}, type={backdropType}, verify={verified}, verifyHr={verifyHr}, verifyType={verifyType}");
+            success = verified;
 
             // Method 2: SetWindowCompositionAttribute (undocumented Win10 method)
             if (!success)
