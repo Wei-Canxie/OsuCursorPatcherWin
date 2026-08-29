@@ -146,7 +146,7 @@ internal sealed class SettingsWindow : Window
         // Window opacity: Slider + TextBox + buttons
         var opacityLabel = new TextBlock { Text = $"窗口不透明度: {_settings.WindowOpacity:P0}", FontWeight = FontWeights.SemiBold };
         panel.Children.Add(opacityLabel);
-        panel.Children.Add(BuildSliderWithTextBox("窗口透明度", _settings.WindowOpacity, 0.3, 1.0,
+        panel.Children.Add(BuildSliderWithTextBox("窗口不透明度", _settings.WindowOpacity, 0.3, 1.0,
             v => { _settings.WindowOpacity = v; opacityLabel.Text = $"窗口不透明度: {v:P0}"; ApplyAppearance(); },
             step: 0.05, format: "0%"));
 
@@ -226,7 +226,7 @@ internal sealed class SettingsWindow : Window
         // Background image opacity: Slider + TextBox + buttons
         var bgOpacityLabel = new TextBlock { Text = $"背景图片不透明度: {_settings.BackgroundImageOpacity:P0}", FontWeight = FontWeights.SemiBold };
         panel.Children.Add(bgOpacityLabel);
-        panel.Children.Add(BuildSliderWithTextBox("背景图片透明度", _settings.BackgroundImageOpacity, 0.0, 1.0,
+        panel.Children.Add(BuildSliderWithTextBox("背景图片不透明度", _settings.BackgroundImageOpacity, 0.0, 1.0,
             v => { _settings.BackgroundImageOpacity = v; bgOpacityLabel.Text = $"背景图片不透明度: {v:P0}"; ApplyAppearance(); },
             step: 0.05, format: "0%"));
 

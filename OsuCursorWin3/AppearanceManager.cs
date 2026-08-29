@@ -59,11 +59,18 @@ internal static class AppearanceManager
 
     public static void ApplyOpacity(Window window, AppSettings settings)
     {
-        // Set opacity on the root content element (Window has no Opacity in WinUI 3)
-        if (window.Content is FrameworkElement root)
+        var hwnd = WindowNative.GetWindowHandle(window);
+        var exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+
+        // Ensure WS_EX_LAYERED is set for all modes
+        if ((exStyle & WS_EX_LAYERED) == 0)
         {
-            root.Opacity = Math.Clamp(settings.WindowOpacity, 0.1, 1.0);
+            SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
         }
+
+        // Set overall window opacity via Win32 layered window
+        var alpha = (byte)Math.Clamp(settings.WindowOpacity * 255, 25, 255);
+        SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
     }
 
     public static void ApplyBackground(Window window, AppSettings settings)
@@ -75,7 +82,7 @@ internal static class AppearanceManager
 
         if (useBlur)
         {
-            // Set transparent background so DWM glass shows through
+            // Mica/Acrylic: Composition backdrop handles the visual, no image blur applied
             mainGrid.Background = new XamlSolidColorBrush(Colors.Transparent);
 
             if (TrySetCompositionBackdrop(window, settings))
@@ -90,8 +97,9 @@ internal static class AppearanceManager
         }
         else
         {
+            // Default mode: blur radius controls background image blur
             ClearBackdrop(window);
-            ApplySolidBackground(mainGrid, settings, applyBlur: false);
+            ApplySolidBackground(mainGrid, settings, applyBlur: true);
         }
     }
 
