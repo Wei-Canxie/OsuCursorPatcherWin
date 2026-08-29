@@ -24,7 +24,7 @@ internal sealed class AppSettings
     /// <summary>Settings window height in pixels.</summary>
     public double WindowHeight { get; set; } = 680.0;
     /// <summary>Window content opacity. 0.3 – 1.0.</summary>
-    public double WindowOpacity { get; set; } = 0.95;
+    public double WindowOpacity { get; set; } = 0.9;
     /// <summary>Background image file path. Empty = none.</summary>
     public string BackgroundImagePath { get; set; } = DefaultBackgroundPath;
 
