@@ -59,31 +59,10 @@ internal static class AppearanceManager
 
     public static void ApplyOpacity(Window window, AppSettings settings)
     {
-        var hwnd = WindowNative.GetWindowHandle(window);
-        var exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-
-        if (settings.BackgroundBlur != AppSettings.BlurMode.Default)
+        // Set opacity on the root content element (Window has no Opacity in WinUI 3)
+        if (window.Content is FrameworkElement root)
         {
-            // Remove WS_EX_LAYERED when DWM glass is active
-            if ((exStyle & WS_EX_LAYERED) != 0)
-            {
-                SetWindowLong(hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_LAYERED);
-            }
-            return;
-        }
-
-        try
-        {
-            if ((exStyle & WS_EX_LAYERED) == 0)
-            {
-                SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
-            }
-            var alpha = (byte)Math.Clamp(settings.WindowOpacity * 255, 76, 255);
-            SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
-        }
-        catch (Exception ex)
-        {
-            AppLog.Log($"ApplyOpacity failed: {ex.Message}");
+            root.Opacity = Math.Clamp(settings.WindowOpacity, 0.1, 1.0);
         }
     }
 
@@ -96,6 +75,9 @@ internal static class AppearanceManager
 
         if (useBlur)
         {
+            // Set transparent background so DWM glass shows through
+            mainGrid.Background = new XamlSolidColorBrush(Colors.Transparent);
+
             if (TrySetCompositionBackdrop(window, settings))
             {
                 AppLog.Log("WASDK 2.4 Composition backdrop applied");
@@ -108,7 +90,7 @@ internal static class AppearanceManager
         }
         else
         {
-            ClearBackdrop();
+            ClearBackdrop(window);
             ApplySolidBackground(mainGrid, settings, applyBlur: false);
         }
     }
@@ -125,7 +107,7 @@ internal static class AppearanceManager
             }
 
             // Clean up previous controllers
-            ClearBackdrop();
+            ClearBackdrop(window);
 
             // Create controller based on mode
             if (settings.BackgroundBlur == AppSettings.BlurMode.Mica && MicaController.IsSupported())
@@ -167,15 +149,17 @@ internal static class AppearanceManager
         }
     }
 
-    private static void ClearBackdrop()
+    private static void ClearBackdrop(Window window)
     {
         if (_micaController != null)
         {
+            try { _micaController.RemoveSystemBackdropTarget(window.As<ICompositionSupportsSystemBackdrop>()); } catch { }
             try { _micaController.Dispose(); } catch { }
             _micaController = null;
         }
         if (_acrylicController != null)
         {
+            try { _acrylicController.RemoveSystemBackdropTarget(window.As<ICompositionSupportsSystemBackdrop>()); } catch { }
             try { _acrylicController.Dispose(); } catch { }
             _acrylicController = null;
         }
@@ -404,6 +388,8 @@ internal static class AppearanceManager
 
     public static void Cleanup()
     {
-        ClearBackdrop();
+        // Cannot remove without window reference, just dispose
+        if (_micaController != null) { try { _micaController.Dispose(); } catch { } _micaController = null; }
+        if (_acrylicController != null) { try { _acrylicController.Dispose(); } catch { } _acrylicController = null; }
     }
 }
