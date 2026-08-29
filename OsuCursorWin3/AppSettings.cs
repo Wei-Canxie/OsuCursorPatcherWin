@@ -22,7 +22,11 @@ internal sealed class AppSettings
     /// <summary>Window content opacity. 0.3 – 1.0.</summary>
     public double WindowOpacity { get; set; } = 1.0;
     /// <summary>Background image file path. Empty = none.</summary>
-    public string BackgroundImagePath { get; set; } = @"C:\Users\The_R\Desktop\Files\Downloads\1926c7b2-d369-4140-8a02-b7d1c28ae729.jpg";
+    public string BackgroundImagePath { get; set; } = DefaultBackgroundPath;
+
+    /// <summary>Default background image shipped next to the exe.</summary>
+    internal static string DefaultBackgroundPath =>
+        Path.Combine(AppContext.BaseDirectory, "background-default.jpg");
     /// <summary>Background image opacity. 0.0 – 1.0.</summary>
     public double BackgroundImageOpacity { get; set; } = 0.8;
     /// <summary>Background blur type: default (solid), Mica, Acrylic.</summary>
@@ -80,6 +84,14 @@ internal sealed class AppSettings
                 if (settings is not null)
                 {
                     settings.CursorWidth = Math.Clamp(settings.CursorWidth, MinCursorWidth, MaxCursorWidth);
+                    // Fall back to the shipped default image whenever the
+                    // configured path is empty or the file went away, so the
+                    // window never silently degrades to a blank background.
+                    if (string.IsNullOrEmpty(settings.BackgroundImagePath)
+                        || !File.Exists(settings.BackgroundImagePath))
+                    {
+                        settings.BackgroundImagePath = DefaultBackgroundPath;
+                    }
                     return settings;
                 }
             }

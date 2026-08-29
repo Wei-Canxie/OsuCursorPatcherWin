@@ -328,11 +328,11 @@ internal sealed class SettingsWindow : Window
             }
         };
 
-        var clearBgBtn = new Button { Content = "清除" };
+        var clearBgBtn = new Button { Content = "恢复默认" };
         clearBgBtn.Click += (_, _) =>
         {
-            _settings.BackgroundImagePath = "";
-            bgPathLabel.Text = "(无)";
+            _settings.BackgroundImagePath = AppSettings.DefaultBackgroundPath;
+            bgPathLabel.Text = Path.GetFileName(AppSettings.DefaultBackgroundPath);
             ApplyAppearance();
         };
 

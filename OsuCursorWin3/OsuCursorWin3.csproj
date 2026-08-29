@@ -39,6 +39,14 @@
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
   </ItemGroup>
 
+  <!-- Ship the default background image next to the exe so "clear"
+       can always fall back to it instead of a blank window. -->
+  <ItemGroup>
+    <Content Include="assets\background-default.jpg" Link="background-default.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <!-- Embedded resources (same as original) -->
   <ItemGroup>
     <EmbeddedResource Include="1.ico">
