@@ -19,10 +19,12 @@ internal sealed class AppSettings
 
     /// <summary>Theme mode: follow system, light, or dark.</summary>
     public ThemeMode Theme { get; set; } = ThemeMode.FollowSystem;
-    /// <summary>Window opacity. 0.3 – 1.0.</summary>
+    /// <summary>Window content opacity. 0.3 – 1.0.</summary>
     public double WindowOpacity { get; set; } = 1.0;
     /// <summary>Background image file path. Empty = none.</summary>
     public string BackgroundImagePath { get; set; } = "";
+    /// <summary>Background image opacity. 0.0 – 1.0.</summary>
+    public double BackgroundImageOpacity { get; set; } = 1.0;
     /// <summary>Background blur type: default (solid), Mica, Acrylic.</summary>
     public BlurMode BackgroundBlur { get; set; } = BlurMode.Default;
 
