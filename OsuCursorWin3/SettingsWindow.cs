@@ -39,8 +39,6 @@ internal sealed class SettingsWindow : Window
         ExtendsContentIntoTitleBar = true;
 
         var root = new Grid();
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
         _titleBarRoot = new Border { Height = 32, Background = GetTitleBarBrush() };
         _titleBarText = new TextBlock
@@ -52,7 +50,18 @@ internal sealed class SettingsWindow : Window
             Foreground = new SolidColorBrush(Colors.Black)
         };
         _titleBarRoot.Child = _titleBarText;
+
+        // Content host: title bar on top, page below. The NavigationView spans
+        // the whole window so the sidebar reaches the top of the display area.
+        var contentRoot = new Grid();
+        contentRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        contentRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         Grid.SetRow(_titleBarRoot, 0);
+        contentRoot.Children.Add(_titleBarRoot);
+
+        var contentHost = new ContentControl();
+        Grid.SetRow(contentHost, 1);
+        contentRoot.Children.Add(contentHost);
 
         var nav = new NavigationView
         {
@@ -71,10 +80,12 @@ internal sealed class SettingsWindow : Window
         nav.MenuItems.Add(new NavigationViewItem { Content = "音效", Icon = new SymbolIcon(Symbol.Audio), Tag = "sound" });
         nav.MenuItems.Add(new NavigationViewItem { Content = "系统", Icon = new SymbolIcon(Symbol.Setting), Tag = "system" });
 
+        nav.Content = contentRoot;
+
         nav.SelectionChanged += (s, e) =>
         {
             if (nav.SelectedItem is NavigationViewItem item && item.Tag is string tag)
-                nav.Content = BuildPage(tag);
+                contentHost.Content = BuildPage(tag);
         };
 
         nav.Loaded += (_, _) =>
@@ -85,9 +96,6 @@ internal sealed class SettingsWindow : Window
             SyncSidebarBackground();
         };
 
-        Grid.SetRow(nav, 1);
-
-        root.Children.Add(_titleBarRoot);
         root.Children.Add(nav);
         Content = root;
     }
@@ -119,7 +127,8 @@ internal sealed class SettingsWindow : Window
             else if (pane is Border border)
             {
                 border.Background = bg;
-                border.CornerRadius = new CornerRadius(12);
+                // Left side square (fills window edge), right side rounded
+                border.CornerRadius = new CornerRadius(0, 12, 12, 0);
             }
             else
             {
@@ -154,8 +163,9 @@ internal sealed class SettingsWindow : Window
     }
 
     /// <summary>
-    /// Apply a 12px rounded clip to the pane's visual (Composition layer,
+    /// Apply a rounded clip to the pane's visual (Composition layer,
     /// because WinUI RectangleGeometry has no rounded radii).
+    /// Left side square (0) to fill the window edge, right side 12px rounded.
     /// NOTE: RectangleClip bounds must be set explicitly — its default
     /// bounds can collapse the clip region to zero and hide the element.
     /// </summary>
@@ -165,9 +175,9 @@ internal sealed class SettingsWindow : Window
         {
             var compositor = ElementCompositionPreview.GetElementVisual(pane).Compositor;
             var clip = compositor.CreateRectangleClip();
-            clip.TopLeftRadius = new Vector2(12, 12);
+            clip.TopLeftRadius = new Vector2(0, 0);
             clip.TopRightRadius = new Vector2(12, 12);
-            clip.BottomLeftRadius = new Vector2(12, 12);
+            clip.BottomLeftRadius = new Vector2(0, 0);
             clip.BottomRightRadius = new Vector2(12, 12);
             SyncClipBounds(clip, pane);
             ElementCompositionPreview.GetElementVisual(pane).Clip = clip;
