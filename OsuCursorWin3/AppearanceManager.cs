@@ -138,59 +138,17 @@ internal static class AppearanceManager
     {
         if (window.Content is not Grid mainGrid) return;
 
-        var hwnd = WindowNative.GetWindowHandle(window);
         bool useBlur = settings.BackgroundBlur != AppSettings.BlurMode.Default;
+        AppLog.Log($"ApplyBackground blur={settings.BackgroundBlur}, radius={settings.BackgroundBlurRadius}");
 
-        int dwmEnabled = 0;
-        DwmIsCompositionEnabled(ref dwmEnabled);
-        AppLog.Log($"DWM: {dwmEnabled}, blur: {settings.BackgroundBlur}, radius: {settings.BackgroundBlurRadius}");
-
-        if (useBlur && dwmEnabled != 0)
+        if (useBlur)
         {
-            bool success = false;
-
-            // Method 1: DWM_SYSTEMBACKDROP_TYPE (Win11 22H2+)
-            int backdropType = settings.BackgroundBlur switch
-            {
-                AppSettings.BlurMode.Mica => (int)DwmSystemBackdropType.DWMSBT_MAINWINDOW,
-                AppSettings.BlurMode.Acrylic => (int)DwmSystemBackdropType.DWMSBT_TRANSIENTWINDOW,
-                _ => (int)DwmSystemBackdropType.DWMSBT_NONE
-            };
-
-            int hr = DwmSetWindowAttribute(hwnd, DwmWindowAttribute.DWMWA_SYSTEMBACKDROP_TYPE, ref backdropType, sizeof(int));
-
-            // Verify it actually took effect
-            int verifyType = 0;
-            int verifyHr = DwmGetWindowAttribute(hwnd, DwmWindowAttribute.DWMWA_SYSTEMBACKDROP_TYPE, out verifyType, sizeof(int));
-            bool verified = verifyHr >= 0 && verifyType == backdropType;
-            AppLog.Log($"DWM SystemBackdrop hr={hr}, type={backdropType}, verify={verified}, verifyHr={verifyHr}, verifyType={verifyType}");
-            success = verified;
-
-            // Method 2: SetWindowCompositionAttribute (undocumented Win10 method)
-            if (!success)
-            {
-                success = TryAccentPolicyBlur(hwnd, settings);
-            }
-
-            if (success)
-            {
-                mainGrid.Background = new XamlSolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
-
-                if (mainGrid.Children.Count > 1 && mainGrid.Children[1] is NavigationView nav)
-                {
-                    nav.Background = new XamlSolidColorBrush(Microsoft.UI.Colors.Transparent);
-                }
-                return;
-            }
-
-            // DWM failed, fallback to GDI+ blur on background image
-            AppLog.Log("DWM methods failed, falling back to GDI+ Gaussian blur");
             ApplySolidBackground(mainGrid, settings, applyBlur: true);
-            return;
         }
-
-        DisableBlur(hwnd);
-        ApplySolidBackground(mainGrid, settings, applyBlur: false);
+        else
+        {
+            ApplySolidBackground(mainGrid, settings, applyBlur: false);
+        }
     }
 
     private static bool TryAccentPolicyBlur(IntPtr hwnd, AppSettings settings)
