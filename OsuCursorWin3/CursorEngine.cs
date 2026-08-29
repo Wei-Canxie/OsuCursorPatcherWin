@@ -238,7 +238,8 @@ internal sealed class CursorEngine : IDisposable
         _hookThread = new Thread(HookThreadMain)
         {
             IsBackground = true,
-            Name = "OsuCursorHook"
+            Name = "OsuCursorHook",
+            Priority = ThreadPriority.Highest
         };
         _hookThread.SetApartmentState(ApartmentState.STA);
         _hookThread.Start();
@@ -350,10 +351,23 @@ internal sealed class CursorEngine : IDisposable
     {
         int hz = GetHighestRefreshRate();
         _lastRefreshHz = hz;
-        _renderTargetHz = Math.Min(240, Math.Max(60, hz));
+        // OPTIMIZATION for 1000-8000Hz mice:
+        // The display refresh rate determines how often DWM composites, but the
+        // timer rate determines how often we call SetWindowPos to update the
+        // overlay position. A faster timer means DWM picks up a fresher position
+        // on each vsync, reducing visible input-to-display latency.
+        //
+        // At 180Hz display + 180Hz timer: avg position age = 2.8ms
+        // At 180Hz display + 1000Hz timer: avg position age = 0.5ms
+        //
+        // 1000Hz (1ms interval) is the practical maximum with WinMM timer +
+        // timeBeginPeriod(1). It covers 1000Hz mice perfectly and still helps
+        // at 2000-8000Hz (position freshness is determined by the hook rate,
+        // but the visible update frequency is determined by this timer).
+        _renderTargetHz = Math.Min(1000, Math.Max(120, hz));
         _renderIntervalMs = 1000.0 / _renderTargetHz;
         if (_mmTimerId != 0) RestartMmTimerId();
-        AppLog.Log($"[Display] render target -> {_renderTargetHz} Hz ({_renderIntervalMs:0.00} ms)");
+        AppLog.Log($"[Display] display={hz}Hz render timer -> {_renderTargetHz} Hz ({_renderIntervalMs:0.00} ms)");
     }
 
     private static void EnableHighResTimer()

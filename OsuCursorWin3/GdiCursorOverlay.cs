@@ -252,13 +252,12 @@ internal sealed class GdiCursorOverlay : Form
             }
         }
 
-        // Move-guard: only reposition when the cursor moved beyond a small
-        // hysteresis deadband.  The low-level mouse hook reports sub-pixel
-        // jitter even when the pointer is stationary; moving on every 1px tick
-        // made SetWindowPos fire constantly (~45x/s while idle) and each
-        // HWND_TOPMOST call forces a DWM re-composition — a big frame-time
-        // cost.  A 2px deadband keeps idle frames at zero SetWindowPos calls.
-        const int deadband = 2;
+        // Move-guard: only reposition when the cursor moved at least 1px.
+        // At 2000-8000Hz, the hook reports every micro-movement; a 2px
+        // deadband would cause visible lag at these polling rates.
+        // The cost of SetWindowPos on every 1px tick is minimal with
+        // SWP_ASYNCWINDOWPOS (the call returns immediately).
+        const int deadband = 1;
         var moved = visible
             && (Math.Abs(x - _ovX) >= deadband
                 || Math.Abs(y - _ovY) >= deadband
@@ -401,35 +400,30 @@ internal sealed class GdiCursorOverlay : Form
             try
             {
                 int stride = width * 4;
+                var srcRow = new byte[data.Stride];
+                var dstRow = new byte[stride];
                 for (int y = 0; y < height; y++)
                 {
-                    // copy row from the GDI+ bitmap (straight alpha, BGRA order)
-                    var row = new byte[stride];
-                    Marshal.Copy(data.Scan0 + y * data.Stride, row, 0, stride);
+                    Marshal.Copy(data.Scan0 + y * data.Stride, srcRow, 0, data.Stride);
+                    for (int i = 0; i < stride; i++)
+                        dstRow[i] = srcRow[i];
 
-                    // Premultiply: UpdateLayeredWindow(AlphaFormat=AC_SRC_ALPHA=1)
-                    // requires premultiplied alpha.  GDI+ Format32bppArgb / PNG
-                    // sources are straight alpha; sending straight to ULW makes
-                    // semi-transparent edges (RGB > A*255) render as a bright
-                    // halo / jaggies — the exact "锯齿感" the user reported.
-                    // Premultiply: RGB = RGB * A / 255, BGRA byte order.
                     for (int i = 0; i < stride; i += 4)
                     {
-                        byte a = row[i + 3];
+                        byte a = dstRow[i + 3];
                         if (a == 0)
                         {
-                            row[i] = 0; row[i + 1] = 0; row[i + 2] = 0;
+                            dstRow[i] = 0; dstRow[i + 1] = 0; dstRow[i + 2] = 0;
                         }
                         else if (a < 255)
                         {
-                            row[i]     = (byte)(row[i]     * a / 255); // B
-                            row[i + 1] = (byte)(row[i + 1] * a / 255); // G
-                            row[i + 2] = (byte)(row[i + 2] * a / 255); // R
+                            dstRow[i]     = (byte)(dstRow[i]     * a / 255);
+                            dstRow[i + 1] = (byte)(dstRow[i + 1] * a / 255);
+                            dstRow[i + 2] = (byte)(dstRow[i + 2] * a / 255);
                         }
-                        // a == 255: RGB unchanged
                     }
 
-                    Marshal.Copy(row, 0, bits + y * stride, stride);
+                    Marshal.Copy(dstRow, 0, bits + y * stride, stride);
                 }
             }
             finally { bmp.UnlockBits(data); }
