@@ -39,6 +39,8 @@ internal sealed class SettingsWindow : Window
         ExtendsContentIntoTitleBar = true;
 
         var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
         _titleBarRoot = new Border { Height = 32, Background = GetTitleBarBrush() };
         _titleBarText = new TextBlock
@@ -47,21 +49,10 @@ internal sealed class SettingsWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(12, 0, 0, 0),
             FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(Colors.Black)
+            Foreground = GetTitleBarForeground()
         };
         _titleBarRoot.Child = _titleBarText;
-
-        // Content host: title bar on top, page below. The NavigationView spans
-        // the whole window so the sidebar reaches the top of the display area.
-        var contentRoot = new Grid();
-        contentRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        contentRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         Grid.SetRow(_titleBarRoot, 0);
-        contentRoot.Children.Add(_titleBarRoot);
-
-        var contentHost = new ContentControl();
-        Grid.SetRow(contentHost, 1);
-        contentRoot.Children.Add(contentHost);
 
         var nav = new NavigationView
         {
@@ -80,12 +71,10 @@ internal sealed class SettingsWindow : Window
         nav.MenuItems.Add(new NavigationViewItem { Content = "音效", Icon = new SymbolIcon(Symbol.Audio), Tag = "sound" });
         nav.MenuItems.Add(new NavigationViewItem { Content = "系统", Icon = new SymbolIcon(Symbol.Setting), Tag = "system" });
 
-        nav.Content = contentRoot;
-
         nav.SelectionChanged += (s, e) =>
         {
             if (nav.SelectedItem is NavigationViewItem item && item.Tag is string tag)
-                contentHost.Content = BuildPage(tag);
+                nav.Content = BuildPage(tag);
         };
 
         nav.Loaded += (_, _) =>
@@ -96,6 +85,9 @@ internal sealed class SettingsWindow : Window
             SyncSidebarBackground();
         };
 
+        Grid.SetRow(nav, 1);
+
+        root.Children.Add(_titleBarRoot);
         root.Children.Add(nav);
         Content = root;
     }
@@ -205,6 +197,11 @@ internal sealed class SettingsWindow : Window
     private bool IsDarkTheme() =>
         _settings.Theme == AppSettings.ThemeMode.Dark ||
         (_settings.Theme == AppSettings.ThemeMode.FollowSystem && IsSystemDark());
+
+    private Brush GetTitleBarForeground()
+    {
+        return IsDarkTheme() ? new SolidColorBrush(Colors.White) : new SolidColorBrush(Colors.Black);
+    }
 
     private Brush GetTitleBarBrush()
     {
@@ -361,6 +358,11 @@ internal sealed class SettingsWindow : Window
         if (_titleBarRoot != null)
         {
             _titleBarRoot.Background = GetTitleBarBrush();
+        }
+
+        if (_titleBarText != null)
+        {
+            _titleBarText.Foreground = GetTitleBarForeground();
         }
 
         _settings.Save();
