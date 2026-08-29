@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Drawing;
+using System.Drawing.Imaging;
 using Microsoft.UI;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Composition;
@@ -9,6 +11,8 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using WinRT.Interop;
+using XamlBrush = Microsoft.UI.Xaml.Media.Brush;
+using XamlSolidColorBrush = Microsoft.UI.Xaml.Media.SolidColorBrush;
 
 namespace OsuCursorWin;
 
@@ -139,34 +143,9 @@ internal static class AppearanceManager
 
         if (useBlur && dwmEnabled != 0)
         {
-            bool success = TryDwmSystemBackdrop(hwnd, settings);
+            bool success = false;
 
-            if (!success)
-            {
-                success = TryAccentPolicyBlur(hwnd, settings);
-            }
-
-            if (success)
-            {
-                mainGrid.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
-
-                // Make NavigationView transparent so backdrop shows
-                if (mainGrid.Children.Count > 1 && mainGrid.Children[1] is NavigationView nav)
-                {
-                    nav.Background = new SolidColorBrush(Colors.Transparent);
-                }
-                return;
-            }
-        }
-
-        DisableBlur(hwnd);
-        ApplySolidBackground(mainGrid, settings);
-    }
-
-    private static bool TryDwmSystemBackdrop(IntPtr hwnd, AppSettings settings)
-    {
-        try
-        {
+            // Method 1: DWM_SYSTEMBACKDROP_TYPE (Win11 22H2+)
             int backdropType = settings.BackgroundBlur switch
             {
                 AppSettings.BlurMode.Mica => (int)DwmSystemBackdropType.DWMSBT_MAINWINDOW,
@@ -176,13 +155,28 @@ internal static class AppearanceManager
 
             int hr = DwmSetWindowAttribute(hwnd, DwmWindowAttribute.DWMWA_SYSTEMBACKDROP_TYPE, ref backdropType, sizeof(int));
             AppLog.Log($"DWM SystemBackdrop hr={hr}, type={backdropType}");
-            return hr >= 0;
+            success = hr >= 0;
+
+            // Method 2: SetWindowCompositionAttribute (undocumented Win10 method)
+            if (!success)
+            {
+                success = TryAccentPolicyBlur(hwnd, settings);
+            }
+
+            if (success)
+            {
+                mainGrid.Background = new XamlSolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+
+                if (mainGrid.Children.Count > 1 && mainGrid.Children[1] is NavigationView nav)
+                {
+                    nav.Background = new XamlSolidColorBrush(Microsoft.UI.Colors.Transparent);
+                }
+                return;
+            }
         }
-        catch (Exception ex)
-        {
-            AppLog.Log($"DWM SystemBackdrop error: {ex.Message}");
-            return false;
-        }
+
+        DisableBlur(hwnd);
+        ApplySolidBackground(mainGrid, settings);
     }
 
     private static bool TryAccentPolicyBlur(IntPtr hwnd, AppSettings settings)
@@ -246,18 +240,22 @@ internal static class AppearanceManager
 
     private static void ApplySolidBackground(Grid mainGrid, AppSettings settings)
     {
-        Brush? bg = null;
+        XamlBrush? bg = null;
 
         if (!string.IsNullOrEmpty(settings.BackgroundImagePath) && File.Exists(settings.BackgroundImagePath))
         {
             try
             {
-                var bitmap = new BitmapImage();
-                using var stream = File.OpenRead(settings.BackgroundImagePath);
-                bitmap.SetSource(stream.AsRandomAccessStream());
+                using var bitmap = new Bitmap(settings.BackgroundImagePath);
+                using var blurred = ApplyGaussianBlur(bitmap, settings.BackgroundBlurRadius);
+                using var ms = new MemoryStream();
+                blurred.Save(ms, ImageFormat.Png);
+                ms.Position = 0;
+                var bitmapImage = new BitmapImage();
+                bitmapImage.SetSource(ms.AsRandomAccessStream());
                 bg = new ImageBrush
                 {
-                    ImageSource = bitmap,
+                    ImageSource = bitmapImage,
                     Stretch = Stretch.UniformToFill,
                     Opacity = Math.Clamp(settings.BackgroundImageOpacity, 0, 1)
                 };
@@ -272,12 +270,110 @@ internal static class AppearanceManager
         {
             var isDark = settings.Theme == AppSettings.ThemeMode.Dark ||
                          (settings.Theme == AppSettings.ThemeMode.FollowSystem && IsSystemDark());
-            bg = new SolidColorBrush(isDark
+            bg = new XamlSolidColorBrush(isDark
                 ? Windows.UI.Color.FromArgb(0xFF, 0x1E, 0x1E, 0x1E)
                 : Windows.UI.Color.FromArgb(0xFF, 0xF0, 0xF0, 0xF0));
         }
 
         mainGrid.Background = bg;
+    }
+
+    private static Bitmap ApplyGaussianBlur(Bitmap source, int radius)
+    {
+        if (radius <= 0) return new Bitmap(source);
+        radius = Math.Min(radius, 255);
+
+        int size = radius * 2 + 1;
+        double[] kernel = CreateGaussianKernel1D(size, radius);
+
+        Bitmap output = new Bitmap(source.Width, source.Height, PixelFormat.Format32bppArgb);
+
+        BitmapData srcData = source.LockBits(
+            new Rectangle(0, 0, source.Width, source.Height),
+            ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+
+        BitmapData dstData = output.LockBits(
+            new Rectangle(0, 0, output.Width, output.Height),
+            ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+
+        int bytes = Math.Abs(srcData.Stride) * source.Height;
+        byte[] srcBytes = new byte[bytes];
+        byte[] dstBytes = new byte[bytes];
+        Marshal.Copy(srcData.Scan0, srcBytes, 0, bytes);
+
+        int half = radius;
+        int width = source.Width;
+        int height = source.Height;
+        int stride = srcData.Stride;
+
+        // Separable Gaussian blur
+        byte[] tempBytes = new byte[bytes];
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                double r = 0, g = 0, b = 0, a = 0;
+                for (int k = -half; k <= half; k++)
+                {
+                    int xx = Math.Min(Math.Max(x + k, 0), width - 1);
+                    int idx = y * stride + xx * 4;
+                    double weight = kernel[k + half];
+                    b += srcBytes[idx] * weight;
+                    g += srcBytes[idx + 1] * weight;
+                    r += srcBytes[idx + 2] * weight;
+                    a += srcBytes[idx + 3] * weight;
+                }
+                int dstIdx = y * stride + x * 4;
+                tempBytes[dstIdx] = (byte)Math.Min(Math.Max(b, 0), 255);
+                tempBytes[dstIdx + 1] = (byte)Math.Min(Math.Max(g, 0), 255);
+                tempBytes[dstIdx + 2] = (byte)Math.Min(Math.Max(r, 0), 255);
+                tempBytes[dstIdx + 3] = (byte)Math.Min(Math.Max(a, 0), 255);
+            }
+        }
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                double r = 0, g = 0, b = 0, a = 0;
+                for (int k = -half; k <= half; k++)
+                {
+                    int yy = Math.Min(Math.Max(y + k, 0), height - 1);
+                    int idx = yy * stride + x * 4;
+                    double weight = kernel[k + half];
+                    b += tempBytes[idx] * weight;
+                    g += tempBytes[idx + 1] * weight;
+                    r += tempBytes[idx + 2] * weight;
+                    a += tempBytes[idx + 3] * weight;
+                }
+                int dstIdx = y * stride + x * 4;
+                dstBytes[dstIdx] = (byte)Math.Min(Math.Max(b, 0), 255);
+                dstBytes[dstIdx + 1] = (byte)Math.Min(Math.Max(g, 0), 255);
+                dstBytes[dstIdx + 2] = (byte)Math.Min(Math.Max(r, 0), 255);
+                dstBytes[dstIdx + 3] = (byte)Math.Min(Math.Max(a, 0), 255);
+            }
+        }
+
+        Marshal.Copy(dstBytes, 0, dstData.Scan0, bytes);
+        source.UnlockBits(srcData);
+        output.UnlockBits(dstData);
+
+        return output;
+    }
+
+    private static double[] CreateGaussianKernel1D(int size, double sigma)
+    {
+        double[] kernel = new double[size];
+        double sum = 0;
+        int half = size / 2;
+        for (int i = 0; i < size; i++)
+        {
+            int x = i - half;
+            kernel[i] = Math.Exp(-(x * x) / (2 * sigma * sigma));
+            sum += kernel[i];
+        }
+        for (int i = 0; i < size; i++) kernel[i] /= sum;
+        return kernel;
     }
 
     private static bool IsSystemDark()
