@@ -1,9 +1,11 @@
 using System;
 using System.IO;
+using System.Numerics;
 using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.UI;
@@ -19,6 +21,7 @@ internal sealed class SettingsWindow : Window
     private readonly CursorEngine? _engine;
     private TextBlock? _titleBarText;
     private Border? _titleBarRoot;
+    private NavigationView? _nav;
 
     public SettingsWindow(CursorEngine? engine = null)
     {
@@ -60,6 +63,7 @@ internal sealed class SettingsWindow : Window
             CompactPaneLength = 48,
             IsPaneOpen = false,
         };
+        _nav = nav;
 
         nav.MenuItems.Add(new NavigationViewItem { Content = "外观", Icon = new SymbolIcon(Symbol.View), Tag = "appearance" });
         nav.MenuItems.Add(new NavigationViewItem { Content = "光标", Icon = new SymbolIcon(Symbol.Target), Tag = "cursor" });
@@ -78,7 +82,7 @@ internal sealed class SettingsWindow : Window
             try { nav.SelectedItem = nav.MenuItems[0]; }
             catch (Exception ex) { AppLog.Log($"nav.Loaded set SelectedItem failed: {ex.Message}"); }
             ApplyAppearance();
-            ApplyMenuShadows(nav);
+            SyncSidebarBackground();
         };
 
         Grid.SetRow(nav, 1);
@@ -88,25 +92,124 @@ internal sealed class SettingsWindow : Window
         Content = root;
     }
 
-    private void ApplyMenuShadows(NavigationView nav)
+    /// <summary>
+    /// Sidebar (pane) styling: background follows theme, 12px rounded corners,
+    /// and a drop shadow that exactly matches the pane box (height + corner radius).
+    /// </summary>
+    private void SyncSidebarBackground()
     {
-        var shadow = new Microsoft.UI.Xaml.Media.ThemeShadow();
-        ApplyShadowRecursive(nav, shadow);
+        try
+        {
+            var splitView = FindSplitViewPane(_nav);
+            if (splitView?.Pane is not FrameworkElement pane)
+            {
+                AppLog.Log($"SyncSidebarBackground: SplitView.Pane not found (sv={splitView != null})");
+                return;
+            }
+
+            var isDark = IsDarkTheme();
+            var bg = new SolidColorBrush(isDark
+                ? Color.FromArgb(255, 0x2D, 0x2D, 0x2D)
+                : Color.FromArgb(255, 0xF3, 0xF3, 0xF3));
+
+            if (pane is Panel panel)
+            {
+                panel.Background = bg;
+            }
+            else if (pane is Border border)
+            {
+                border.Background = bg;
+                border.CornerRadius = new CornerRadius(12);
+            }
+            else
+            {
+                AppLog.Log($"SyncSidebarBackground: pane type {pane.GetType().Name} is not Panel/Border");
+            }
+
+            // Rounded clip for non-Border panes
+            ApplyRoundedClip(pane);
+
+            // Drop shadow matching the pane box
+            if (_nav != null)
+                ApplyPaneShadow(pane, _nav);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Log($"SyncSidebarBackground failed: {ex.Message}");
+        }
     }
 
-    private void ApplyShadowRecursive(DependencyObject parent, Microsoft.UI.Xaml.Media.ThemeShadow shadow)
+    private static SplitView? FindSplitViewPane(DependencyObject? parent)
     {
+        if (parent == null) return null;
+
         int count = VisualTreeHelper.GetChildrenCount(parent);
         for (int i = 0; i < count; i++)
         {
             var child = VisualTreeHelper.GetChild(parent, i);
-            if (child is TextBlock tb && tb.Text.Length > 0)
-                tb.Shadow = shadow;
-            else if (child is IconElement icon)
-                icon.Shadow = shadow;
-            ApplyShadowRecursive(child, shadow);
+            if (child is SplitView sv)
+                return sv;
+
+            var result = FindSplitViewPane(child);
+            if (result != null)
+                return result;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Apply a 12px rounded clip to the pane's visual (Composition layer,
+    /// because WinUI RectangleGeometry has no rounded radii).
+    /// </summary>
+    private static void ApplyRoundedClip(FrameworkElement pane)
+    {
+        try
+        {
+            var compositor = ElementCompositionPreview.GetElementVisual(pane).Compositor;
+            var clip = compositor.CreateRectangleClip();
+            clip.TopLeftRadius = new Vector2(12, 12);
+            clip.TopRightRadius = new Vector2(12, 12);
+            clip.BottomLeftRadius = new Vector2(12, 12);
+            clip.BottomRightRadius = new Vector2(12, 12);
+            ElementCompositionPreview.GetElementVisual(pane).Clip = clip;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Log($"ApplyRoundedClip failed: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Cast a ThemeShadow from the pane element itself: the shadow shape
+    /// automatically follows the pane (including its rounded clip), so it
+    /// always matches the sidebar box. Receivers let it project onto the
+    /// content area instead of being clipped by the pane's own bounds.
+    /// </summary>
+    private void ApplyPaneShadow(FrameworkElement pane, NavigationView nav)
+    {
+        try
+        {
+            var shadow = new Microsoft.UI.Xaml.Media.ThemeShadow();
+            if (nav.Content is UIElement c)
+                shadow.Receivers.Add(c);
+            if (Content is UIElement r)
+                shadow.Receivers.Add(r);
+
+            pane.Shadow = shadow;
+
+            // Elevate the pane so the shadow is actually cast
+            ElementCompositionPreview.SetIsTranslationEnabled(pane, true);
+            pane.Translation = new Vector3(0f, 0f, 32f);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Log($"ApplyPaneShadow failed: {ex.Message}");
+        }
+    }
+
+    private bool IsDarkTheme() =>
+        _settings.Theme == AppSettings.ThemeMode.Dark ||
+        (_settings.Theme == AppSettings.ThemeMode.FollowSystem && IsSystemDark());
 
     private Brush GetTitleBarBrush()
     {
