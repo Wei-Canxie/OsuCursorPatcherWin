@@ -174,6 +174,13 @@ internal sealed class SettingsWindow : Window
         blurPanel.Children.Add(blurAcrylicRadio);
         panel.Children.Add(blurPanel);
 
+        // Blur intensity slider
+        var blurIntensityLabel = new TextBlock { Text = $"模糊强度: {_settings.BackgroundBlurIntensity:P0}", FontWeight = FontWeights.SemiBold };
+        panel.Children.Add(blurIntensityLabel);
+        panel.Children.Add(BuildSliderWithTextBox("模糊强度", _settings.BackgroundBlurIntensity, 0.0, 1.0,
+            v => { _settings.BackgroundBlurIntensity = v; blurIntensityLabel.Text = $"模糊强度: {v:P0}"; ApplyAppearance(); },
+            step: 0.05, format: "0%"));
+
         if (!IsBlurSupported())
         {
             panel.Children.Add(new TextBlock { Text = "当前系统不支持 Mica/Acrylic", FontSize = 12, Opacity = 0.6 });
