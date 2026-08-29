@@ -173,10 +173,15 @@ internal static class AppearanceManager
                 }
                 return;
             }
+
+            // DWM failed, fallback to GDI+ blur on background image
+            AppLog.Log("DWM methods failed, falling back to GDI+ Gaussian blur");
+            ApplySolidBackground(mainGrid, settings, applyBlur: true);
+            return;
         }
 
         DisableBlur(hwnd);
-        ApplySolidBackground(mainGrid, settings);
+        ApplySolidBackground(mainGrid, settings, applyBlur: false);
     }
 
     private static bool TryAccentPolicyBlur(IntPtr hwnd, AppSettings settings)
@@ -238,7 +243,7 @@ internal static class AppearanceManager
         DwmSetWindowAttribute(hwnd, DwmWindowAttribute.DWMWA_SYSTEMBACKDROP_TYPE, ref noneType, sizeof(int));
     }
 
-    private static void ApplySolidBackground(Grid mainGrid, AppSettings settings)
+    private static void ApplySolidBackground(Grid mainGrid, AppSettings settings, bool applyBlur)
     {
         XamlBrush? bg = null;
 
@@ -247,9 +252,9 @@ internal static class AppearanceManager
             try
             {
                 using var bitmap = new Bitmap(settings.BackgroundImagePath);
-                using var blurred = ApplyGaussianBlur(bitmap, settings.BackgroundBlurRadius);
+                var processed = applyBlur ? ApplyGaussianBlur(bitmap, settings.BackgroundBlurRadius) : new Bitmap(bitmap);
                 using var ms = new MemoryStream();
-                blurred.Save(ms, ImageFormat.Png);
+                processed.Save(ms, ImageFormat.Png);
                 ms.Position = 0;
                 var bitmapImage = new BitmapImage();
                 bitmapImage.SetSource(ms.AsRandomAccessStream());
@@ -259,6 +264,7 @@ internal static class AppearanceManager
                     Stretch = Stretch.UniformToFill,
                     Opacity = Math.Clamp(settings.BackgroundImageOpacity, 0, 1)
                 };
+                if (applyBlur) processed.Dispose();
             }
             catch (Exception ex)
             {
