@@ -1,12 +1,15 @@
 using System;
+using System.IO;
 using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.UI;
 using WinRT.Interop;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 
 namespace OsuCursorWin;
 
@@ -44,6 +47,12 @@ internal sealed class SettingsWindow : Window
             OpenPaneLength = 200,
         };
 
+        nav.MenuItems.Add(new NavigationViewItem
+        {
+            Content = "外观",
+            Icon = new SymbolIcon(Symbol.View),
+            Tag = "appearance"
+        });
         nav.MenuItems.Add(new NavigationViewItem
         {
             Content = "光标",
@@ -87,6 +96,8 @@ internal sealed class SettingsWindow : Window
             {
                 AppLog.Log($"nav.Loaded set SelectedItem failed: {ex.Message}");
             }
+            // Apply appearance settings when window first shows
+            ApplyAppearance();
         };
 
         root.Children.Add(nav);
@@ -97,6 +108,7 @@ internal sealed class SettingsWindow : Window
     {
         return tag switch
         {
+            "appearance" => BuildAppearancePage(),
             "cursor" => BuildCursorPage(),
             "align" => BuildAlignPage(),
             "sound" => BuildSoundPage(),
@@ -104,6 +116,181 @@ internal sealed class SettingsWindow : Window
             _ => new TextBlock { Text = tag }
         };
     }
+
+    private FrameworkElement BuildAppearancePage()
+    {
+        var panel = new StackPanel { Spacing = 16, Padding = new Thickness(24, 16, 24, 16) };
+        panel.Children.Add(Header("外观设置"));
+
+        // Theme selection
+        panel.Children.Add(new TextBlock { Text = "主题", FontWeight = FontWeights.SemiBold });
+        var themePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+
+        var themeFollowRadio = new RadioButton { Content = "跟随系统", Tag = "follow" };
+        var themeLightRadio = new RadioButton { Content = "亮色", Tag = "light" };
+        var themeDarkRadio = new RadioButton { Content = "暗色", Tag = "dark" };
+
+        switch (_settings.Theme)
+        {
+            case AppSettings.ThemeMode.Light: themeLightRadio.IsChecked = true; break;
+            case AppSettings.ThemeMode.Dark: themeDarkRadio.IsChecked = true; break;
+            default: themeFollowRadio.IsChecked = true; break;
+        }
+
+        themeFollowRadio.Checked += (_, _) => { _settings.Theme = AppSettings.ThemeMode.FollowSystem; ApplyAppearance(); };
+        themeLightRadio.Checked += (_, _) => { _settings.Theme = AppSettings.ThemeMode.Light; ApplyAppearance(); };
+        themeDarkRadio.Checked += (_, _) => { _settings.Theme = AppSettings.ThemeMode.Dark; ApplyAppearance(); };
+
+        themePanel.Children.Add(themeFollowRadio);
+        themePanel.Children.Add(themeLightRadio);
+        themePanel.Children.Add(themeDarkRadio);
+        panel.Children.Add(themePanel);
+
+        // Opacity slider
+        panel.Children.Add(new TextBlock { Text = $"不透明度: {_settings.WindowOpacity:P0}", FontWeight = FontWeights.SemiBold });
+        panel.Children.Add(BuildSliderRow("窗口透明度", _settings.WindowOpacity, 0.3, 1.0,
+            v => { _settings.WindowOpacity = v; ApplyAppearance(); },
+            step: 0.05));
+
+        // Background blur type
+        panel.Children.Add(new TextBlock { Text = "背景效果", FontWeight = FontWeights.SemiBold });
+        var blurPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+
+        var blurDefaultRadio = new RadioButton { Content = "默认", Tag = "default" };
+        var blurMicaRadio = new RadioButton { Content = "云母 (Mica)", Tag = "mica" };
+        var blurAcrylicRadio = new RadioButton { Content = "亚克力 (Acrylic)", Tag = "acrylic" };
+
+        switch (_settings.BackgroundBlur)
+        {
+            case AppSettings.BlurMode.Mica: blurMicaRadio.IsChecked = true; break;
+            case AppSettings.BlurMode.Acrylic: blurAcrylicRadio.IsChecked = true; break;
+            default: blurDefaultRadio.IsChecked = true; break;
+        }
+
+        blurDefaultRadio.Checked += (_, _) => { _settings.BackgroundBlur = AppSettings.BlurMode.Default; ApplyAppearance(); };
+        blurMicaRadio.Checked += (_, _) => { _settings.BackgroundBlur = AppSettings.BlurMode.Mica; ApplyAppearance(); };
+        blurAcrylicRadio.Checked += (_, _) => { _settings.BackgroundBlur = AppSettings.BlurMode.Acrylic; ApplyAppearance(); };
+
+        blurPanel.Children.Add(blurDefaultRadio);
+        blurPanel.Children.Add(blurMicaRadio);
+        blurPanel.Children.Add(blurAcrylicRadio);
+        panel.Children.Add(blurPanel);
+
+        // Background image
+        panel.Children.Add(new TextBlock { Text = "背景图片", FontWeight = FontWeights.SemiBold });
+        var bgPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+
+        var bgPathLabel = new TextBlock
+        {
+            Text = string.IsNullOrEmpty(_settings.BackgroundImagePath) ? "(无)" : Path.GetFileName(_settings.BackgroundImagePath),
+            VerticalAlignment = VerticalAlignment.Center,
+            MinWidth = 120,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+
+        var selectBgBtn = new Button { Content = "选择图片" };
+        selectBgBtn.Click += (_, _) =>
+        {
+            var path = ShowImagePicker();
+            if (!string.IsNullOrEmpty(path))
+            {
+                _settings.BackgroundImagePath = path;
+                bgPathLabel.Text = Path.GetFileName(path);
+                ApplyAppearance();
+            }
+        };
+
+        var clearBgBtn = new Button { Content = "清除" };
+        clearBgBtn.Click += (_, _) =>
+        {
+            _settings.BackgroundImagePath = "";
+            bgPathLabel.Text = "(无)";
+            ApplyAppearance();
+        };
+
+        bgPanel.Children.Add(bgPathLabel);
+        bgPanel.Children.Add(selectBgBtn);
+        bgPanel.Children.Add(clearBgBtn);
+        panel.Children.Add(bgPanel);
+
+        // Note about transparency support
+        panel.Children.Add(new TextBlock
+        {
+            Text = "提示：透明度低于 100% 时窗口将启用分层透明",
+            FontSize = 12, Opacity = 0.6
+        });
+
+        return panel;
+    }
+
+    private void ApplyAppearance()
+    {
+        AppearanceManager.ApplyAll(this, _settings);
+        _settings.Save();
+    }
+
+    private string? ShowImagePicker()
+    {
+        try
+        {
+            var hwnd = WindowNative.GetWindowHandle(this);
+            return ShowOpenFileDialog(hwnd, "选择背景图片",
+                "图片文件|*.png;*.jpg;*.jpeg;*.bmp;*.gif|所有文件|*.*");
+        }
+        catch (Exception ex)
+        {
+            AppLog.Log($"Image picker failed: {ex.Message}");
+            return null;
+        }
+    }
+
+    private static string? ShowOpenFileDialog(IntPtr hwnd, string title, string filter)
+    {
+        var ofn = new OPENFILENAME
+        {
+            lStructSize = Marshal.SizeOf<OPENFILENAME>(),
+            hwndOwner = hwnd,
+            lpstrTitle = title,
+            lpstrFilter = filter.Replace('|', '\0') + "\0\0",
+            nFilterIndex = 1,
+            lpstrFile = new string('\0', 260),
+            nMaxFile = 260,
+            Flags = 0x00080000 | 0x00001000 // OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST
+        };
+
+        return GetOpenFileName(ref ofn) ? ofn.lpstrFile : null;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct OPENFILENAME
+    {
+        public int lStructSize;
+        public IntPtr hwndOwner;
+        public IntPtr hInstance;
+        public string? lpstrFilter;
+        public string? lpstrCustomFilter;
+        public int nMaxCustFilter;
+        public int nFilterIndex;
+        public string lpstrFile;
+        public int nMaxFile;
+        public string? lpstrFileTitle;
+        public int nMaxFileTitle;
+        public string? lpstrInitialDir;
+        public string? lpstrTitle;
+        public int Flags;
+        public short nFileOffset;
+        public short nFileExtension;
+        public string? lpstrDefExt;
+        public IntPtr lCustData;
+        public IntPtr lpfnHook;
+        public string? lpTemplateName;
+        public IntPtr pvReserved;
+        public int dwReserved;
+        public int FlagsEx;
+    }
+
+    [DllImport("comdlg32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool GetOpenFileName(ref OPENFILENAME ofn);
 
     private static TextBlock Header(string text) => new()
     {

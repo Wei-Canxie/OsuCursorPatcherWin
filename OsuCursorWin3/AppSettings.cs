@@ -17,6 +17,18 @@ internal sealed class AppSettings
     public double HoverSoundVolume { get; set; } = 1.0;
     public bool HoverSoundAsResizePrompt { get; set; }
 
+    /// <summary>Theme mode: follow system, light, or dark.</summary>
+    public ThemeMode Theme { get; set; } = ThemeMode.FollowSystem;
+    /// <summary>Window opacity. 0.3 – 1.0.</summary>
+    public double WindowOpacity { get; set; } = 1.0;
+    /// <summary>Background image file path. Empty = none.</summary>
+    public string BackgroundImagePath { get; set; } = "";
+    /// <summary>Background blur type: default (solid), Mica, Acrylic.</summary>
+    public BlurMode BackgroundBlur { get; set; } = BlurMode.Default;
+
+    public enum ThemeMode { FollowSystem, Light, Dark }
+    public enum BlurMode { Default, Mica, Acrylic }
+
     // ---- Req 2a: per-scene cursor geometry tuning ----
     // Normal scene = the animated GDI overlay (visible over normal windows).
     // DC scene    = the static osu system cursor (over Start menu, Action
@@ -48,8 +60,8 @@ internal sealed class AppSettings
 
     internal static string SettingsPath =>
         Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "OsuCursorWin",
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "OsuCursorPatcherWin",
             "settings.json");
 
     internal static bool Exists => File.Exists(SettingsPath);
