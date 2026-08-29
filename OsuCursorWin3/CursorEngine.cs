@@ -903,6 +903,17 @@ internal sealed class CursorEngine : IDisposable
         _forceTopmost = true;
     }
 
+    /// <summary>Enable/disable tap/hover sound players in real-time.</summary>
+    public void SetTapSoundEnabled(bool enabled)
+    {
+        _tapSoundPlayer.Enabled = enabled;
+    }
+
+    public void SetHoverSoundEnabled(bool enabled)
+    {
+        _hoverSoundPlayer.Enabled = enabled;
+    }
+
     public AppSettings GetSettings() => _settings;
 
     /// <summary>Reload normal-scene tuning values from disk (called when the settings window edits NormalAspect/NormalHotspot).</summary>

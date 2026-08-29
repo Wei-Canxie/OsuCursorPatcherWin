@@ -170,12 +170,8 @@ internal sealed class SettingsWindow : Window
         // --- normal scene geometry ---
         panel.Children.Add(new TextBlock { Text = "主窗口场景", FontWeight = FontWeights.SemiBold, Opacity = 0.8 });
 
-        var aspectX = BuildSliderRow("横向缩放", _settings.NormalAspectX, 0.5, 2.0, v => { _settings.NormalAspectX = v; _settings.Save(); }, () => _engine?.RefreshNormalSceneTuning());
-        var aspectY = BuildSliderRow("纵向缩放", _settings.NormalAspectY, 0.5, 2.0, v => { _settings.NormalAspectY = v; _settings.Save(); }, () => _engine?.RefreshNormalSceneTuning());
         var hotX = BuildSliderRow("热点 X", _settings.NormalHotspotX, -64, 64, v => { _settings.NormalHotspotX = v; _settings.Save(); }, () => _engine?.RefreshNormalSceneTuning());
         var hotY = BuildSliderRow("热点 Y", _settings.NormalHotspotY, -64, 64, v => { _settings.NormalHotspotY = v; _settings.Save(); }, () => _engine?.RefreshNormalSceneTuning());
-        panel.Children.Add(aspectX);
-        panel.Children.Add(aspectY);
         panel.Children.Add(hotX);
         panel.Children.Add(hotY);
 
@@ -184,13 +180,9 @@ internal sealed class SettingsWindow : Window
 
         var dSize = BuildSliderRow("光标大小", _settings.DcCursorSize > 0 ? _settings.DcCursorSize : _settings.CursorWidth, 16, 64,
             v => { _settings.DcCursorSize = v; _settings.Save(); }, () => _engine?.ApplyDcSceneTuning());
-        var dAspectX = BuildSliderRow("横向缩放", _settings.DcAspectX, 0.5, 2.0, v => { _settings.DcAspectX = v; _settings.Save(); }, () => _engine?.ApplyDcSceneTuning());
-        var dAspectY = BuildSliderRow("纵向缩放", _settings.DcAspectY, 0.5, 2.0, v => { _settings.DcAspectY = v; _settings.Save(); }, () => _engine?.ApplyDcSceneTuning());
         var dHotX = BuildSliderRow("热点 X", _settings.DcHotspotX, -64, 64, v => { _settings.DcHotspotX = v; _settings.Save(); }, () => _engine?.ApplyDcSceneTuning());
         var dHotY = BuildSliderRow("热点 Y", _settings.DcHotspotY, -64, 64, v => { _settings.DcHotspotY = v; _settings.Save(); }, () => _engine?.ApplyDcSceneTuning());
         panel.Children.Add(dSize);
-        panel.Children.Add(dAspectX);
-        panel.Children.Add(dAspectY);
         panel.Children.Add(dHotX);
         panel.Children.Add(dHotY);
 
@@ -209,7 +201,12 @@ internal sealed class SettingsWindow : Window
             OnContent = "开",
             OffContent = "关"
         };
-        tapToggle.Toggled += (_, _) => { _settings.TapSoundEnabled = tapToggle.IsOn; _settings.Save(); };
+        tapToggle.Toggled += (_, _) =>
+        {
+            _settings.TapSoundEnabled = tapToggle.IsOn;
+            _settings.Save();
+            _engine?.SetTapSoundEnabled(tapToggle.IsOn);
+        };
         panel.Children.Add(tapToggle);
 
         var tapVolume = BuildSliderRow("音量", _settings.TapSoundVolume * 100, 0, 100, v => { _settings.TapSoundVolume = v / 100.0; _settings.Save(); }, step: 5);
@@ -222,7 +219,12 @@ internal sealed class SettingsWindow : Window
             OnContent = "开",
             OffContent = "关"
         };
-        hoverToggle.Toggled += (_, _) => { _settings.HoverSoundEnabled = hoverToggle.IsOn; _settings.Save(); };
+        hoverToggle.Toggled += (_, _) =>
+        {
+            _settings.HoverSoundEnabled = hoverToggle.IsOn;
+            _settings.Save();
+            _engine?.SetHoverSoundEnabled(hoverToggle.IsOn);
+        };
         panel.Children.Add(hoverToggle);
 
         var hoverVolume = BuildSliderRow("音量", _settings.HoverSoundVolume * 100, 0, 100, v => { _settings.HoverSoundVolume = v / 100.0; _settings.Save(); }, step: 5);
@@ -236,20 +238,105 @@ internal sealed class SettingsWindow : Window
         var panel = new StackPanel { Spacing = 16, Padding = new Thickness(24, 16, 24, 16) };
         panel.Children.Add(Header("系统"));
 
-        var autoStart = new ToggleSwitch
+        // Service management
+        var isInstalled = ServiceManager.IsInstalled();
+        var isRunning = isInstalled && ServiceManager.IsRunning();
+        var autoStartEnabled = isInstalled && ServiceManager.IsAutoStartEnabled();
+
+        var statusText = new TextBlock
         {
-            Header = "开机自启",
-            IsOn = _settings.AutoStart,
-            OnContent = "开",
-            OffContent = "关"
+            Text = isInstalled
+                ? (isRunning ? "服务状态：运行中" : "服务状态：已停止")
+                : "服务状态：未安装",
+            Foreground = isRunning ? new SolidColorBrush(Colors.Green) : new SolidColorBrush(Colors.Gray),
+            FontWeight = FontWeights.SemiBold
         };
-        autoStart.Toggled += (_, _) =>
+        panel.Children.Add(statusText);
+
+        // Start/Stop service button
+        var toggleServiceBtn = new Button
         {
-            _settings.AutoStart = autoStart.IsOn;
-            AutoStartManager.Apply(autoStart.IsOn);
+            Content = isRunning ? "停止服务" : "启动服务",
+            MinWidth = 120
+        };
+        toggleServiceBtn.Click += (_, _) =>
+        {
+            if (ServiceManager.IsRunning())
+            {
+                ServiceManager.Stop();
+            }
+            else
+            {
+                ServiceManager.Start();
+            }
+            // Refresh panel
             _settings.Save();
         };
-        panel.Children.Add(autoStart);
+        panel.Children.Add(toggleServiceBtn);
+
+        // Auto-start checkbox
+        var autoStartCheck = new CheckBox
+        {
+            Content = "开机自启服务",
+            IsChecked = autoStartEnabled,
+            IsEnabled = isInstalled
+        };
+        autoStartCheck.Checked += (_, _) =>
+        {
+            if (ServiceManager.SetAutoStart(true))
+            {
+                _settings.AutoStart = true;
+                _settings.Save();
+            }
+        };
+        autoStartCheck.Unchecked += (_, _) =>
+        {
+            if (ServiceManager.SetAutoStart(false))
+            {
+                _settings.AutoStart = false;
+                _settings.Save();
+            }
+        };
+        panel.Children.Add(autoStartCheck);
+
+        // Install/Uninstall service buttons (require admin)
+        var installPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+
+        var installBtn = new Button
+        {
+            Content = "安装服务",
+            MinWidth = 100,
+            IsEnabled = !isInstalled
+        };
+        installBtn.Click += (_, _) =>
+        {
+            var exePath = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(exePath))
+            {
+                ServiceManager.Install(exePath);
+            }
+        };
+        installPanel.Children.Add(installBtn);
+
+        var uninstallBtn = new Button
+        {
+            Content = "卸载服务",
+            MinWidth = 100,
+            IsEnabled = isInstalled
+        };
+        uninstallBtn.Click += (_, _) =>
+        {
+            ServiceManager.Uninstall();
+        };
+        installPanel.Children.Add(uninstallBtn);
+
+        panel.Children.Add(installPanel);
+        panel.Children.Add(new TextBlock
+        {
+            Text = "安装服务需要管理员权限",
+            FontSize = 12,
+            Opacity = 0.6
+        });
 
         return panel;
     }
