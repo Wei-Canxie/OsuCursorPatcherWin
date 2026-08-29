@@ -14,9 +14,15 @@ Windows 全局 osu! 风格光标替换工具。在普通桌面场景使用半透
 - **点击穿透**：`WS_EX_TRANSPARENT` + `WS_EX_LAYERED`，不影响鼠标操作
 - **拖动旋转**：按住鼠标拖拽时光标跟随方向旋转
 - **按下缩放与发光**：按下时缩放并叠加发光层（additive blending）
-- **悬停音效**：进入可点击元素时播放悬停音效，按下/抬起播放敲击音效
+- **悬停音效**：UIA 检测进入可点击元素（按钮/链接/菜单项等）时播放悬停音效，按下/抬起播放敲击音效
 - **退出自动恢复**：托盘退出或异常退出自动恢复系统原生光标
-- **设置窗口**：光标大小（16–64px）、音效开关/音量、开机自启
+- **WinUI 3 设置窗口**（`OsuCursorWin3`）：
+  - 外观：主题（跟随系统/亮色/暗色）、窗口不透明度（0.3–1.0）、背景图片（选择/恢复默认）、背景模糊半径
+  - 光标：光标大小（16–64px）
+  - 场景对齐：普通场景与 DC 场景的独立热点偏移调校
+  - 音效：敲击/悬停音效开关与音量
+  - 系统：Windows 服务安装/卸载、开机自启
+  - 侧边栏：紧凑模式、背景随主题变色、圆角、全高布局
 
 ## 系统要求
 
@@ -42,15 +48,22 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1
 
 双击 `publish\OsuCursorWin.exe`，程序自动启动 UAC 提权并隐藏到系统托盘。右键托盘图标可打开设置窗口或退出程序。
 
-首次启动会自动创建设置文件到 `%APPDATA%\OsuCursorWin\settings.json`，修改设置实时生效。
+首次启动会自动创建设置文件到 `%LOCALAPPDATA%\OsuCursorPatcherWin\settings.json`，修改设置实时生效。
 
 ## 构建
 
 ```powershell
+# 一键构建（输出到 publish\ 或 publish-v2\）
 powershell -ExecutionPolicy Bypass -File scripts\build.ps1
+
+# 或直接构建 WinUI 3 主程序
+cd OsuCursorWin3
+dotnet build -c Release
 ```
 
-构建产物：`publish\OsuCursorWin.exe`（win-x64 框架依赖单文件，需 .NET 8 Desktop Runtime）。
+构建产物：WinUI 3 主程序位于 `OsuCursorWin3\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\OsuCursorWin.exe`（需 .NET 8 Desktop Runtime；`background-default.jpg` 随 exe 一同输出）。
+
+> 注：`OsuCursorWin/` 为旧版 WPF 实现（保留参考），当前主程序为 `OsuCursorWin3/`（WinUI 3）。
 
 ## 光标没有恢复？
 
@@ -64,15 +77,20 @@ powershell -ExecutionPolicy Bypass -File scripts\restore-cursor.ps1
 
 ```
 OsuCursorPatcherWin/
-├── OsuCursorWin/           # 主程序源代码
-│   ├── MainWindow.cs       # WPF 主窗口 + 鼠标钩子 + 状态管理
-│   ├── GdiCursorOverlay.cs # 普通场景光标覆盖层（WinForms layered 窗口）
+├── OsuCursorWin3/          # 主程序源代码（WinUI 3）
+│   ├── App.xaml.cs         # 应用启动：音效播放器、覆盖层、引擎、设置窗口
+│   ├── SettingsWindow.cs   # WinUI 3 设置窗口（外观/光标/对齐/音效/系统）
+│   ├── AppearanceManager.cs# 背景/模糊/不透明度应用（Mica/Acrylic/默认）
+│   ├── CursorEngine.cs     # 渲染引擎（鼠标钩子 + 高精度定时器 + 动画 + UIA 悬停检测）
 │   ├── CursorReplacer.cs   # 系统光标替换引擎（14 个 OCR ID）
+│   ├── GdiCursorOverlay.cs # 普通场景光标覆盖层（WinForms layered 窗口）
 │   ├── NativeMethods.cs    # Win32 P/Invoke 声明
 │   ├── AppSettings.cs      # 设置持久化
-│   ├── SettingsWindow.cs   # WPF 设置窗口
 │   ├── TapSoundPlayer.cs   # 音效播放（NAudio 低延迟）
-│   └── OsuCursorWin.csproj # 项目文件
+│   ├── TrayIcon.cs         # 系统托盘
+│   ├── ServiceManager.cs   # Windows 服务管理
+│   └── OsuCursorWin3.csproj# 项目文件（Windows App SDK 2.4.0）
+├── OsuCursorWin/           # 旧版 WPF 实现（参考）
 ├── assets/                 # 光标资源
 │   ├── cursor.png          # 普通场景光标图像（主图）
 │   ├── cursor-additive.png # 发光叠加层图像
