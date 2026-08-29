@@ -55,8 +55,10 @@ internal sealed class SettingsWindow : Window
         {
             IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed,
             IsSettingsVisible = false,
-            PaneDisplayMode = NavigationViewPaneDisplayMode.Left,
+            PaneDisplayMode = NavigationViewPaneDisplayMode.LeftCompact,
             OpenPaneLength = 200,
+            CompactPaneLength = 48,
+            IsPaneOpen = false,
         };
 
         nav.MenuItems.Add(new NavigationViewItem { Content = "外观", Icon = new SymbolIcon(Symbol.View), Tag = "appearance" });
@@ -76,6 +78,7 @@ internal sealed class SettingsWindow : Window
             try { nav.SelectedItem = nav.MenuItems[0]; }
             catch (Exception ex) { AppLog.Log($"nav.Loaded set SelectedItem failed: {ex.Message}"); }
             ApplyAppearance();
+            ApplyMenuShadows(nav);
         };
 
         Grid.SetRow(nav, 1);
@@ -83,6 +86,26 @@ internal sealed class SettingsWindow : Window
         root.Children.Add(_titleBarRoot);
         root.Children.Add(nav);
         Content = root;
+    }
+
+    private void ApplyMenuShadows(NavigationView nav)
+    {
+        var shadow = new Microsoft.UI.Xaml.Media.ThemeShadow();
+        ApplyShadowRecursive(nav, shadow);
+    }
+
+    private void ApplyShadowRecursive(DependencyObject parent, Microsoft.UI.Xaml.Media.ThemeShadow shadow)
+    {
+        int count = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is TextBlock tb && tb.Text.Length > 0)
+                tb.Shadow = shadow;
+            else if (child is IconElement icon)
+                icon.Shadow = shadow;
+            ApplyShadowRecursive(child, shadow);
+        }
     }
 
     private Brush GetTitleBarBrush()
