@@ -26,6 +26,7 @@ internal sealed class CursorEngine : IDisposable
     private const double MaxCursorWidth = 64.0;
     private const int HotkeyToggleCursor = 1;
     private const int ModeSwitchDebounceMs = 90;
+    private const int DcCheckIntervalFrames = 10;
 
     // --- state ---
     private readonly AppSettings _settings;
@@ -85,6 +86,7 @@ internal sealed class CursorEngine : IDisposable
     private readonly HashSet<string> _dcClassSeen = new();
     private NativeMethods.POINT _lastDcCheckPoint = new() { X = int.MinValue, Y = int.MinValue };
     private bool _lastDcResult;
+    private int _dcCheckFrameCounter;
 
 
     // topmost timer
@@ -793,6 +795,12 @@ internal sealed class CursorEngine : IDisposable
         {
             return _lastDcResult;
         }
+
+        if (++_dcCheckFrameCounter < DcCheckIntervalFrames)
+        {
+            return _lastDcResult;
+        }
+        _dcCheckFrameCounter = 0;
 
         bool result;
         try

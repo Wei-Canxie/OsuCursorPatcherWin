@@ -375,6 +375,10 @@ internal sealed class GdiCursorOverlay : Form
         }
     }
 
+    // Pre-allocated row buffer for UpdateLayered to eliminate per-frame allocations.
+    private byte[]? _rowBuffer;
+    private int _rowBufferStride;
+
     private void UpdateLayered(Bitmap bmp, int width, int height)
     {
         if (!IsHandleCreated) return;
@@ -395,35 +399,40 @@ internal sealed class GdiCursorOverlay : Form
 
         try
         {
+            int stride = width * 4;
+            if (_rowBuffer == null || _rowBufferStride != stride)
+            {
+                _rowBuffer = new byte[stride];
+                _rowBufferStride = stride;
+            }
+
             // Copy bitmap pixels (BGRA) into the DIB.
             var data = bmp.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
             try
             {
-                int stride = width * 4;
                 var srcRow = new byte[data.Stride];
-                var dstRow = new byte[stride];
                 for (int y = 0; y < height; y++)
                 {
                     Marshal.Copy(data.Scan0 + y * data.Stride, srcRow, 0, data.Stride);
                     for (int i = 0; i < stride; i++)
-                        dstRow[i] = srcRow[i];
+                        _rowBuffer[i] = srcRow[i];
 
                     for (int i = 0; i < stride; i += 4)
                     {
-                        byte a = dstRow[i + 3];
+                        byte a = _rowBuffer[i + 3];
                         if (a == 0)
                         {
-                            dstRow[i] = 0; dstRow[i + 1] = 0; dstRow[i + 2] = 0;
+                            _rowBuffer[i] = 0; _rowBuffer[i + 1] = 0; _rowBuffer[i + 2] = 0;
                         }
                         else if (a < 255)
                         {
-                            dstRow[i]     = (byte)(dstRow[i]     * a / 255);
-                            dstRow[i + 1] = (byte)(dstRow[i + 1] * a / 255);
-                            dstRow[i + 2] = (byte)(dstRow[i + 2] * a / 255);
+                            _rowBuffer[i]     = (byte)(_rowBuffer[i]     * a / 255);
+                            _rowBuffer[i + 1] = (byte)(_rowBuffer[i + 1] * a / 255);
+                            _rowBuffer[i + 2] = (byte)(_rowBuffer[i + 2] * a / 255);
                         }
                     }
 
-                    Marshal.Copy(dstRow, 0, bits + y * stride, stride);
+                    Marshal.Copy(_rowBuffer, 0, bits + y * stride, stride);
                 }
             }
             finally { bmp.UnlockBits(data); }
