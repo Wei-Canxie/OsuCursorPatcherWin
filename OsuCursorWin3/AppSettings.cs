@@ -19,8 +19,12 @@ internal sealed class AppSettings
 
     /// <summary>Theme mode: follow system, light, or dark.</summary>
     public ThemeMode Theme { get; set; } = ThemeMode.Dark;
+    /// <summary>Settings window width in pixels.</summary>
+    public double WindowWidth { get; set; } = 960.0;
+    /// <summary>Settings window height in pixels.</summary>
+    public double WindowHeight { get; set; } = 680.0;
     /// <summary>Window content opacity. 0.3 – 1.0.</summary>
-    public double WindowOpacity { get; set; } = 1.0;
+    public double WindowOpacity { get; set; } = 0.95;
     /// <summary>Background image file path. Empty = none.</summary>
     public string BackgroundImagePath { get; set; } = DefaultBackgroundPath;
 

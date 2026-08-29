@@ -28,7 +28,9 @@ internal sealed class SettingsWindow : Window
         _engine = engine;
         _settings = engine?.GetSettings() ?? AppSettings.Load();
         Title = "osu! Cursor 设置";
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(960, 680));
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(
+            (int)Math.Clamp(_settings.WindowWidth, 480, 2560),
+            (int)Math.Clamp(_settings.WindowHeight, 360, 1440)));
 
         AppWindow.Closing += (_, e) =>
         {
