@@ -35,7 +35,6 @@ if ($locked)
 # 改用 dotnet build 后从 bin 输出目录复制产物。
 $binDir = Join-Path $root "OsuCursorWin3\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64"
 $builtExe = Join-Path $binDir "OsuCursorWin.exe"
-
 dotnet build $project -c Release -p:Platform=x64
 
 if (-not (Test-Path -LiteralPath $builtExe))

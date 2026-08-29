@@ -39,12 +39,11 @@
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
   </ItemGroup>
 
-  <!-- Ship the default background image next to the exe so "clear"
-       can always fall back to it instead of a blank window. -->
+  <!-- assets/ is handled by WindowsAppSDK (mapped to Assets/ for PRI +
+       runtime output). Exclude it from the SDK's default Content glob so
+       PublishSingleFile doesn't see duplicate bundle entries. -->
   <ItemGroup>
-    <Content Include="assets\background-default.jpg" Link="background-default.jpg">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <Content Remove="assets\**" />
   </ItemGroup>
 
   <!-- Embedded resources (same as original) -->

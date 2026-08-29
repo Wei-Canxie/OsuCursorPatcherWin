@@ -28,9 +28,9 @@ internal sealed class AppSettings
     /// <summary>Background image file path. Empty = none.</summary>
     public string BackgroundImagePath { get; set; } = DefaultBackgroundPath;
 
-    /// <summary>Default background image shipped next to the exe.</summary>
+    /// <summary>Default background image shipped with the app (WindowsAppSDK Assets).</summary>
     internal static string DefaultBackgroundPath =>
-        Path.Combine(AppContext.BaseDirectory, "background-default.jpg");
+        Path.Combine(AppContext.BaseDirectory, "Assets", "background-default.jpg");
     /// <summary>Background image opacity. 0.0 – 1.0.</summary>
     public double BackgroundImageOpacity { get; set; } = 0.8;
     /// <summary>Background blur type: default (solid), Mica, Acrylic.</summary>
