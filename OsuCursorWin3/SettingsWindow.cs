@@ -339,7 +339,7 @@ internal sealed class SettingsWindow : Window
         var opacityLabel = new TextBlock { Text = $"窗口不透明度: {_settings.WindowOpacity:P0}", FontWeight = FontWeights.SemiBold };
         panel.Children.Add(opacityLabel);
         panel.Children.Add(BuildSliderWithTextBox("窗口不透明度", _settings.WindowOpacity, 0.3, 1.0,
-            async v => { _settings.WindowOpacity = v; opacityLabel.Text = $"窗口不透明度: {v:P0}"; await ApplyOnly(); },
+            v => { _settings.WindowOpacity = v; opacityLabel.Text = $"窗口不透明度: {v:P0}"; },
             step: 0.05, format: "0%"));
 
         // Background blur type
@@ -374,7 +374,7 @@ internal sealed class SettingsWindow : Window
         var blurRadiusLabel = new TextBlock { Text = $"模糊半径: {_settings.BackgroundBlurRadius}px", FontWeight = FontWeights.SemiBold };
         panel.Children.Add(blurRadiusLabel);
         panel.Children.Add(BuildSliderWithTextBox("模糊半径", _settings.BackgroundBlurRadius, 0, 255,
-            async v => { _settings.BackgroundBlurRadius = (int)v; blurRadiusLabel.Text = $"模糊半径: {(int)v}px"; await ApplyOnly(); },
+            v => { _settings.BackgroundBlurRadius = (int)v; blurRadiusLabel.Text = $"模糊半径: {(int)v}px"; },
             step: 1, format: "0", textMin: 0, textMax: 1024));
 
         if (!IsBlurSupported())
@@ -427,7 +427,7 @@ internal sealed class SettingsWindow : Window
         var bgOpacityLabel = new TextBlock { Text = $"背景图片不透明度: {_settings.BackgroundImageOpacity:P0}", FontWeight = FontWeights.SemiBold };
         panel.Children.Add(bgOpacityLabel);
         panel.Children.Add(BuildSliderWithTextBox("背景图片不透明度", _settings.BackgroundImageOpacity, 0.0, 1.0,
-            async v => { _settings.BackgroundImageOpacity = v; bgOpacityLabel.Text = $"背景图片不透明度: {v:P0}"; await ApplyOnly(); },
+            v => { _settings.BackgroundImageOpacity = v; bgOpacityLabel.Text = $"背景图片不透明度: {v:P0}"; },
             step: 0.05, format: "0%"));
 
         return panel;
@@ -593,12 +593,36 @@ internal sealed class SettingsWindow : Window
         var minusBtn = new Button { Content = minusText, Width = 32, Height = 32, Padding = new Thickness(0), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 1, 0) };
         var plusBtn = new Button { Content = plusText, Width = 32, Height = 32, Padding = new Thickness(0), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(1, 0, 2, 0) };
 
-        // Slider value changed -> apply immediately for live preview
+        // Slider: only update TextBox during drag; apply on release
+        bool sliderDragging = false;
+        
+        slider.PointerPressed += (_, _) => sliderDragging = true;
+        slider.PointerReleased += (_, _) =>
+        {
+            if (sliderDragging)
+            {
+                sliderDragging = false;
+                var v = Math.Clamp(slider.Value, sliderMin, sliderMax);
+                apply(v);
+                _ = ApplyOnly();
+            }
+        };
+        slider.PointerExited += (_, _) =>
+        {
+            if (sliderDragging)
+            {
+                sliderDragging = false;
+                var v = Math.Clamp(slider.Value, sliderMin, sliderMax);
+                apply(v);
+                _ = ApplyOnly();
+            }
+        };
+        
         slider.ValueChanged += (_, _) =>
         {
             var v = Math.Clamp(slider.Value, sliderMin, sliderMax);
             valueBox.Text = v.ToString(format);
-            apply(v);
+            // Don't apply during drag - wait for PointerReleased
         };
 
         // TextBox input (can exceed slider range)

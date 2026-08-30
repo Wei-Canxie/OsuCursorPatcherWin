@@ -317,6 +317,9 @@ internal static class AppearanceManager
     {
         try
         {
+            bool isDark = settings.Theme == AppSettings.ThemeMode.Dark ||
+                          (settings.Theme == AppSettings.ThemeMode.FollowSystem && IsSystemDark());
+
             var backdropTarget = window.As<ICompositionSupportsSystemBackdrop>();
             if (backdropTarget == null)
             {
@@ -328,16 +331,17 @@ internal static class AppearanceManager
 
             if (settings.BackgroundBlur == AppSettings.BlurMode.Mica && MicaController.IsSupported())
             {
-                _micaController = new MicaController { Kind = MicaKind.Base };
+                // Windows 11 22H2+ uses BaseAlt
+                _micaController = new MicaController { Kind = MicaKind.BaseAlt };
                 _backdropConfig = new SystemBackdropConfiguration
                 {
                     IsInputActive = true,
-                    Theme = SystemBackdropTheme.Default
+                    Theme = isDark ? SystemBackdropTheme.Dark : SystemBackdropTheme.Light
                 };
 
                 _micaController!.AddSystemBackdropTarget(backdropTarget);
                 _micaController!.SetSystemBackdropConfiguration(_backdropConfig);
-                AppLog.Log("MicaController applied");
+                AppLog.Log($"MicaController applied (Kind=BaseAlt, Theme={(isDark ? "Dark" : "Light")})");
                 return true;
             }
             else if (settings.BackgroundBlur == AppSettings.BlurMode.Acrylic && DesktopAcrylicController.IsSupported())
@@ -346,12 +350,12 @@ internal static class AppearanceManager
                 _backdropConfig = new SystemBackdropConfiguration
                 {
                     IsInputActive = true,
-                    Theme = SystemBackdropTheme.Default
+                    Theme = isDark ? SystemBackdropTheme.Dark : SystemBackdropTheme.Light
                 };
 
                 _acrylicController!.AddSystemBackdropTarget(backdropTarget);
                 _acrylicController!.SetSystemBackdropConfiguration(_backdropConfig);
-                AppLog.Log("DesktopAcrylicController applied");
+                AppLog.Log($"DesktopAcrylicController applied (Theme={(isDark ? "Dark" : "Light")})");
                 return true;
             }
 
