@@ -583,11 +583,26 @@ internal sealed class SettingsWindow : Window
             valueBox.Text = v.ToString(format);
         };
 
-        // Apply setting only when user releases the mouse (manipulation complete)
-        slider.ManipulationCompleted += (_, _) =>
+        // Apply setting only when user releases the mouse after dragging
+        bool isDragging = false;
+        slider.PointerPressed += (_, _) => isDragging = true;
+        slider.PointerReleased += (_, _) =>
         {
-            var v = Math.Clamp(slider.Value, sliderMin, sliderMax);
-            apply(v);
+            if (isDragging)
+            {
+                isDragging = false;
+                var v = Math.Clamp(slider.Value, sliderMin, sliderMax);
+                apply(v);
+            }
+        };
+        slider.PointerExited += (_, _) =>
+        {
+            if (isDragging)
+            {
+                isDragging = false;
+                var v = Math.Clamp(slider.Value, sliderMin, sliderMax);
+                apply(v);
+            }
         };
 
         // TextBox input (can exceed slider range)

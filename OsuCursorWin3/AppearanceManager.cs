@@ -52,8 +52,9 @@ internal static class AppearanceManager
     public static async Task ApplyAllAsync(Window window, AppSettings settings)
     {
         ApplyTheme(window, settings);
-        await ApplyBackgroundAsync(window, settings);
+        // Apply opacity BEFORE backdrop so WS_EX_LAYERED is removed first
         ApplyOpacity(window, settings);
+        await ApplyBackgroundAsync(window, settings);
     }
 
     public static void ApplyTheme(Window window, AppSettings settings)
