@@ -354,48 +354,23 @@ internal static class AppearanceManager
     {
         try
         {
-            var backdropTarget = window.As<ICompositionSupportsSystemBackdrop>();
-            if (backdropTarget == null)
+            // WinUI 3 requires setting SystemBackdrop property on the Window
+            if (settings.BackgroundBlur == AppSettings.BlurMode.Mica)
             {
-                AppLog.Log("Window does not support ICompositionSupportsSystemBackdrop");
-                return false;
-            }
-
-            // Clean up previous controllers
-            ClearBackdrop(window);
-
-            // Create controller based on mode
-            if (settings.BackgroundBlur == AppSettings.BlurMode.Mica && MicaController.IsSupported())
-            {
-                _micaController = new MicaController { Kind = MicaKind.Base };
-                _backdropConfig = new SystemBackdropConfiguration
-                {
-                    IsInputActive = true,
-                    Theme = SystemBackdropTheme.Default
-                };
-
-                _micaController!.AddSystemBackdropTarget(backdropTarget);
-                _micaController!.SetSystemBackdropConfiguration(_backdropConfig);
-                AppLog.Log("MicaController applied");
+                window.SystemBackdrop = new MicaBackdrop { Kind = MicaKind.Base };
+                AppLog.Log("MicaBackdrop applied via SystemBackdrop");
                 return true;
             }
-            else if (settings.BackgroundBlur == AppSettings.BlurMode.Acrylic && DesktopAcrylicController.IsSupported())
+            else if (settings.BackgroundBlur == AppSettings.BlurMode.Acrylic)
             {
-                _acrylicController = new DesktopAcrylicController();
-                _backdropConfig = new SystemBackdropConfiguration
-                {
-                    IsInputActive = true,
-                    Theme = SystemBackdropTheme.Default
-                };
-
-                _acrylicController!.AddSystemBackdropTarget(backdropTarget);
-                _acrylicController!.SetSystemBackdropConfiguration(_backdropConfig);
-                AppLog.Log("DesktopAcrylicController applied");
+                window.SystemBackdrop = new DesktopAcrylicBackdrop();
+                AppLog.Log("DesktopAcrylicBackdrop applied via SystemBackdrop");
                 return true;
             }
 
-            AppLog.Log($"Controller not supported: Mica={MicaController.IsSupported()}, Acrylic={DesktopAcrylicController.IsSupported()}");
-            return false;
+            // Default mode: remove backdrop
+            window.SystemBackdrop = null;
+            return true;
         }
         catch (Exception ex)
         {
