@@ -39,11 +39,12 @@
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
   </ItemGroup>
 
-  <!-- assets/ is handled by WindowsAppSDK (mapped to Assets/ for PRI +
-       runtime output). Exclude it from the SDK's default Content glob so
-       PublishSingleFile doesn't see duplicate bundle entries. -->
+  <!-- Ship the default background image next to the exe -->
   <ItemGroup>
-    <Content Remove="assets\**" />
+    <Content Include="assets\background-default.jpg">
+      <Link>background-default.jpg</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <!-- Embedded resources (same as original) -->
@@ -56,9 +57,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="default-hover.wav">
       <LogicalName>OsuCursorWin.Audio.defaultHover.wav</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="assets\background-default.jpg">
-      <LogicalName>OsuCursorWin.Assets.background-default.jpg</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="assets\cursor.png">
       <LogicalName>OsuCursorWin.Images.cursor.png</LogicalName>

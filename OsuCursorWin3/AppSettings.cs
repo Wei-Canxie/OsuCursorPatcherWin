@@ -26,35 +26,11 @@ internal sealed class AppSettings
     /// <summary>Window content opacity. 0.3 – 1.0.</summary>
     public double WindowOpacity { get; set; } = 0.9;
     /// <summary>Background image file path. Empty = none.</summary>
-    public string BackgroundImagePath { get; set; } = "";
+    public string BackgroundImagePath { get; set; } = DefaultBackgroundPath;
 
-    /// <summary>Extract the default background image from embedded resources to a temp path.
-    /// Returns the temp file path, or null if extraction fails.</summary>
-    internal static string? EnsureDefaultBackgroundPath()
-    {
-        try
-        {
-            var tempDir = Path.Combine(Path.GetTempPath(), "OsuCursorPatcherWin");
-            Directory.CreateDirectory(tempDir);
-            var targetPath = Path.Combine(tempDir, "background-default.jpg");
-
-            // Always overwrite to handle updates
-            var assembly = typeof(AppSettings).Assembly;
-            using var resource = assembly.GetManifestResourceStream("OsuCursorWin.Assets.background-default.jpg");
-            if (resource == null) return null;
-            using var file = File.OpenWrite(targetPath);
-            resource.CopyTo(file);
-            return targetPath;
-        }
-        catch (Exception ex)
-        {
-            AppLog.Log($"EnsureDefaultBackgroundPath failed: {ex.Message}");
-            return null;
-        }
-    }
-
-    /// <summary>Default background image path (extracted from embedded resource at runtime).</summary>
-    internal static string? DefaultBackgroundPath => EnsureDefaultBackgroundPath();
+    /// <summary>Default background image shipped with the app.</summary>
+    internal static string DefaultBackgroundPath =>
+        Path.Combine(AppContext.BaseDirectory, "background-default.jpg");
     /// <summary>Background image opacity. 0.0 – 1.0.</summary>
     public double BackgroundImageOpacity { get; set; } = 0.8;
     /// <summary>Background blur type: default (solid), Mica, Acrylic.</summary>

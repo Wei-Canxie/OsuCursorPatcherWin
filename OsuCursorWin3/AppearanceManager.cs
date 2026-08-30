@@ -41,7 +41,7 @@ internal static class AppearanceManager
 
     private const int GWL_EXSTYLE = -20;
     private const int WS_EX_LAYERED = 0x00080000;
-    private const uint LWA_ALPHA = 0x00000002;
+    private const uint LWA_ALPHA = 0x0000002;
 
     private static MicaController? _micaController;
     private static DesktopAcrylicController? _acrylicController;
@@ -54,16 +54,11 @@ internal static class AppearanceManager
         ApplyOpacity(window, settings);
     }
 
-    /// <summary>
-    /// Async version of ApplyAll that processes background blur on a background thread
-    /// to avoid blocking the UI thread when applying Gaussian blur.
-    /// </summary>
     public static async Task ApplyAllAsync(Window window, AppSettings settings)
     {
         ApplyTheme(window, settings);
-        // Apply opacity BEFORE backdrop so WS_EX_LAYERED is removed first
-        ApplyOpacity(window, settings);
         await ApplyBackgroundAsync(window, settings);
+        ApplyOpacity(window, settings);
     }
 
     public static void ApplyTheme(Window window, AppSettings settings)
@@ -83,28 +78,23 @@ internal static class AppearanceManager
     {
         var hwnd = WindowNative.GetWindowHandle(window);
         var exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-
         bool useCompositionBackdrop = settings.BackgroundBlur != AppSettings.BlurMode.Default;
 
         if (useCompositionBackdrop)
         {
-            // Composition backdrop (Mica/Acrylic) requires transparent window —
-            // WS_EX_LAYERED conflicts with it, so remove the layered style
             if ((exStyle & WS_EX_LAYERED) != 0)
             {
                 SetWindowLong(hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_LAYERED);
-                // Force window frame to update so the style change takes effect
                 SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+                AppLog.Log("ApplyOpacity: removed WS_EX_LAYERED for composition backdrop");
             }
         }
         else
         {
-            // Default mode: use WS_EX_LAYERED for opacity
             if ((exStyle & WS_EX_LAYERED) == 0)
             {
                 SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
-                // Force window frame to update so the style change takes effect
                 SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
             }
@@ -122,15 +112,11 @@ internal static class AppearanceManager
 
         if (useBlur)
         {
-            // Mica/Acrylic: Composition backdrop handles the visual
-            // Both root Grid and NavigationView must be transparent for backdrop to show
             mainGrid.Background = new XamlSolidColorBrush(Colors.Transparent);
 
-            // Find NavigationView and make its background transparent
             if (FindNavigationView(window.Content as DependencyObject) is NavigationView nav)
             {
                 nav.Background = new XamlSolidColorBrush(Colors.Transparent);
-                // Make pane transparent too
                 FindPaneBackground(nav);
             }
 
@@ -140,22 +126,16 @@ internal static class AppearanceManager
                 return;
             }
 
-            // Fallback to GDI+ Gaussian blur
             AppLog.Log("Composition backdrop failed, falling back to GDI+ blur");
             ApplyBlurBackground(mainGrid, settings);
         }
         else
         {
-            // Default mode: blur radius controls background image blur
             ClearBackdrop(window);
             ApplySolidBackground(mainGrid, settings, applyBlur: true);
         }
     }
 
-    /// <summary>
-    /// Async version of ApplyBackground that runs GDI+ blur on a background thread
-    /// to avoid blocking the UI thread.
-    /// </summary>
     public static async Task ApplyBackgroundAsync(Window window, AppSettings settings)
     {
         if (window.Content is not Grid mainGrid) return;
@@ -165,11 +145,8 @@ internal static class AppearanceManager
 
         if (useBlur)
         {
-            // Mica/Acrylic: Composition backdrop handles the visual
-            // Both root Grid and NavigationView must be transparent for backdrop to show
             mainGrid.Background = new XamlSolidColorBrush(Colors.Transparent);
 
-            // Find NavigationView and make its background transparent
             if (FindNavigationView(window.Content as DependencyObject) is NavigationView nav)
             {
                 nav.Background = new XamlSolidColorBrush(Colors.Transparent);
@@ -187,15 +164,11 @@ internal static class AppearanceManager
         }
         else
         {
-            // Default mode: blur radius controls background image blur
             ClearBackdrop(window);
             await ApplySolidBackgroundAsync(mainGrid, settings, applyBlur: true);
         }
     }
 
-    /// <summary>
-    /// Async version of ApplyBlurBackground that processes the image on a background thread.
-    /// </summary>
     private static async Task ApplyBlurBackgroundAsync(Grid mainGrid, AppSettings settings)
     {
         if (string.IsNullOrEmpty(settings.BackgroundImagePath) || !File.Exists(settings.BackgroundImagePath))
@@ -208,7 +181,6 @@ internal static class AppearanceManager
             var opacity = Math.Clamp(settings.BackgroundImageOpacity, 0, 1);
             var blurMode = settings.BackgroundBlur;
 
-            // Heavy GDI+ work on background thread
             var processedBitmap = await Task.Run(() =>
             {
                 using var bitmap = new Bitmap(path);
@@ -217,7 +189,6 @@ internal static class AppearanceManager
                 return blurred;
             });
 
-            // Update UI on UI thread
             var tcs = new TaskCompletionSource();
             var queue = mainGrid.DispatcherQueue;
             if (queue == null)
@@ -257,9 +228,6 @@ internal static class AppearanceManager
         }
     }
 
-    /// <summary>
-    /// Async version of ApplySolidBackground that processes the image on a background thread.
-    /// </summary>
     private static async Task ApplySolidBackgroundAsync(Grid mainGrid, AppSettings settings, bool applyBlur)
     {
         if (!string.IsNullOrEmpty(settings.BackgroundImagePath) && File.Exists(settings.BackgroundImagePath))
@@ -270,19 +238,17 @@ internal static class AppearanceManager
                 var radius = Math.Clamp(settings.BackgroundBlurRadius, 0, 255);
                 var opacity = Math.Clamp(settings.BackgroundImageOpacity, 0, 1);
 
-                // Heavy GDI+ work on background thread
                 var processedBitmap = await Task.Run(() =>
                 {
                     using var bitmap = new Bitmap(path);
                     if (applyBlur)
                     {
                         using var blurred = ApplyGaussianBlur(bitmap, radius);
-                        return new Bitmap(blurred); // clone to release the using
+                        return new Bitmap(blurred);
                     }
                     return new Bitmap(bitmap);
                 });
 
-                // Update UI on UI thread
                 var tcs = new TaskCompletionSource();
                 var queue = mainGrid.DispatcherQueue;
                 if (queue == null)
@@ -331,9 +297,6 @@ internal static class AppearanceManager
         }
     }
 
-    /// <summary>
-    /// Convert a GDI+ Bitmap to a WinUI WriteableBitmap.
-    /// </summary>
     private static WriteableBitmap ConvertToWriteableBitmap(Bitmap bitmap)
     {
         var wb = new WriteableBitmap(bitmap.Width, bitmap.Height);
@@ -354,23 +317,46 @@ internal static class AppearanceManager
     {
         try
         {
-            // WinUI 3 requires setting SystemBackdrop property on the Window
-            if (settings.BackgroundBlur == AppSettings.BlurMode.Mica)
+            var backdropTarget = window.As<ICompositionSupportsSystemBackdrop>();
+            if (backdropTarget == null)
             {
-                window.SystemBackdrop = new MicaBackdrop { Kind = MicaKind.Base };
-                AppLog.Log("MicaBackdrop applied via SystemBackdrop");
+                AppLog.Log("Window does not support ICompositionSupportsSystemBackdrop");
+                return false;
+            }
+
+            ClearBackdrop(window);
+
+            if (settings.BackgroundBlur == AppSettings.BlurMode.Mica && MicaController.IsSupported())
+            {
+                _micaController = new MicaController { Kind = MicaKind.Base };
+                _backdropConfig = new SystemBackdropConfiguration
+                {
+                    IsInputActive = true,
+                    Theme = SystemBackdropTheme.Default
+                };
+
+                _micaController!.AddSystemBackdropTarget(backdropTarget);
+                _micaController!.SetSystemBackdropConfiguration(_backdropConfig);
+                AppLog.Log("MicaController applied");
                 return true;
             }
-            else if (settings.BackgroundBlur == AppSettings.BlurMode.Acrylic)
+            else if (settings.BackgroundBlur == AppSettings.BlurMode.Acrylic && DesktopAcrylicController.IsSupported())
             {
-                window.SystemBackdrop = new DesktopAcrylicBackdrop();
-                AppLog.Log("DesktopAcrylicBackdrop applied via SystemBackdrop");
+                _acrylicController = new DesktopAcrylicController();
+                _backdropConfig = new SystemBackdropConfiguration
+                {
+                    IsInputActive = true,
+                    Theme = SystemBackdropTheme.Default
+                };
+
+                _acrylicController!.AddSystemBackdropTarget(backdropTarget);
+                _acrylicController!.SetSystemBackdropConfiguration(_backdropConfig);
+                AppLog.Log("DesktopAcrylicController applied");
                 return true;
             }
 
-            // Default mode: remove backdrop
-            window.SystemBackdrop = null;
-            return true;
+            AppLog.Log($"Controller not supported: Mica={MicaController.IsSupported()}, Acrylic={DesktopAcrylicController.IsSupported()}");
+            return false;
         }
         catch (Exception ex)
         {
@@ -394,6 +380,7 @@ internal static class AppearanceManager
             _acrylicController = null;
         }
         _backdropConfig = null;
+        window.SystemBackdrop = null;
     }
 
     private static NavigationView? FindNavigationView(DependencyObject? parent)
@@ -476,22 +463,6 @@ internal static class AppearanceManager
         mainGrid.Background = bg;
     }
 
-    private static void ApplyOverlayTint(Bitmap bitmap, AppSettings.BlurMode mode)
-    {
-        Color tintColor = mode switch
-        {
-            AppSettings.BlurMode.Mica => Color.FromArgb(30, 240, 240, 240),
-            AppSettings.BlurMode.Acrylic => Color.FromArgb(60, 40, 40, 40),
-            _ => Color.Transparent
-        };
-
-        if (tintColor == Color.Transparent) return;
-
-        using var g = Graphics.FromImage(bitmap);
-        using var brush = new SolidBrush(tintColor);
-        g.FillRectangle(brush, 0, 0, bitmap.Width, bitmap.Height);
-    }
-
     private static void ApplySolidBackground(Grid mainGrid, AppSettings settings, bool applyBlur)
     {
         XamlBrush? bg = null;
@@ -537,6 +508,22 @@ internal static class AppearanceManager
         }
 
         mainGrid.Background = bg;
+    }
+
+    private static void ApplyOverlayTint(Bitmap bitmap, AppSettings.BlurMode mode)
+    {
+        Color tintColor = mode switch
+        {
+            AppSettings.BlurMode.Mica => Color.FromArgb(30, 240, 240, 240),
+            AppSettings.BlurMode.Acrylic => Color.FromArgb(60, 40, 40, 40),
+            _ => Color.Transparent
+        };
+
+        if (tintColor == Color.Transparent) return;
+
+        using var g = Graphics.FromImage(bitmap);
+        using var brush = new SolidBrush(tintColor);
+        g.FillRectangle(brush, 0, 0, bitmap.Width, bitmap.Height);
     }
 
     private static Bitmap ApplyGaussianBlur(Bitmap source, int radius)
@@ -649,7 +636,6 @@ internal static class AppearanceManager
 
     public static void Cleanup()
     {
-        // Cannot remove without window reference, just dispose
         if (_micaController != null) { try { _micaController.Dispose(); } catch { } _micaController = null; }
         if (_acrylicController != null) { try { _acrylicController.Dispose(); } catch { } _acrylicController = null; }
     }

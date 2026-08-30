@@ -170,8 +170,8 @@ internal sealed class CursorEngine : IDisposable
         try
         {
             _settingsPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "OsuCursorWin",
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "OsuCursorPatcherWin",
                 "settings.json");
             if (!File.Exists(_settingsPath)) return;
 
