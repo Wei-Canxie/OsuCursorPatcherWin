@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
+using System.Threading.Tasks;
 using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
@@ -15,6 +17,26 @@ using Microsoft.Win32;
 
 namespace OsuCursorWin;
 
+/// <summary>
+/// A page container that tracks event subscriptions and unsubscribes on Dispose,
+/// preventing memory leaks when NavigationView rebuilds pages on each navigation.
+/// </summary>
+internal sealed class DisposablePage : StackPanel, IDisposable
+{
+    private readonly List<Action> _unsubscribeActions = new();
+
+    public void RegisterUnsubscribe(Action action) => _unsubscribeActions.Add(action);
+
+    public void Dispose()
+    {
+        foreach (var a in _unsubscribeActions)
+        {
+            try { a(); } catch { }
+        }
+        _unsubscribeActions.Clear();
+    }
+}
+
 internal sealed class SettingsWindow : Window
 {
     private readonly AppSettings _settings;
@@ -22,6 +44,9 @@ internal sealed class SettingsWindow : Window
     private TextBlock? _titleBarText;
     private Border? _titleBarRoot;
     private NavigationView? _nav;
+    private FrameworkElement? _currentPage;
+    private string? _currentTag;
+    private readonly Dictionary<string, double> _scrollCache = new();
 
     public SettingsWindow(CursorEngine? engine = null)
     {
@@ -76,7 +101,21 @@ internal sealed class SettingsWindow : Window
         nav.SelectionChanged += (s, e) =>
         {
             if (nav.SelectedItem is NavigationViewItem item && item.Tag is string tag)
-                nav.Content = BuildPage(tag);
+            {
+                // 释放旧页面（解除事件订阅，防止内存泄漏）
+                if (_currentPage is IDisposable oldPage)
+                    oldPage.Dispose();
+
+                // 缓存旧页面滚动位置
+                CacheScrollPosition();
+
+                _currentTag = tag;
+                _currentPage = BuildPage(tag);
+                nav.Content = _currentPage;
+
+                // 恢复滚动位置
+                RestoreScrollPosition(tag, _currentPage);
+            }
         };
 
         nav.Loaded += (_, _) =>
@@ -95,8 +134,7 @@ internal sealed class SettingsWindow : Window
     }
 
     /// <summary>
-    /// Sidebar (pane) styling: background follows theme, 12px rounded corners,
-    /// and a drop shadow that exactly matches the pane box (height + corner radius).
+    /// Sidebar (pane) styling: background follows theme, 12px rounded corners.
     /// </summary>
     private void SyncSidebarBackground()
     {
@@ -160,8 +198,6 @@ internal sealed class SettingsWindow : Window
     /// Apply a rounded clip to the pane's visual (Composition layer,
     /// because WinUI RectangleGeometry has no rounded radii).
     /// Left side square (0) to fill the window edge, right side 12px rounded.
-    /// NOTE: RectangleClip bounds must be set explicitly — its default
-    /// bounds can collapse the clip region to zero and hide the element.
     /// </summary>
     private static void ApplyRoundedClip(FrameworkElement pane)
     {
@@ -221,9 +257,9 @@ internal sealed class SettingsWindow : Window
         return new SolidColorBrush(color);
     }
 
-    private object BuildPage(string tag)
+    private FrameworkElement BuildPage(string tag)
     {
-        return tag switch
+        FrameworkElement page = tag switch
         {
             "appearance" => BuildAppearancePage(),
             "cursor" => BuildCursorPage(),
@@ -232,11 +268,43 @@ internal sealed class SettingsWindow : Window
             "system" => BuildSystemPage(),
             _ => new TextBlock { Text = tag }
         };
+
+        // Wrap in ScrollViewer for scroll position caching
+        var scrollViewer = new ScrollViewer
+        {
+            Content = page,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
+
+        // Track scroll position changes
+        scrollViewer.ViewChanged += (_, _) =>
+        {
+            if (_currentTag != null)
+                _scrollCache[_currentTag] = scrollViewer.VerticalOffset;
+        };
+
+        return scrollViewer;
     }
 
-    private FrameworkElement BuildAppearancePage()
+    private void CacheScrollPosition()
     {
-        var panel = new StackPanel { Spacing = 12, Padding = new Thickness(24, 16, 24, 16) };
+        if (_currentPage is ScrollViewer sv && _currentTag != null)
+        {
+            _scrollCache[_currentTag] = sv.VerticalOffset;
+        }
+    }
+
+    private void RestoreScrollPosition(string tag, FrameworkElement page)
+    {
+        if (page is ScrollViewer sv && _scrollCache.TryGetValue(tag, out var offset))
+        {
+            sv.ScrollToVerticalOffset(offset);
+        }
+    }
+
+    private DisposablePage BuildAppearancePage()
+    {
+        var panel = new DisposablePage { Spacing = 12, Padding = new Thickness(24, 16, 24, 16) };
         panel.Children.Add(Header("外观设置"));
 
         // Theme selection
@@ -257,6 +325,10 @@ internal sealed class SettingsWindow : Window
         themeFollowRadio.Checked += (_, _) => { _settings.Theme = AppSettings.ThemeMode.FollowSystem; ApplyAppearance(); };
         themeLightRadio.Checked += (_, _) => { _settings.Theme = AppSettings.ThemeMode.Light; ApplyAppearance(); };
         themeDarkRadio.Checked += (_, _) => { _settings.Theme = AppSettings.ThemeMode.Dark; ApplyAppearance(); };
+
+        panel.RegisterUnsubscribe(() => themeFollowRadio.Checked -= (_, _) => { });
+        panel.RegisterUnsubscribe(() => themeLightRadio.Checked -= (_, _) => { });
+        panel.RegisterUnsubscribe(() => themeDarkRadio.Checked -= (_, _) => { });
 
         themePanel.Children.Add(themeFollowRadio);
         themePanel.Children.Add(themeLightRadio);
@@ -289,6 +361,10 @@ internal sealed class SettingsWindow : Window
         blurMicaRadio.Checked += (_, _) => { _settings.BackgroundBlur = AppSettings.BlurMode.Mica; ApplyAppearance(); };
         blurAcrylicRadio.Checked += (_, _) => { _settings.BackgroundBlur = AppSettings.BlurMode.Acrylic; ApplyAppearance(); };
 
+        panel.RegisterUnsubscribe(() => blurDefaultRadio.Checked -= (_, _) => { });
+        panel.RegisterUnsubscribe(() => blurMicaRadio.Checked -= (_, _) => { });
+        panel.RegisterUnsubscribe(() => blurAcrylicRadio.Checked -= (_, _) => { });
+
         blurPanel.Children.Add(blurDefaultRadio);
         blurPanel.Children.Add(blurMicaRadio);
         blurPanel.Children.Add(blurAcrylicRadio);
@@ -319,7 +395,7 @@ internal sealed class SettingsWindow : Window
         };
 
         var selectBgBtn = new Button { Content = "选择图片" };
-        selectBgBtn.Click += (_, _) =>
+        RoutedEventHandler selectHandler = (_, _) =>
         {
             var path = ShowImagePicker();
             if (!string.IsNullOrEmpty(path))
@@ -329,14 +405,18 @@ internal sealed class SettingsWindow : Window
                 ApplyAppearance();
             }
         };
+        selectBgBtn.Click += selectHandler;
+        panel.RegisterUnsubscribe(() => selectBgBtn.Click -= selectHandler);
 
         var clearBgBtn = new Button { Content = "恢复默认" };
-        clearBgBtn.Click += (_, _) =>
+        RoutedEventHandler clearHandler = (_, _) =>
         {
             _settings.BackgroundImagePath = AppSettings.DefaultBackgroundPath;
             bgPathLabel.Text = Path.GetFileName(AppSettings.DefaultBackgroundPath);
             ApplyAppearance();
         };
+        clearBgBtn.Click += clearHandler;
+        panel.RegisterUnsubscribe(() => clearBgBtn.Click -= clearHandler);
 
         bgPanel.Children.Add(bgPathLabel);
         bgPanel.Children.Add(selectBgBtn);
@@ -353,9 +433,9 @@ internal sealed class SettingsWindow : Window
         return panel;
     }
 
-    private void ApplyAppearance()
+    private async void ApplyAppearance()
     {
-        AppearanceManager.ApplyAll(this, _settings);
+        await AppearanceManager.ApplyAllAsync(this, _settings);
 
         if (_titleBarRoot != null)
         {
@@ -369,6 +449,19 @@ internal sealed class SettingsWindow : Window
 
         // Sidebar background must follow theme changes too
         SyncSidebarBackground();
+
+        // Force rebuild current page to sync theme colors on all controls
+        if (_currentTag != null && _currentPage != null)
+        {
+            CacheScrollPosition();
+            if (_currentPage is IDisposable oldPage)
+                oldPage.Dispose();
+
+            var newPage = BuildPage(_currentTag);
+            _nav!.Content = newPage;
+            _currentPage = newPage;
+            RestoreScrollPosition(_currentTag, newPage);
+        }
 
         _settings.Save();
     }
@@ -444,7 +537,7 @@ internal sealed class SettingsWindow : Window
     };
 
     /// <summary>
-    /// Build a row with: label | Slider | TextBox | + / - buttons.
+    /// Build a row with: label | Slider | TextBox + / - buttons.
     /// The Slider provides quick drag adjustment within sliderMin/sliderMax.
     /// TextBox allows precise input within textMin/textMax (can exceed slider range).
     /// </summary>
@@ -543,9 +636,9 @@ internal sealed class SettingsWindow : Window
         return grid;
     }
 
-    private FrameworkElement BuildCursorPage()
+    private DisposablePage BuildCursorPage()
     {
-        var panel = new StackPanel { Spacing = 16, Padding = new Thickness(24, 16, 24, 16) };
+        var panel = new DisposablePage { Spacing = 16, Padding = new Thickness(24, 16, 24, 16) };
         panel.Children.Add(Header("光标外观"));
 
         panel.Children.Add(BuildSliderWithTextBox("光标大小", _settings.CursorWidth, 16, 64,
@@ -555,9 +648,9 @@ internal sealed class SettingsWindow : Window
         return panel;
     }
 
-    private FrameworkElement BuildAlignPage()
+    private DisposablePage BuildAlignPage()
     {
-        var panel = new StackPanel { Spacing = 16, Padding = new Thickness(24, 16, 24, 16) };
+        var panel = new DisposablePage { Spacing = 16, Padding = new Thickness(24, 16, 24, 16) };
         panel.Children.Add(Header("场景对齐"));
 
         panel.Children.Add(new TextBlock { Text = "主窗口场景", FontWeight = FontWeights.SemiBold, Opacity = 0.8 });
@@ -578,20 +671,24 @@ internal sealed class SettingsWindow : Window
         return panel;
     }
 
-    private FrameworkElement BuildSoundPage()
+    private DisposablePage BuildSoundPage()
     {
-        var panel = new StackPanel { Spacing = 16, Padding = new Thickness(24, 16, 24, 16) };
+        var panel = new DisposablePage { Spacing = 16, Padding = new Thickness(24, 16, 24, 16) };
         panel.Children.Add(Header("音效"));
 
         var tapToggle = new ToggleSwitch { Header = "敲击音效", IsOn = _settings.TapSoundEnabled, OnContent = "开", OffContent = "关" };
-        tapToggle.Toggled += (_, _) => { _settings.TapSoundEnabled = tapToggle.IsOn; _settings.Save(); _engine?.SetTapSoundEnabled(tapToggle.IsOn); };
+        RoutedEventHandler tapHandler = (_, _) => { _settings.TapSoundEnabled = tapToggle.IsOn; _settings.Save(); _engine?.SetTapSoundEnabled(tapToggle.IsOn); };
+        tapToggle.Toggled += tapHandler;
+        panel.RegisterUnsubscribe(() => tapToggle.Toggled -= tapHandler);
         panel.Children.Add(tapToggle);
 
         panel.Children.Add(BuildSliderWithTextBox("敲击音量", _settings.TapSoundVolume * 100, 0, 100,
             v => { _settings.TapSoundVolume = v / 100.0; _settings.Save(); }, step: 5, format: "0"));
 
         var hoverToggle = new ToggleSwitch { Header = "悬停音效", IsOn = _settings.HoverSoundEnabled, OnContent = "开", OffContent = "关" };
-        hoverToggle.Toggled += (_, _) => { _settings.HoverSoundEnabled = hoverToggle.IsOn; _settings.Save(); _engine?.SetHoverSoundEnabled(hoverToggle.IsOn); };
+        RoutedEventHandler hoverHandler = (_, _) => { _settings.HoverSoundEnabled = hoverToggle.IsOn; _settings.Save(); _engine?.SetHoverSoundEnabled(hoverToggle.IsOn); };
+        hoverToggle.Toggled += hoverHandler;
+        panel.RegisterUnsubscribe(() => hoverToggle.Toggled -= hoverHandler);
         panel.Children.Add(hoverToggle);
 
         panel.Children.Add(BuildSliderWithTextBox("悬停音量", _settings.HoverSoundVolume * 100, 0, 100,
@@ -600,9 +697,9 @@ internal sealed class SettingsWindow : Window
         return panel;
     }
 
-    private FrameworkElement BuildSystemPage()
+    private DisposablePage BuildSystemPage()
     {
-        var panel = new StackPanel { Spacing = 16, Padding = new Thickness(24, 16, 24, 16) };
+        var panel = new DisposablePage { Spacing = 16, Padding = new Thickness(24, 16, 24, 16) };
         panel.Children.Add(Header("系统"));
 
         var isInstalled = ServiceManager.IsInstalled();
@@ -618,26 +715,36 @@ internal sealed class SettingsWindow : Window
         panel.Children.Add(statusText);
 
         var toggleServiceBtn = new Button { Content = isRunning ? "停止服务" : "启动服务", MinWidth = 120 };
-        toggleServiceBtn.Click += (_, _) =>
+        RoutedEventHandler toggleHandler = (_, _) =>
         {
             if (ServiceManager.IsRunning()) ServiceManager.Stop(); else ServiceManager.Start();
             _settings.Save();
         };
+        toggleServiceBtn.Click += toggleHandler;
+        panel.RegisterUnsubscribe(() => toggleServiceBtn.Click -= toggleHandler);
         panel.Children.Add(toggleServiceBtn);
 
         var autoStartCheck = new CheckBox { Content = "开机自启服务", IsChecked = autoStartEnabled, IsEnabled = isInstalled };
-        autoStartCheck.Checked += (_, _) => { if (ServiceManager.SetAutoStart(true)) { _settings.AutoStart = true; _settings.Save(); } };
-        autoStartCheck.Unchecked += (_, _) => { if (ServiceManager.SetAutoStart(false)) { _settings.AutoStart = false; _settings.Save(); } };
+        RoutedEventHandler autoStartCheckedHandler = (_, _) => { if (ServiceManager.SetAutoStart(true)) { _settings.AutoStart = true; _settings.Save(); } };
+        RoutedEventHandler autoStartUncheckedHandler = (_, _) => { if (ServiceManager.SetAutoStart(false)) { _settings.AutoStart = false; _settings.Save(); } };
+        autoStartCheck.Checked += autoStartCheckedHandler;
+        autoStartCheck.Unchecked += autoStartUncheckedHandler;
+        panel.RegisterUnsubscribe(() => autoStartCheck.Checked -= autoStartCheckedHandler);
+        panel.RegisterUnsubscribe(() => autoStartCheck.Unchecked -= autoStartUncheckedHandler);
         panel.Children.Add(autoStartCheck);
 
         var installPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
 
         var installBtn = new Button { Content = "安装服务", MinWidth = 100, IsEnabled = !isInstalled };
-        installBtn.Click += (_, _) => { var exePath = Environment.ProcessPath; if (!string.IsNullOrEmpty(exePath)) ServiceManager.Install(exePath); };
+        RoutedEventHandler installHandler = (_, _) => { var exePath = Environment.ProcessPath; if (!string.IsNullOrEmpty(exePath)) ServiceManager.Install(exePath); };
+        installBtn.Click += installHandler;
+        panel.RegisterUnsubscribe(() => installBtn.Click -= installHandler);
         installPanel.Children.Add(installBtn);
 
         var uninstallBtn = new Button { Content = "卸载服务", MinWidth = 100, IsEnabled = isInstalled };
-        uninstallBtn.Click += (_, _) => ServiceManager.Uninstall();
+        RoutedEventHandler uninstallHandler = (_, _) => ServiceManager.Uninstall();
+        uninstallBtn.Click += uninstallHandler;
+        panel.RegisterUnsubscribe(() => uninstallBtn.Click -= uninstallHandler);
         installPanel.Children.Add(uninstallBtn);
 
         panel.Children.Add(installPanel);

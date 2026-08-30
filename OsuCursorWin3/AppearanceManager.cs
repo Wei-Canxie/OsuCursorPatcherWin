@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Threading.Tasks;
 using Microsoft.UI;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Composition.SystemBackdrops;
@@ -41,6 +42,17 @@ internal static class AppearanceManager
     {
         ApplyTheme(window, settings);
         ApplyBackground(window, settings);
+        ApplyOpacity(window, settings);
+    }
+
+    /// <summary>
+    /// Async version of ApplyAll that processes background blur on a background thread
+    /// to avoid blocking the UI thread when applying Gaussian blur.
+    /// </summary>
+    public static async Task ApplyAllAsync(Window window, AppSettings settings)
+    {
+        ApplyTheme(window, settings);
+        await ApplyBackgroundAsync(window, settings);
         ApplyOpacity(window, settings);
     }
 
@@ -101,6 +113,196 @@ internal static class AppearanceManager
             ClearBackdrop(window);
             ApplySolidBackground(mainGrid, settings, applyBlur: true);
         }
+    }
+
+    /// <summary>
+    /// Async version of ApplyBackground that runs GDI+ blur on a background thread
+    /// to avoid blocking the UI thread.
+    /// </summary>
+    public static async Task ApplyBackgroundAsync(Window window, AppSettings settings)
+    {
+        if (window.Content is not Grid mainGrid) return;
+
+        bool useBlur = settings.BackgroundBlur != AppSettings.BlurMode.Default;
+        AppLog.Log($"ApplyBackgroundAsync blur={settings.BackgroundBlur}, radius={settings.BackgroundBlurRadius}");
+
+        if (useBlur)
+        {
+            // Mica/Acrylic: Composition backdrop handles the visual
+            mainGrid.Background = new XamlSolidColorBrush(Colors.Transparent);
+
+            if (TrySetCompositionBackdrop(window, settings))
+            {
+                AppLog.Log("WASDK 2.4 Composition backdrop applied");
+                return;
+            }
+
+            AppLog.Log("Composition backdrop failed, falling back to GDI+ blur (async)");
+            await ApplyBlurBackgroundAsync(mainGrid, settings);
+        }
+        else
+        {
+            // Default mode: blur radius controls background image blur
+            ClearBackdrop(window);
+            await ApplySolidBackgroundAsync(mainGrid, settings, applyBlur: true);
+        }
+    }
+
+    /// <summary>
+    /// Async version of ApplyBlurBackground that processes the image on a background thread.
+    /// </summary>
+    private static async Task ApplyBlurBackgroundAsync(Grid mainGrid, AppSettings settings)
+    {
+        if (string.IsNullOrEmpty(settings.BackgroundImagePath) || !File.Exists(settings.BackgroundImagePath))
+            return;
+
+        try
+        {
+            var path = settings.BackgroundImagePath;
+            var radius = Math.Clamp(settings.BackgroundBlurRadius, 0, 255);
+            var opacity = Math.Clamp(settings.BackgroundImageOpacity, 0, 1);
+            var blurMode = settings.BackgroundBlur;
+
+            // Heavy GDI+ work on background thread
+            var processedBitmap = await Task.Run(() =>
+            {
+                using var bitmap = new Bitmap(path);
+                using var blurred = ApplyGaussianBlur(bitmap, radius);
+                ApplyOverlayTint(blurred, blurMode);
+                return blurred;
+            });
+
+            // Update UI on UI thread
+            var tcs = new TaskCompletionSource();
+            var queue = mainGrid.DispatcherQueue;
+            if (queue == null)
+            {
+                processedBitmap.Dispose();
+                return;
+            }
+
+            queue.TryEnqueue(() =>
+            {
+                try
+                {
+                    var wb = ConvertToWriteableBitmap(processedBitmap);
+                    mainGrid.Background = new ImageBrush
+                    {
+                        ImageSource = wb,
+                        Stretch = Stretch.UniformToFill,
+                        Opacity = opacity
+                    };
+                }
+                catch (Exception ex)
+                {
+                    AppLog.Log($"Background image failed: {ex.Message}");
+                }
+                finally
+                {
+                    processedBitmap.Dispose();
+                    tcs.SetResult();
+                }
+            });
+
+            await tcs.Task;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Log($"Background image failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Async version of ApplySolidBackground that processes the image on a background thread.
+    /// </summary>
+    private static async Task ApplySolidBackgroundAsync(Grid mainGrid, AppSettings settings, bool applyBlur)
+    {
+        if (!string.IsNullOrEmpty(settings.BackgroundImagePath) && File.Exists(settings.BackgroundImagePath))
+        {
+            try
+            {
+                var path = settings.BackgroundImagePath;
+                var radius = Math.Clamp(settings.BackgroundBlurRadius, 0, 255);
+                var opacity = Math.Clamp(settings.BackgroundImageOpacity, 0, 1);
+
+                // Heavy GDI+ work on background thread
+                var processedBitmap = await Task.Run(() =>
+                {
+                    using var bitmap = new Bitmap(path);
+                    if (applyBlur)
+                    {
+                        using var blurred = ApplyGaussianBlur(bitmap, radius);
+                        return new Bitmap(blurred); // clone to release the using
+                    }
+                    return new Bitmap(bitmap);
+                });
+
+                // Update UI on UI thread
+                var tcs = new TaskCompletionSource();
+                var queue = mainGrid.DispatcherQueue;
+                if (queue == null)
+                {
+                    processedBitmap.Dispose();
+                    return;
+                }
+
+                queue.TryEnqueue(() =>
+                {
+                    try
+                    {
+                        var wb = ConvertToWriteableBitmap(processedBitmap);
+                        mainGrid.Background = new ImageBrush
+                        {
+                            ImageSource = wb,
+                            Stretch = Stretch.UniformToFill,
+                            Opacity = opacity
+                        };
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLog.Log($"Background image failed: {ex.Message}");
+                    }
+                    finally
+                    {
+                        processedBitmap.Dispose();
+                        tcs.SetResult();
+                    }
+                });
+
+                await tcs.Task;
+            }
+            catch (Exception ex)
+            {
+                AppLog.Log($"Background image failed: {ex.Message}");
+            }
+        }
+        else
+        {
+            var isDark = settings.Theme == AppSettings.ThemeMode.Dark ||
+                         (settings.Theme == AppSettings.ThemeMode.FollowSystem && IsSystemDark());
+            mainGrid.Background = new XamlSolidColorBrush(isDark
+                ? Windows.UI.Color.FromArgb(0xFF, 0x1E, 0x1E, 0x1E)
+                : Windows.UI.Color.FromArgb(0xFF, 0xF0, 0xF0, 0xF0));
+        }
+    }
+
+    /// <summary>
+    /// Convert a GDI+ Bitmap to a WinUI WriteableBitmap.
+    /// </summary>
+    private static WriteableBitmap ConvertToWriteableBitmap(Bitmap bitmap)
+    {
+        var wb = new WriteableBitmap(bitmap.Width, bitmap.Height);
+        using (var destStream = wb.PixelBuffer.AsStream())
+        {
+            var pixels = new byte[bitmap.Width * bitmap.Height * 4];
+            BitmapData srcData = bitmap.LockBits(
+                new Rectangle(0, 0, bitmap.Width, bitmap.Height),
+                ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            Marshal.Copy(srcData.Scan0, pixels, 0, pixels.Length);
+            bitmap.UnlockBits(srcData);
+            destStream.Write(pixels, 0, pixels.Length);
+        }
+        return wb;
     }
 
     private static bool TrySetCompositionBackdrop(Window window, AppSettings settings)
