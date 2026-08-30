@@ -31,6 +31,19 @@ internal sealed class AppSettings
     /// <summary>Default background image shipped with the app.</summary>
     internal static string DefaultBackgroundPath =>
         Path.Combine(AppContext.BaseDirectory, "background-default.jpg");
+
+    /// <summary>Get the effective background image path. Returns empty if no image is available.</summary>
+    internal static string GetEffectiveBackgroundPath()
+    {
+        var path = DefaultBackgroundPath;
+        if (File.Exists(path))
+        {
+            AppLog.Log($"GetEffectiveBackgroundPath: using {path}");
+            return path;
+        }
+        AppLog.Log($"GetEffectiveBackgroundPath: file not found at {path}");
+        return "";
+    }
     /// <summary>Background image opacity. 0.0 – 1.0.</summary>
     public double BackgroundImageOpacity { get; set; } = 0.8;
     /// <summary>Background blur type: default (solid), Mica, Acrylic.</summary>

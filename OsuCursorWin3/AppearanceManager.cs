@@ -57,8 +57,9 @@ internal static class AppearanceManager
     public static async Task ApplyAllAsync(Window window, AppSettings settings)
     {
         ApplyTheme(window, settings);
-        await ApplyBackgroundAsync(window, settings);
+        // Apply opacity FIRST to remove WS_EX_LAYERED before creating backdrop
         ApplyOpacity(window, settings);
+        await ApplyBackgroundAsync(window, settings);
     }
 
     public static void ApplyTheme(Window window, AppSettings settings)
@@ -78,6 +79,7 @@ internal static class AppearanceManager
     {
         var hwnd = WindowNative.GetWindowHandle(window);
         var exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+
         bool useCompositionBackdrop = settings.BackgroundBlur != AppSettings.BlurMode.Default;
 
         if (useCompositionBackdrop)
@@ -114,12 +116,6 @@ internal static class AppearanceManager
         {
             mainGrid.Background = new XamlSolidColorBrush(Colors.Transparent);
 
-            if (FindNavigationView(window.Content as DependencyObject) is NavigationView nav)
-            {
-                nav.Background = new XamlSolidColorBrush(Colors.Transparent);
-                FindPaneBackground(nav);
-            }
-
             if (TrySetCompositionBackdrop(window, settings))
             {
                 AppLog.Log("WASDK 2.4 Composition backdrop applied");
@@ -146,12 +142,6 @@ internal static class AppearanceManager
         if (useBlur)
         {
             mainGrid.Background = new XamlSolidColorBrush(Colors.Transparent);
-
-            if (FindNavigationView(window.Content as DependencyObject) is NavigationView nav)
-            {
-                nav.Background = new XamlSolidColorBrush(Colors.Transparent);
-                FindPaneBackground(nav);
-            }
 
             if (TrySetCompositionBackdrop(window, settings))
             {
@@ -320,47 +310,23 @@ internal static class AppearanceManager
             bool isDark = settings.Theme == AppSettings.ThemeMode.Dark ||
                           (settings.Theme == AppSettings.ThemeMode.FollowSystem && IsSystemDark());
 
-            var backdropTarget = window.As<ICompositionSupportsSystemBackdrop>();
-            if (backdropTarget == null)
+            // Use the Window.SystemBackdrop property - the WASDK 2.4+ recommended way
+            if (settings.BackgroundBlur == AppSettings.BlurMode.Mica)
             {
-                AppLog.Log("Window does not support ICompositionSupportsSystemBackdrop");
-                return false;
-            }
-
-            ClearBackdrop(window);
-
-            if (settings.BackgroundBlur == AppSettings.BlurMode.Mica && MicaController.IsSupported())
-            {
-                // Windows 11 22H2+ uses BaseAlt
-                _micaController = new MicaController { Kind = MicaKind.BaseAlt };
-                _backdropConfig = new SystemBackdropConfiguration
-                {
-                    IsInputActive = true,
-                    Theme = isDark ? SystemBackdropTheme.Dark : SystemBackdropTheme.Light
-                };
-
-                _micaController!.AddSystemBackdropTarget(backdropTarget);
-                _micaController!.SetSystemBackdropConfiguration(_backdropConfig);
-                AppLog.Log($"MicaController applied (Kind=BaseAlt, Theme={(isDark ? "Dark" : "Light")})");
+                window.SystemBackdrop = new MicaBackdrop();
+                AppLog.Log($"MicaBackdrop applied via SystemBackdrop (DarkMode={isDark})");
                 return true;
             }
-            else if (settings.BackgroundBlur == AppSettings.BlurMode.Acrylic && DesktopAcrylicController.IsSupported())
+            else if (settings.BackgroundBlur == AppSettings.BlurMode.Acrylic)
             {
-                _acrylicController = new DesktopAcrylicController();
-                _backdropConfig = new SystemBackdropConfiguration
-                {
-                    IsInputActive = true,
-                    Theme = isDark ? SystemBackdropTheme.Dark : SystemBackdropTheme.Light
-                };
-
-                _acrylicController!.AddSystemBackdropTarget(backdropTarget);
-                _acrylicController!.SetSystemBackdropConfiguration(_backdropConfig);
-                AppLog.Log($"DesktopAcrylicController applied (Theme={(isDark ? "Dark" : "Light")})");
+                window.SystemBackdrop = new DesktopAcrylicBackdrop();
+                AppLog.Log($"DesktopAcrylicBackdrop applied via SystemBackdrop (DarkMode={isDark})");
                 return true;
             }
 
-            AppLog.Log($"Controller not supported: Mica={MicaController.IsSupported()}, Acrylic={DesktopAcrylicController.IsSupported()}");
-            return false;
+            // Default mode: remove backdrop
+            window.SystemBackdrop = null;
+            return true;
         }
         catch (Exception ex)
         {
@@ -371,6 +337,7 @@ internal static class AppearanceManager
 
     private static void ClearBackdrop(Window window)
     {
+        window.SystemBackdrop = null;
         if (_micaController != null)
         {
             try { _micaController.RemoveSystemBackdropTarget(window.As<ICompositionSupportsSystemBackdrop>()); } catch { }
@@ -384,38 +351,6 @@ internal static class AppearanceManager
             _acrylicController = null;
         }
         _backdropConfig = null;
-        window.SystemBackdrop = null;
-    }
-
-    private static NavigationView? FindNavigationView(DependencyObject? parent)
-    {
-        if (parent == null) return null;
-        if (parent is NavigationView nav) return nav;
-
-        int count = VisualTreeHelper.GetChildrenCount(parent);
-        for (int i = 0; i < count; i++)
-        {
-            var result = FindNavigationView(VisualTreeHelper.GetChild(parent, i));
-            if (result != null) return result;
-        }
-        return null;
-    }
-
-    private static void FindPaneBackground(DependencyObject? parent)
-    {
-        if (parent == null) return;
-
-        if (parent is SplitView sv && sv.Pane is FrameworkElement pane)
-        {
-            if (pane is Panel panel)
-                panel.Background = new XamlSolidColorBrush(Colors.Transparent);
-            else if (pane is Border border)
-                border.Background = new XamlSolidColorBrush(Colors.Transparent);
-        }
-
-        int count = VisualTreeHelper.GetChildrenCount(parent);
-        for (int i = 0; i < count; i++)
-            FindPaneBackground(VisualTreeHelper.GetChild(parent, i));
     }
 
     private static void ApplyBlurBackground(Grid mainGrid, AppSettings settings)
