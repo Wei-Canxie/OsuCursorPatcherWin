@@ -29,6 +29,15 @@ internal static class AppearanceManager
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+    private const uint SWP_FRAMECHANGED = 0x0020;
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOZORDER = 0x0004;
+    private const uint SWP_NOACTIVATE = 0x0010;
+    private const uint SWP_SHOWWINDOW = 0x0040;
 
     private const int GWL_EXSTYLE = -20;
     private const int WS_EX_LAYERED = 0x00080000;
@@ -84,6 +93,9 @@ internal static class AppearanceManager
             if ((exStyle & WS_EX_LAYERED) != 0)
             {
                 SetWindowLong(hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_LAYERED);
+                // Force window frame to update so the style change takes effect
+                SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
             }
         }
         else
@@ -92,6 +104,9 @@ internal static class AppearanceManager
             if ((exStyle & WS_EX_LAYERED) == 0)
             {
                 SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
+                // Force window frame to update so the style change takes effect
+                SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
             }
             var alpha = (byte)Math.Clamp(settings.WindowOpacity * 255, 25, 255);
             SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
@@ -107,8 +122,17 @@ internal static class AppearanceManager
 
         if (useBlur)
         {
-            // Mica/Acrylic: Composition backdrop handles the visual, no image blur applied
+            // Mica/Acrylic: Composition backdrop handles the visual
+            // Both root Grid and NavigationView must be transparent for backdrop to show
             mainGrid.Background = new XamlSolidColorBrush(Colors.Transparent);
+
+            // Find NavigationView and make its background transparent
+            if (FindNavigationView(window.Content as DependencyObject) is NavigationView nav)
+            {
+                nav.Background = new XamlSolidColorBrush(Colors.Transparent);
+                // Make pane transparent too
+                FindPaneBackground(nav);
+            }
 
             if (TrySetCompositionBackdrop(window, settings))
             {
@@ -142,7 +166,15 @@ internal static class AppearanceManager
         if (useBlur)
         {
             // Mica/Acrylic: Composition backdrop handles the visual
+            // Both root Grid and NavigationView must be transparent for backdrop to show
             mainGrid.Background = new XamlSolidColorBrush(Colors.Transparent);
+
+            // Find NavigationView and make its background transparent
+            if (FindNavigationView(window.Content as DependencyObject) is NavigationView nav)
+            {
+                nav.Background = new XamlSolidColorBrush(Colors.Transparent);
+                FindPaneBackground(nav);
+            }
 
             if (TrySetCompositionBackdrop(window, settings))
             {
@@ -387,6 +419,37 @@ internal static class AppearanceManager
             _acrylicController = null;
         }
         _backdropConfig = null;
+    }
+
+    private static NavigationView? FindNavigationView(DependencyObject? parent)
+    {
+        if (parent == null) return null;
+        if (parent is NavigationView nav) return nav;
+
+        int count = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < count; i++)
+        {
+            var result = FindNavigationView(VisualTreeHelper.GetChild(parent, i));
+            if (result != null) return result;
+        }
+        return null;
+    }
+
+    private static void FindPaneBackground(DependencyObject? parent)
+    {
+        if (parent == null) return;
+
+        if (parent is SplitView sv && sv.Pane is FrameworkElement pane)
+        {
+            if (pane is Panel panel)
+                panel.Background = new XamlSolidColorBrush(Colors.Transparent);
+            else if (pane is Border border)
+                border.Background = new XamlSolidColorBrush(Colors.Transparent);
+        }
+
+        int count = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < count; i++)
+            FindPaneBackground(VisualTreeHelper.GetChild(parent, i));
     }
 
     private static void ApplyBlurBackground(Grid mainGrid, AppSettings settings)

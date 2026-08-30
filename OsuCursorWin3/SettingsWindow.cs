@@ -576,33 +576,12 @@ internal sealed class SettingsWindow : Window
         var minusBtn = new Button { Content = minusText, Width = 32, Height = 32, Padding = new Thickness(0), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 1, 0) };
         var plusBtn = new Button { Content = plusText, Width = 32, Height = 32, Padding = new Thickness(0), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(1, 0, 2, 0) };
 
-        // Slider value changed -> only update textbox (visual feedback during drag)
+        // Slider value changed -> apply immediately for live preview
         slider.ValueChanged += (_, _) =>
         {
             var v = Math.Clamp(slider.Value, sliderMin, sliderMax);
             valueBox.Text = v.ToString(format);
-        };
-
-        // Apply setting only when user releases the mouse after dragging
-        bool isDragging = false;
-        slider.PointerPressed += (_, _) => isDragging = true;
-        slider.PointerReleased += (_, _) =>
-        {
-            if (isDragging)
-            {
-                isDragging = false;
-                var v = Math.Clamp(slider.Value, sliderMin, sliderMax);
-                apply(v);
-            }
-        };
-        slider.PointerExited += (_, _) =>
-        {
-            if (isDragging)
-            {
-                isDragging = false;
-                var v = Math.Clamp(slider.Value, sliderMin, sliderMax);
-                apply(v);
-            }
+            apply(v);
         };
 
         // TextBox input (can exceed slider range)
