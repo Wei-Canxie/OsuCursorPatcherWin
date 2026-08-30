@@ -74,15 +74,27 @@ internal static class AppearanceManager
         var hwnd = WindowNative.GetWindowHandle(window);
         var exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
 
-        // Ensure WS_EX_LAYERED is set for all modes
-        if ((exStyle & WS_EX_LAYERED) == 0)
-        {
-            SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
-        }
+        bool useCompositionBackdrop = settings.BackgroundBlur != AppSettings.BlurMode.Default;
 
-        // Set overall window opacity via Win32 layered window
-        var alpha = (byte)Math.Clamp(settings.WindowOpacity * 255, 25, 255);
-        SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
+        if (useCompositionBackdrop)
+        {
+            // Composition backdrop (Mica/Acrylic) requires transparent window —
+            // WS_EX_LAYERED conflicts with it, so remove the layered style
+            if ((exStyle & WS_EX_LAYERED) != 0)
+            {
+                SetWindowLong(hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_LAYERED);
+            }
+        }
+        else
+        {
+            // Default mode: use WS_EX_LAYERED for opacity
+            if ((exStyle & WS_EX_LAYERED) == 0)
+            {
+                SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
+            }
+            var alpha = (byte)Math.Clamp(settings.WindowOpacity * 255, 25, 255);
+            SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
+        }
     }
 
     public static void ApplyBackground(Window window, AppSettings settings)

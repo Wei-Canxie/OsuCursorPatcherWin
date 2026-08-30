@@ -57,6 +57,9 @@
     <EmbeddedResource Include="default-hover.wav">
       <LogicalName>OsuCursorWin.Audio.defaultHover.wav</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Include="assets\background-default.jpg">
+      <LogicalName>OsuCursorWin.Assets.background-default.jpg</LogicalName>
+    </EmbeddedResource>
     <EmbeddedResource Include="assets\cursor.png">
       <LogicalName>OsuCursorWin.Images.cursor.png</LogicalName>
     </EmbeddedResource>

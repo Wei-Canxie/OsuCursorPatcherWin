@@ -576,11 +576,17 @@ internal sealed class SettingsWindow : Window
         var minusBtn = new Button { Content = minusText, Width = 32, Height = 32, Padding = new Thickness(0), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 1, 0) };
         var plusBtn = new Button { Content = plusText, Width = 32, Height = 32, Padding = new Thickness(0), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(1, 0, 2, 0) };
 
-        // Slider value changed -> update textbox and apply
+        // Slider value changed -> only update textbox (visual feedback during drag)
         slider.ValueChanged += (_, _) =>
         {
             var v = Math.Clamp(slider.Value, sliderMin, sliderMax);
             valueBox.Text = v.ToString(format);
+        };
+
+        // Apply setting only when user releases the mouse (manipulation complete)
+        slider.ManipulationCompleted += (_, _) =>
+        {
+            var v = Math.Clamp(slider.Value, sliderMin, sliderMax);
             apply(v);
         };
 
@@ -608,16 +614,20 @@ internal sealed class SettingsWindow : Window
         };
         valueBox.LostFocus += (_, _) => ApplyFromText();
 
-        // +/- buttons
+        // +/- buttons (discrete clicks -> apply immediately)
         minusBtn.Click += (_, _) =>
         {
             var v = Math.Max(sliderMin, slider.Value - step);
             slider.Value = v;
+            valueBox.Text = v.ToString(format);
+            apply(v);
         };
         plusBtn.Click += (_, _) =>
         {
             var v = Math.Min(sliderMax, slider.Value + step);
             slider.Value = v;
+            valueBox.Text = v.ToString(format);
+            apply(v);
         };
 
         var buttonsPanel = new StackPanel { Orientation = Orientation.Horizontal };
