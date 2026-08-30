@@ -10,13 +10,17 @@ A Windows global osu!-style cursor replacement tool. It uses a semi-transparent 
 
 - **Dual-mode cursor architecture**: normal scenes use a WinForms layered window + GDI rendering with semi-transparency, animation (rotation, scaling, glow); DirectComposition surfaces (Start menu, etc.) automatically switch to the osu!-themed system cursor
 - **14 system cursor replacements**: covers all standard Windows pointer styles (arrow, I-beam, hand, move, resize, busy, link, etc.), each with an independently configured hotspot
-- **8x supersampled rendering**: the cursor image is rendered at 8x resolution then bilinearly downsampled for smooth edges
 - **Click-through**: `WS_EX_TRANSPARENT` + `WS_EX_LAYERED` — never blocks mouse input
 - **Drag rotation**: the cursor rotates to follow the drag direction
 - **Press scaling & glow**: scales and adds a glow layer (additive blending) while pressed
-- **Hover sounds**: plays hover sound when entering clickable elements, tap sound on press/release
+- **Hover sounds**: UIA-based detection plays a hover sound when entering clickable elements (buttons/links/menu items), and a tap sound on press/release
 - **Auto-restore on exit**: restores the native system cursor on tray exit or abnormal exit
-- **Settings window**: cursor size (16–64px), sound toggles/volume, auto-start
+- **Sounds**: independent toggles and volume for tap/hover sounds
+- **System**: Windows service install/uninstall, auto-start on boot
+- **WinUI 3 settings window** (`OsuCursorWin3`):
+  - Appearance: theme (follow system/light/dark), window opacity (0.3–1.0), background image (pick/restore default), background blur radius
+  - Scene alignment: independent hotspot offset tuning for normal and DC scenes
+  - Sidebar: compact mode, theme-following background color, rounded corners, full-height layout
 
 ## Requirements
 
@@ -42,15 +46,22 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1
 
 Double-click `publish\OsuCursorWin.exe`. The program elevates via UAC and hides to the system tray. Right-click the tray icon to open settings or exit.
 
-The settings file is created at `%APPDATA%\OsuCursorWin\settings.json` on first launch; changes apply in real time.
+The settings file is created at `%LOCALAPPDATA%\OsuCursorPatcherWin\settings.json` on first launch; changes apply in real time.
 
 ## Build
 
 ```powershell
+# One-click build (outputs to publish\ or publish-v2\)
 powershell -ExecutionPolicy Bypass -File scripts\build.ps1
+
+# Or build the WinUI 3 main program directly
+cd OsuCursorWin3
+dotnet build -c Release
 ```
 
-Output: `publish\OsuCursorWin.exe` (win-x64 framework-dependent single file, requires .NET 8 Desktop Runtime).
+Build output: the WinUI 3 main program is at `OsuCursorWin3\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\OsuCursorWin.exe` (requires .NET 8 Desktop Runtime; `background-default.jpg` is shipped alongside the exe).
+
+> Note: `OsuCursorWin/` is the legacy WPF implementation (kept for reference); the current main program is `OsuCursorWin3/` (WinUI 3).
 
 ## Cursor not restored?
 
@@ -64,15 +75,20 @@ powershell -ExecutionPolicy Bypass -File scripts\restore-cursor.ps1
 
 ```
 OsuCursorPatcherWin/
-├── OsuCursorWin/           # Main program source
-│   ├── MainWindow.cs       # WPF main window + mouse hook + state management
-│   ├── GdiCursorOverlay.cs # Normal-scene cursor overlay (WinForms layered window)
+├── OsuCursorWin3/          # Main program source (WinUI 3)
+│   ├── App.xaml.cs         # App startup: sound players, overlay, engine, settings window
+│   ├── SettingsWindow.cs   # WinUI 3 settings window (appearance/cursor/align/sound/system)
+│   ├── AppearanceManager.cs# Background/blur/opacity (Mica/Acrylic/default)
+│   ├── CursorEngine.cs     # Rendering engine (mouse hook + high-res timer + animation + UIA hover detection)
 │   ├── CursorReplacer.cs   # System cursor replacement engine (14 OCR IDs)
+│   ├── GdiCursorOverlay.cs # Normal-scene cursor overlay (WinForms layered window)
 │   ├── NativeMethods.cs    # Win32 P/Invoke declarations
 │   ├── AppSettings.cs      # Settings persistence
-│   ├── SettingsWindow.cs   # WPF settings window
 │   ├── TapSoundPlayer.cs   # Sound playback (NAudio low-latency)
-│   └── OsuCursorWin.csproj # Project file
+│   ├── TrayIcon.cs         # System tray
+│   ├── ServiceManager.cs   # Windows service management
+│   └── OsuCursorWin3.csproj# Project file (Windows App SDK 2.4.0)
+├── OsuCursorWin/           # Legacy WPF implementation (reference)
 ├── assets/                 # Cursor resources
 │   ├── cursor.png          # Normal-scene cursor image (main)
 │   ├── cursor-additive.png # Glow overlay image
