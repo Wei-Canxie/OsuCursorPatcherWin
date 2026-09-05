@@ -358,17 +358,37 @@ internal static class AppearanceManager
             }
             else if (settings.BackgroundBlur == AppSettings.BlurMode.Acrylic && DesktopAcrylicController.IsSupported())
             {
-                _acrylicController = new DesktopAcrylicController();
-                _backdropConfig = new SystemBackdropConfiguration
+                try
                 {
-                    IsInputActive = true,
-                    Theme = isDark ? SystemBackdropTheme.Dark : SystemBackdropTheme.Light
-                };
-
-                _acrylicController!.AddSystemBackdropTarget(backdropTarget);
-                _acrylicController!.SetSystemBackdropConfiguration(_backdropConfig);
-                AppLog.Log($"DesktopAcrylicController applied (Theme={(isDark ? "Dark" : "Light")})");
-                return true;
+                    window.SystemBackdrop = new DesktopAcrylicBackdrop();
+                    AppLog.Log("DesktopAcrylicBackdrop applied via Window.SystemBackdrop");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    AppLog.Log($"DesktopAcrylicBackdrop failed: {ex.Message}, falling back to DesktopAcrylicController");
+                    try
+                    {
+                        _acrylicController = new DesktopAcrylicController();
+                        _backdropConfig = new SystemBackdropConfiguration
+                        {
+                            IsInputActive = true,
+                            Theme = isDark ? SystemBackdropTheme.Dark : SystemBackdropTheme.Light
+                        };
+                        if (backdropTarget != null)
+                        {
+                            _acrylicController.AddSystemBackdropTarget(backdropTarget);
+                            _acrylicController.SetSystemBackdropConfiguration(_backdropConfig);
+                            AppLog.Log("DesktopAcrylicController applied");
+                            return true;
+                        }
+                    }
+                    catch (Exception ex2)
+                    {
+                        AppLog.Log($"DesktopAcrylicController also failed: {ex2.Message}");
+                    }
+                }
+                return false;
             }
 
             return false;
