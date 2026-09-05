@@ -323,17 +323,38 @@ internal static class AppearanceManager
 
             if (settings.BackgroundBlur == AppSettings.BlurMode.Mica && MicaController.IsSupported())
             {
-                _micaController = new MicaController { Kind = MicaKind.BaseAlt };
-                _backdropConfig = new SystemBackdropConfiguration
+                try
                 {
-                    IsInputActive = true,
-                    Theme = isDark ? SystemBackdropTheme.Dark : SystemBackdropTheme.Light
-                };
-
-                _micaController!.AddSystemBackdropTarget(backdropTarget);
-                _micaController!.SetSystemBackdropConfiguration(_backdropConfig);
-                AppLog.Log($"MicaController applied (Kind=BaseAlt, Theme={(isDark ? "Dark" : "Light")})");
-                return true;
+                    // Use WinUI 3 native MicaBackdrop for reliable rendering
+                    window.SystemBackdrop = new MicaBackdrop();
+                    AppLog.Log("MicaBackdrop applied via Window.SystemBackdrop");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    AppLog.Log($"MicaBackdrop failed: {ex.Message}, falling back to MicaController");
+                    try
+                    {
+                        _micaController = new MicaController { Kind = MicaKind.Base };
+                        _backdropConfig = new SystemBackdropConfiguration
+                        {
+                            IsInputActive = true,
+                            Theme = isDark ? SystemBackdropTheme.Dark : SystemBackdropTheme.Light
+                        };
+                        if (backdropTarget != null)
+                        {
+                            _micaController.AddSystemBackdropTarget(backdropTarget);
+                            _micaController.SetSystemBackdropConfiguration(_backdropConfig);
+                            AppLog.Log("MicaController applied (Kind=Base)");
+                            return true;
+                        }
+                    }
+                    catch (Exception ex2)
+                    {
+                        AppLog.Log($"MicaController also failed: {ex2.Message}");
+                    }
+                }
+                return false;
             }
             else if (settings.BackgroundBlur == AppSettings.BlurMode.Acrylic && DesktopAcrylicController.IsSupported())
             {
