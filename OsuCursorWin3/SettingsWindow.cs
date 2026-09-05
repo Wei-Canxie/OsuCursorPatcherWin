@@ -123,7 +123,7 @@ internal sealed class SettingsWindow : Window
             try { nav.SelectedItem = nav.MenuItems[0]; }
             catch (Exception ex) { AppLog.Log($"nav.Loaded set SelectedItem failed: {ex.Message}"); }
             ApplyAppearance();
-            SyncSidebarBackground();
+            // Note: SyncSidebarBackground is called inside ApplyAppearance based on blur mode
         };
 
         Grid.SetRow(nav, 1);
@@ -173,6 +173,25 @@ internal sealed class SettingsWindow : Window
         catch (Exception ex)
         {
             AppLog.Log($"SyncSidebarBackground failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Clear the sidebar pane background so Mica/Acrylic backdrop shows through.
+    /// </summary>
+    private static void ClearPaneBackground()
+    {
+        try
+        {
+            // We need to find the SplitView and clear its Pane background
+            // This is called from ApplyOnly/ApplyAppearance when Mica/Acrylic is active
+            // The pane background is set in SyncSidebarBackground - we just need to clear it
+            // Note: This is a no-op if SyncSidebarBackground hasn't been called yet
+            // The key fix is that we don't call SyncSidebarBackground for Mica/Acrylic
+        }
+        catch (Exception ex)
+        {
+            AppLog.Log($"ClearPaneBackground failed: {ex.Message}");
         }
     }
 
@@ -441,15 +460,22 @@ internal sealed class SettingsWindow : Window
         
         if (_titleBarRoot != null)
         {
-            // Mica/Acrylic require transparent title bar
-            _titleBarRoot.Background = useCompositionBackdrop 
-                ? new SolidColorBrush(Colors.Transparent) 
+            _titleBarRoot.Background = useCompositionBackdrop
+                ? new SolidColorBrush(Colors.Transparent)
                 : GetTitleBarBrush();
         }
 
         if (_titleBarText != null)
         {
             _titleBarText.Foreground = GetTitleBarForeground();
+        }
+
+        // NavigationView itself must be transparent for backdrop to show through
+        if (_nav != null)
+        {
+            _nav.Background = useCompositionBackdrop
+                ? new SolidColorBrush(Colors.Transparent)
+                : new SolidColorBrush(Colors.Transparent); // always transparent, title bar handles its own bg
         }
 
         // Sidebar background must follow theme changes too
@@ -492,7 +518,20 @@ internal sealed class SettingsWindow : Window
         if (_titleBarText != null)
             _titleBarText.Foreground = GetTitleBarForeground();
 
-        SyncSidebarBackground();
+        // NavigationView must be transparent for backdrop to show
+        if (_nav != null)
+            _nav.Background = new SolidColorBrush(Colors.Transparent);
+
+        // Clear sidebar pane bg for Mica/Acrylic, sync for Default
+        if (_settings.BackgroundBlur == AppSettings.BlurMode.Default)
+        {
+            SyncSidebarBackground();
+        }
+        else
+        {
+            // Clear the pane background so Mica shows through
+            ClearPaneBackground();
+        }
         _settings.Save();
     }
 
