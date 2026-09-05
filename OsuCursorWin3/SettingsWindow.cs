@@ -437,9 +437,14 @@ internal sealed class SettingsWindow : Window
     {
         await AppearanceManager.ApplyAllAsync(this, _settings);
 
+        bool useCompositionBackdrop = _settings.BackgroundBlur != AppSettings.BlurMode.Default;
+        
         if (_titleBarRoot != null)
         {
-            _titleBarRoot.Background = GetTitleBarBrush();
+            // Mica/Acrylic require transparent title bar
+            _titleBarRoot.Background = useCompositionBackdrop 
+                ? new SolidColorBrush(Colors.Transparent) 
+                : GetTitleBarBrush();
         }
 
         if (_titleBarText != null)
@@ -448,7 +453,11 @@ internal sealed class SettingsWindow : Window
         }
 
         // Sidebar background must follow theme changes too
-        SyncSidebarBackground();
+        // But for Mica/Acrylic, keep everything transparent
+        if (_settings.BackgroundBlur == AppSettings.BlurMode.Default)
+        {
+            SyncSidebarBackground();
+        }
 
         // Force rebuild current page to sync theme colors on all controls
         if (_currentTag != null && _currentPage != null)
@@ -473,8 +482,12 @@ internal sealed class SettingsWindow : Window
     {
         await AppearanceManager.ApplyAllAsync(this, _settings);
 
+        bool useCompositionBackdrop = _settings.BackgroundBlur != AppSettings.BlurMode.Default;
+        
         if (_titleBarRoot != null)
-            _titleBarRoot.Background = GetTitleBarBrush();
+            _titleBarRoot.Background = useCompositionBackdrop 
+                ? new SolidColorBrush(Colors.Transparent) 
+                : GetTitleBarBrush();
 
         if (_titleBarText != null)
             _titleBarText.Foreground = GetTitleBarForeground();

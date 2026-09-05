@@ -310,23 +310,47 @@ internal static class AppearanceManager
             bool isDark = settings.Theme == AppSettings.ThemeMode.Dark ||
                           (settings.Theme == AppSettings.ThemeMode.FollowSystem && IsSystemDark());
 
-            // Use the Window.SystemBackdrop property - the WASDK 2.4+ recommended way
-            if (settings.BackgroundBlur == AppSettings.BlurMode.Mica)
+            AppLog.Log($"TrySetCompositionBackdrop: mode={settings.BackgroundBlur}, isDark={isDark}");
+
+            var backdropTarget = window.As<ICompositionSupportsSystemBackdrop>();
+            if (backdropTarget == null)
             {
-                window.SystemBackdrop = new MicaBackdrop();
-                AppLog.Log($"MicaBackdrop applied via SystemBackdrop (DarkMode={isDark})");
+                AppLog.Log("Window does not support ICompositionSupportsSystemBackdrop");
+                return false;
+            }
+
+            ClearBackdrop(window);
+
+            if (settings.BackgroundBlur == AppSettings.BlurMode.Mica && MicaController.IsSupported())
+            {
+                _micaController = new MicaController { Kind = MicaKind.BaseAlt };
+                _backdropConfig = new SystemBackdropConfiguration
+                {
+                    IsInputActive = true,
+                    Theme = isDark ? SystemBackdropTheme.Dark : SystemBackdropTheme.Light
+                };
+
+                _micaController!.AddSystemBackdropTarget(backdropTarget);
+                _micaController!.SetSystemBackdropConfiguration(_backdropConfig);
+                AppLog.Log($"MicaController applied (Kind=BaseAlt, Theme={(isDark ? "Dark" : "Light")})");
                 return true;
             }
-            else if (settings.BackgroundBlur == AppSettings.BlurMode.Acrylic)
+            else if (settings.BackgroundBlur == AppSettings.BlurMode.Acrylic && DesktopAcrylicController.IsSupported())
             {
-                window.SystemBackdrop = new DesktopAcrylicBackdrop();
-                AppLog.Log($"DesktopAcrylicBackdrop applied via SystemBackdrop (DarkMode={isDark})");
+                _acrylicController = new DesktopAcrylicController();
+                _backdropConfig = new SystemBackdropConfiguration
+                {
+                    IsInputActive = true,
+                    Theme = isDark ? SystemBackdropTheme.Dark : SystemBackdropTheme.Light
+                };
+
+                _acrylicController!.AddSystemBackdropTarget(backdropTarget);
+                _acrylicController!.SetSystemBackdropConfiguration(_backdropConfig);
+                AppLog.Log($"DesktopAcrylicController applied (Theme={(isDark ? "Dark" : "Light")})");
                 return true;
             }
 
-            // Default mode: remove backdrop
-            window.SystemBackdrop = null;
-            return true;
+            return false;
         }
         catch (Exception ex)
         {
