@@ -32,6 +32,9 @@ internal static class AppearanceManager
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
+    [DllImport("dwmapi.dll", SetLastError = true)]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
     private const uint SWP_FRAMECHANGED = 0x0020;
     private const uint SWP_NOMOVE = 0x0002;
     private const uint SWP_NOSIZE = 0x0001;
@@ -322,40 +325,37 @@ internal static class AppearanceManager
             ClearBackdrop(window);
 
             if (settings.BackgroundBlur == AppSettings.BlurMode.Mica && MicaController.IsSupported())
-            {
-                try
-                {
-                    // Use WinUI 3 native MicaBackdrop for reliable rendering
-                    window.SystemBackdrop = new MicaBackdrop();
-                    AppLog.Log("MicaBackdrop applied via Window.SystemBackdrop");
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    AppLog.Log($"MicaBackdrop failed: {ex.Message}, falling back to MicaController");
-                    try
                     {
-                        _micaController = new MicaController { Kind = MicaKind.Base };
-                        _backdropConfig = new SystemBackdropConfiguration
+                        // Try DWM native API first - most reliable
+                        var hwnd = WindowNative.GetWindowHandle(window);
+                        int mica = 4; // DWM_SYSTEMBACKDROP_TYPE_MICA_ALT
+                        int hr = DwmSetWindowAttribute(hwnd, 38 /* DWMWA_SYSTEMBACKDROP_TYPE */, ref mica, sizeof(int));
+                        if (hr == 0)
                         {
-                            IsInputActive = true,
-                            Theme = isDark ? SystemBackdropTheme.Dark : SystemBackdropTheme.Light
-                        };
-                        if (backdropTarget != null)
-                        {
-                            _micaController.AddSystemBackdropTarget(backdropTarget);
-                            _micaController.SetSystemBackdropConfiguration(_backdropConfig);
-                            AppLog.Log("MicaController applied (Kind=Base)");
+                            AppLog.Log($"DWM Mica Alt applied (hr=0)");
                             return true;
                         }
+                        mica = 2; // DWM_SYSTEMBACKDROP_TYPE_MICA
+                        hr = DwmSetWindowAttribute(hwnd, 38, ref mica, sizeof(int));
+                        if (hr == 0)
+                        {
+                            AppLog.Log($"DWM Mica applied (hr=0)");
+                            return true;
+                        }
+                        AppLog.Log($"DWM Mica failed: hr={hr}, trying MicaBackdrop");
+                    
+                        try
+                        {
+                            window.SystemBackdrop = new MicaBackdrop();
+                            AppLog.Log("MicaBackdrop applied via Window.SystemBackdrop");
+                            return true;
+                        }
+                        catch (Exception ex)
+                        {
+                            AppLog.Log($"MicaBackdrop failed: {ex.Message}");
+                            return false;
+                        }
                     }
-                    catch (Exception ex2)
-                    {
-                        AppLog.Log($"MicaController also failed: {ex2.Message}");
-                    }
-                }
-                return false;
-            }
             else if (settings.BackgroundBlur == AppSettings.BlurMode.Acrylic && DesktopAcrylicController.IsSupported())
             {
                 try

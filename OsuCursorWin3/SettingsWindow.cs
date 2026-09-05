@@ -183,15 +183,56 @@ internal sealed class SettingsWindow : Window
     {
         try
         {
-            // We need to find the SplitView and clear its Pane background
-            // This is called from ApplyOnly/ApplyAppearance when Mica/Acrylic is active
-            // The pane background is set in SyncSidebarBackground - we just need to clear it
-            // Note: This is a no-op if SyncSidebarBackground hasn't been called yet
-            // The key fix is that we don't call SyncSidebarBackground for Mica/Acrylic
+            // No-op: SyncSidebarBackground already skips Mica/Acrylic mode
         }
         catch (Exception ex)
         {
             AppLog.Log($"ClearPaneBackground failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Recursively clear all background brushes inside NavigationView,
+    /// so the Mica/Acrylic backdrop shows through every element.
+    /// </summary>
+    private static void ClearNavigationViewBackgrounds(DependencyObject element)
+    {
+        try
+        {
+            int count = VisualTreeHelper.GetChildrenCount(element);
+            for (int i = 0; i < count; i++)
+            {
+                var child = VisualTreeHelper.GetChild(element, i);
+
+                // Skip the sidebar pane itself (handled separately)
+                // and any NavigationViewItem containers (they need their own background)
+                if (child is Panel panel)
+                {
+                    // Clear background of Border/Grid panels in the header/content areas
+                    if (child is Border border && border.Background != null)
+                    {
+                        // Only clear if not a title bar element
+                        border.Background = new SolidColorBrush(Colors.Transparent);
+                    }
+                    else if (child is Grid grid && grid.Background != null)
+                    {
+                        // Don't clear the main content grid (it should stay transparent)
+                        // Only clear header/content host backgrounds
+                        if (panel.Name == "ContentFrame" || panel.Name == "ContentGrid" ||
+                            panel.Name == "HeaderClipper" || panel.Name == "PaneContentGrid")
+                        {
+                            grid.Background = new SolidColorBrush(Colors.Transparent);
+                        }
+                    }
+                }
+
+                // Recurse
+                ClearNavigationViewBackgrounds(child);
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLog.Log($"ClearNavigationViewBackgrounds failed: {ex.Message}");
         }
     }
 
@@ -470,12 +511,18 @@ internal sealed class SettingsWindow : Window
             _titleBarText.Foreground = GetTitleBarForeground();
         }
 
-        // NavigationView itself must be transparent for backdrop to show through
+        // NavigationView itself must be transparent for backdrop to show
         if (_nav != null)
         {
             _nav.Background = useCompositionBackdrop
                 ? new SolidColorBrush(Colors.Transparent)
-                : new SolidColorBrush(Colors.Transparent); // always transparent, title bar handles its own bg
+                : new SolidColorBrush(Colors.Transparent);
+            
+            // Also clear NavigationView internal elements' backgrounds
+            if (useCompositionBackdrop)
+            {
+                ClearNavigationViewBackgrounds(_nav);
+            }
         }
 
         // Sidebar background must follow theme changes too
@@ -483,6 +530,10 @@ internal sealed class SettingsWindow : Window
         if (_settings.BackgroundBlur == AppSettings.BlurMode.Default)
         {
             SyncSidebarBackground();
+        }
+        else
+        {
+            ClearPaneBackground();
         }
 
         // Force rebuild current page to sync theme colors on all controls
