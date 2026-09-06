@@ -32,9 +32,6 @@ internal static class AppearanceManager
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
-    [DllImport("dwmapi.dll", SetLastError = true)]
-    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
-
     private const uint SWP_FRAMECHANGED = 0x0020;
     private const uint SWP_NOMOVE = 0x0002;
     private const uint SWP_NOSIZE = 0x0001;
@@ -60,7 +57,7 @@ internal static class AppearanceManager
     public static async Task ApplyAllAsync(Window window, AppSettings settings)
     {
         ApplyTheme(window, settings);
-        // Apply opacity FIRST to remove WS_EX_LAYERED before creating backdrop
+        // WS_EX_LAYERED is always set now, ApplyOpacity just adjusts alpha
         ApplyOpacity(window, settings);
         await ApplyBackgroundAsync(window, settings);
     }
@@ -83,29 +80,17 @@ internal static class AppearanceManager
         var hwnd = WindowNative.GetWindowHandle(window);
         var exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
 
-        bool useCompositionBackdrop = settings.BackgroundBlur != AppSettings.BlurMode.Default;
+        // Ensure WS_EX_LAYERED is set for ALL modes (required for MicaController)
+        if ((exStyle & WS_EX_LAYERED) == 0)
+        {
+            SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
+            SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        }
 
-        if (useCompositionBackdrop)
-        {
-            if ((exStyle & WS_EX_LAYERED) != 0)
-            {
-                SetWindowLong(hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_LAYERED);
-                SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-                AppLog.Log("ApplyOpacity: removed WS_EX_LAYERED for composition backdrop");
-            }
-        }
-        else
-        {
-            if ((exStyle & WS_EX_LAYERED) == 0)
-            {
-                SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
-                SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-            }
-            var alpha = (byte)Math.Clamp(settings.WindowOpacity * 255, 25, 255);
-            SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
-        }
+        // Set overall window opacity via Win32 layered window
+        var alpha = (byte)Math.Clamp(settings.WindowOpacity * 255, 25, 255);
+        SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
     }
 
     public static void ApplyBackground(Window window, AppSettings settings)
@@ -117,7 +102,7 @@ internal static class AppearanceManager
 
         if (useBlur)
         {
-            mainGrid.Background = null; // null = fully transparent, lets backdrop show through
+            mainGrid.Background = new XamlSolidColorBrush(Colors.Transparent);
 
             if (TrySetCompositionBackdrop(window, settings))
             {
@@ -144,7 +129,7 @@ internal static class AppearanceManager
 
         if (useBlur)
         {
-            mainGrid.Background = null; // null = fully transparent, lets backdrop show through
+            mainGrid.Background = new XamlSolidColorBrush(Colors.Transparent);
 
             if (TrySetCompositionBackdrop(window, settings))
             {
@@ -152,8 +137,8 @@ internal static class AppearanceManager
                 return;
             }
 
-            AppLog.Log("Composition backdrop failed, falling back to GDI+ blur (async)");
-            await ApplyBlurBackgroundAsync(mainGrid, settings);
+            AppLog.Log("Composition backdrop failed, falling back to GDI+ blur");
+            ApplyBlurBackground(mainGrid, settings);
         }
         else
         {
@@ -326,51 +311,31 @@ internal static class AppearanceManager
 
             if (settings.BackgroundBlur == AppSettings.BlurMode.Mica && MicaController.IsSupported())
             {
-                try
+                _micaController = new MicaController { Kind = MicaKind.Base };
+                _backdropConfig = new SystemBackdropConfiguration
                 {
-                    window.SystemBackdrop = new MicaBackdrop();
-                    AppLog.Log("MicaBackdrop applied via Window.SystemBackdrop");
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    AppLog.Log($"MicaBackdrop failed: {ex.Message}");
-                    return false;
-                }
+                    IsInputActive = true,
+                    Theme = SystemBackdropTheme.Default
+                };
+
+                _micaController!.AddSystemBackdropTarget(backdropTarget);
+                _micaController!.SetSystemBackdropConfiguration(_backdropConfig);
+                AppLog.Log("MicaController applied");
+                return true;
             }
             else if (settings.BackgroundBlur == AppSettings.BlurMode.Acrylic && DesktopAcrylicController.IsSupported())
             {
-                try
+                _acrylicController = new DesktopAcrylicController();
+                _backdropConfig = new SystemBackdropConfiguration
                 {
-                    window.SystemBackdrop = new DesktopAcrylicBackdrop();
-                    AppLog.Log("DesktopAcrylicBackdrop applied via Window.SystemBackdrop");
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    AppLog.Log($"DesktopAcrylicBackdrop failed: {ex.Message}, falling back to DesktopAcrylicController");
-                    try
-                    {
-                        _acrylicController = new DesktopAcrylicController();
-                        _backdropConfig = new SystemBackdropConfiguration
-                        {
-                            IsInputActive = true,
-                            Theme = isDark ? SystemBackdropTheme.Dark : SystemBackdropTheme.Light
-                        };
-                        if (backdropTarget != null)
-                        {
-                            _acrylicController.AddSystemBackdropTarget(backdropTarget);
-                            _acrylicController.SetSystemBackdropConfiguration(_backdropConfig);
-                            AppLog.Log("DesktopAcrylicController applied");
-                            return true;
-                        }
-                    }
-                    catch (Exception ex2)
-                    {
-                        AppLog.Log($"DesktopAcrylicController also failed: {ex2.Message}");
-                    }
-                }
-                return false;
+                    IsInputActive = true,
+                    Theme = SystemBackdropTheme.Default
+                };
+
+                _acrylicController!.AddSystemBackdropTarget(backdropTarget);
+                _acrylicController!.SetSystemBackdropConfiguration(_backdropConfig);
+                AppLog.Log("DesktopAcrylicController applied");
+                return true;
             }
 
             return false;
@@ -384,7 +349,6 @@ internal static class AppearanceManager
 
     private static void ClearBackdrop(Window window)
     {
-        window.SystemBackdrop = null;
         if (_micaController != null)
         {
             try { _micaController.RemoveSystemBackdropTarget(window.As<ICompositionSupportsSystemBackdrop>()); } catch { }
