@@ -117,7 +117,7 @@ internal static class AppearanceManager
 
         if (useBlur)
         {
-            mainGrid.Background = new XamlSolidColorBrush(Colors.Transparent);
+            mainGrid.Background = null; // null = fully transparent, lets backdrop show through
 
             if (TrySetCompositionBackdrop(window, settings))
             {
@@ -144,7 +144,7 @@ internal static class AppearanceManager
 
         if (useBlur)
         {
-            mainGrid.Background = new XamlSolidColorBrush(Colors.Transparent);
+            mainGrid.Background = null; // null = fully transparent, lets backdrop show through
 
             if (TrySetCompositionBackdrop(window, settings))
             {
