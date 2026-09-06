@@ -325,37 +325,19 @@ internal static class AppearanceManager
             ClearBackdrop(window);
 
             if (settings.BackgroundBlur == AppSettings.BlurMode.Mica && MicaController.IsSupported())
-                    {
-                        // Try DWM native API first - most reliable
-                        var hwnd = WindowNative.GetWindowHandle(window);
-                        int mica = 4; // DWM_SYSTEMBACKDROP_TYPE_MICA_ALT
-                        int hr = DwmSetWindowAttribute(hwnd, 38 /* DWMWA_SYSTEMBACKDROP_TYPE */, ref mica, sizeof(int));
-                        if (hr == 0)
-                        {
-                            AppLog.Log($"DWM Mica Alt applied (hr=0)");
-                            return true;
-                        }
-                        mica = 2; // DWM_SYSTEMBACKDROP_TYPE_MICA
-                        hr = DwmSetWindowAttribute(hwnd, 38, ref mica, sizeof(int));
-                        if (hr == 0)
-                        {
-                            AppLog.Log($"DWM Mica applied (hr=0)");
-                            return true;
-                        }
-                        AppLog.Log($"DWM Mica failed: hr={hr}, trying MicaBackdrop");
-                    
-                        try
-                        {
-                            window.SystemBackdrop = new MicaBackdrop();
-                            AppLog.Log("MicaBackdrop applied via Window.SystemBackdrop");
-                            return true;
-                        }
-                        catch (Exception ex)
-                        {
-                            AppLog.Log($"MicaBackdrop failed: {ex.Message}");
-                            return false;
-                        }
-                    }
+            {
+                try
+                {
+                    window.SystemBackdrop = new MicaBackdrop();
+                    AppLog.Log("MicaBackdrop applied via Window.SystemBackdrop");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    AppLog.Log($"MicaBackdrop failed: {ex.Message}");
+                    return false;
+                }
+            }
             else if (settings.BackgroundBlur == AppSettings.BlurMode.Acrylic && DesktopAcrylicController.IsSupported())
             {
                 try
