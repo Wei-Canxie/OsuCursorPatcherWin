@@ -399,7 +399,7 @@ internal sealed class SettingsWindow : Window
         var opacityLabel = new TextBlock { Text = $"窗口不透明度: {_settings.WindowOpacity:P0}", FontWeight = FontWeights.SemiBold };
         panel.Children.Add(opacityLabel);
         panel.Children.Add(BuildSliderWithTextBox("窗口不透明度", _settings.WindowOpacity, 0.3, 1.0,
-            async v => { _settings.WindowOpacity = v; opacityLabel.Text = $"窗口不透明度: {v:P0}"; await ApplyOnly(); },
+            v => { _settings.WindowOpacity = v; opacityLabel.Text = $"窗口不透明度: {v:P0}"; ApplyOnly(); },
             step: 0.05, format: "0%"));
 
         // Background blur type
@@ -434,7 +434,7 @@ internal sealed class SettingsWindow : Window
         var blurRadiusLabel = new TextBlock { Text = $"模糊半径: {_settings.BackgroundBlurRadius}px", FontWeight = FontWeights.SemiBold };
         panel.Children.Add(blurRadiusLabel);
         panel.Children.Add(BuildSliderWithTextBox("模糊半径", _settings.BackgroundBlurRadius, 0, 255,
-            async v => { _settings.BackgroundBlurRadius = (int)v; blurRadiusLabel.Text = $"模糊半径: {(int)v}px"; await ApplyOnly(); },
+            v => { _settings.BackgroundBlurRadius = (int)v; blurRadiusLabel.Text = $"模糊半径: {(int)v}px"; ApplyOnly(); },
             step: 1, format: "0", textMin: 0, textMax: 1024));
 
         if (!IsBlurSupported())
@@ -487,23 +487,19 @@ internal sealed class SettingsWindow : Window
         var bgOpacityLabel = new TextBlock { Text = $"背景图片不透明度: {_settings.BackgroundImageOpacity:P0}", FontWeight = FontWeights.SemiBold };
         panel.Children.Add(bgOpacityLabel);
         panel.Children.Add(BuildSliderWithTextBox("背景图片不透明度", _settings.BackgroundImageOpacity, 0.0, 1.0,
-            async v => { _settings.BackgroundImageOpacity = v; bgOpacityLabel.Text = $"背景图片不透明度: {v:P0}"; await ApplyOnly(); },
+            v => { _settings.BackgroundImageOpacity = v; bgOpacityLabel.Text = $"背景图片不透明度: {v:P0}"; ApplyOnly(); },
             step: 0.05, format: "0%"));
 
         return panel;
     }
 
-    private async void ApplyAppearance()
+    private void ApplyAppearance()
     {
-        await AppearanceManager.ApplyAllAsync(this, _settings);
+        AppearanceManager.ApplyAll(this, _settings);
 
-        bool useCompositionBackdrop = _settings.BackgroundBlur != AppSettings.BlurMode.Default;
-        
         if (_titleBarRoot != null)
         {
-            _titleBarRoot.Background = useCompositionBackdrop
-                ? new SolidColorBrush(Colors.Transparent)
-                : GetTitleBarBrush();
+            _titleBarRoot.Background = GetTitleBarBrush();
         }
 
         if (_titleBarText != null)
@@ -511,30 +507,8 @@ internal sealed class SettingsWindow : Window
             _titleBarText.Foreground = GetTitleBarForeground();
         }
 
-        // NavigationView itself must be transparent for backdrop to show
-        if (_nav != null)
-        {
-            _nav.Background = useCompositionBackdrop
-                ? new SolidColorBrush(Colors.Transparent)
-                : new SolidColorBrush(Colors.Transparent);
-            
-            // Also clear NavigationView internal elements' backgrounds
-            if (useCompositionBackdrop)
-            {
-                ClearNavigationViewBackgrounds(_nav);
-            }
-        }
-
         // Sidebar background must follow theme changes too
-        // But for Mica/Acrylic, keep everything transparent
-        if (_settings.BackgroundBlur == AppSettings.BlurMode.Default)
-        {
-            SyncSidebarBackground();
-        }
-        else
-        {
-            ClearPaneBackground();
-        }
+        SyncSidebarBackground();
 
         // Force rebuild current page to sync theme colors on all controls
         if (_currentTag != null && _currentPage != null)
@@ -555,35 +529,10 @@ internal sealed class SettingsWindow : Window
     /// <summary>
     /// Apply settings without rebuilding the page (for slider drag operations).
     /// </summary>
-    private async Task ApplyOnly()
+    private void ApplyOnly()
     {
-        await AppearanceManager.ApplyAllAsync(this, _settings);
-
-        bool useCompositionBackdrop = _settings.BackgroundBlur != AppSettings.BlurMode.Default;
-        
-        if (_titleBarRoot != null)
-            _titleBarRoot.Background = useCompositionBackdrop 
-                ? new SolidColorBrush(Colors.Transparent) 
-                : GetTitleBarBrush();
-
-        if (_titleBarText != null)
-            _titleBarText.Foreground = GetTitleBarForeground();
-
-        // NavigationView must be transparent for backdrop to show
-        if (_nav != null)
-            _nav.Background = new SolidColorBrush(Colors.Transparent);
-
-        // Clear sidebar pane bg for Mica/Acrylic, sync for Default
-        if (_settings.BackgroundBlur == AppSettings.BlurMode.Default)
-        {
-            SyncSidebarBackground();
-        }
-        else
-        {
-            // Clear the pane background so Mica shows through
-            ClearPaneBackground();
-        }
-        _settings.Save();
+        // v1.0.0: just call ApplyAppearance (no async, no page rebuild skip)
+        ApplyAppearance();
     }
 
     private string? ShowImagePicker()
