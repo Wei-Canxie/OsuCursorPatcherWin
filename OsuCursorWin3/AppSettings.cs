@@ -121,6 +121,60 @@ internal sealed class AppSettings
         return new AppSettings();
     }
 
+    /// <summary>
+    /// Deep copy.  Used by the settings window to edit a draft that is only
+    /// committed (onto the engine's live instance and onto disk) when the user
+    /// presses 应用.
+    /// </summary>
+    internal AppSettings Clone()
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(this);
+            return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+        }
+        catch (Exception ex)
+        {
+            AppLog.Log($"Failed to clone settings: {ex}");
+            return new AppSettings();
+        }
+    }
+
+    /// <summary>Overwrite every value of this instance with the other's values.</summary>
+    internal void CopyFrom(AppSettings other)
+    {
+        var copy = other.Clone();
+
+        CursorWidth = copy.CursorWidth;
+        AutoStart = copy.AutoStart;
+        TapSoundEnabled = copy.TapSoundEnabled;
+        TapSoundVolume = copy.TapSoundVolume;
+        HoverSoundEnabled = copy.HoverSoundEnabled;
+        HoverSoundVolume = copy.HoverSoundVolume;
+        HoverSoundAsResizePrompt = copy.HoverSoundAsResizePrompt;
+
+        Theme = copy.Theme;
+        WindowWidth = copy.WindowWidth;
+        WindowHeight = copy.WindowHeight;
+        WindowOpacity = copy.WindowOpacity;
+        BackgroundImagePath = copy.BackgroundImagePath;
+        BackgroundImageOpacity = copy.BackgroundImageOpacity;
+        BackgroundBlur = copy.BackgroundBlur;
+        BackgroundBlurRadius = copy.BackgroundBlurRadius;
+
+        NormalSize = copy.NormalSize;
+        NormalAspectX = copy.NormalAspectX;
+        NormalAspectY = copy.NormalAspectY;
+        NormalHotspotX = copy.NormalHotspotX;
+        NormalHotspotY = copy.NormalHotspotY;
+
+        DcCursorSize = copy.DcCursorSize;
+        DcAspectX = copy.DcAspectX;
+        DcAspectY = copy.DcAspectY;
+        DcHotspotX = copy.DcHotspotX;
+        DcHotspotY = copy.DcHotspotY;
+    }
+
     internal void Save()
     {
         try

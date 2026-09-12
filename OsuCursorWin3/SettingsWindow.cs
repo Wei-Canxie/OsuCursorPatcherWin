@@ -39,19 +39,32 @@ internal sealed class DisposablePage : StackPanel, IDisposable
 
 internal sealed class SettingsWindow : Window
 {
+    /// <summary>Draft settings edited by the UI; committed only when 应用 is pressed.</summary>
     private readonly AppSettings _settings;
+    /// <summary>The engine's live settings instance (null when there is no engine).</summary>
+    private readonly AppSettings? _liveSettings;
+    /// <summary>Last applied values, used by 取消更改 to roll the draft back.</summary>
+    private AppSettings _applied;
     private readonly CursorEngine? _engine;
     private TextBlock? _titleBarText;
     private Border? _titleBarRoot;
     private NavigationView? _nav;
     private FrameworkElement? _currentPage;
     private string? _currentTag;
+    private Border? _applyBar;
+    private bool _dirty;
     private readonly Dictionary<string, double> _scrollCache = new();
 
     public SettingsWindow(CursorEngine? engine = null)
     {
         _engine = engine;
-        _settings = engine?.GetSettings() ?? AppSettings.Load();
+
+        // The UI edits a draft clone, never the engine's live instance and never
+        // the file on disk.  That keeps slider drags smooth (no page rebuild per
+        // tick) and lets 应用 / 取消更改 decide when anything really changes.
+        _liveSettings = engine?.GetSettings();
+        _settings = _liveSettings?.Clone() ?? AppSettings.Load();
+        _applied = _settings.Clone();
         Title = "osu! Cursor 设置";
         AppWindow.Resize(new Windows.Graphics.SizeInt32(
             (int)Math.Clamp(_settings.WindowWidth, 480, 2560),
@@ -68,6 +81,8 @@ internal sealed class SettingsWindow : Window
         var root = new Grid();
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        // Reserved strip for the 应用 / 取消更改 bar so showing it never shifts content.
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(56) });
 
         _titleBarRoot = new Border { Height = 32, Background = GetTitleBarBrush() };
         _titleBarText = new TextBlock
@@ -128,9 +143,52 @@ internal sealed class SettingsWindow : Window
 
         Grid.SetRow(nav, 1);
 
+        _applyBar = BuildApplyBar();
+        Grid.SetRow(_applyBar, 2);
+
         root.Children.Add(_titleBarRoot);
         root.Children.Add(nav);
+        root.Children.Add(_applyBar);
         Content = root;
+    }
+
+    /// <summary>
+    /// Bottom-right 取消更改 / 应用 bar.  Collapsed until a setting is edited;
+    /// because its row is always reserved the layout never jumps.
+    /// </summary>
+    private Border BuildApplyBar()
+    {
+        var applyBtn = new Button { Content = "应用", MinWidth = 96, HorizontalAlignment = HorizontalAlignment.Right };
+        try
+        {
+            if (Application.Current.Resources["AccentButtonStyle"] is Style accent)
+                applyBtn.Style = accent;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Log($"AccentButtonStyle unavailable: {ex.Message}");
+        }
+        applyBtn.Click += (_, _) => ApplyPendingChanges();
+
+        var cancelBtn = new Button { Content = "取消更改", MinWidth = 96, HorizontalAlignment = HorizontalAlignment.Right };
+        cancelBtn.Click += (_, _) => CancelPendingChanges();
+
+        var buttons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        buttons.Children.Add(cancelBtn);
+        buttons.Children.Add(applyBtn);
+
+        return new Border
+        {
+            Padding = new Thickness(0, 0, 16, 0),
+            Child = buttons,
+            Visibility = Visibility.Collapsed
+        };
     }
 
     /// <summary>
@@ -303,9 +361,15 @@ internal sealed class SettingsWindow : Window
 
     private Brush GetTitleBarBrush()
     {
-        var titleBarOpacity = _settings.WindowOpacity <= 0.9
-            ? Math.Clamp(_settings.WindowOpacity + 0.1, 0, 1)
-            : _settings.WindowOpacity;
+        // The window opacity slider is inert under Mica/Acrylic (the backdrop
+        // owns the surface), so the title bar stays fully opaque there.
+        var windowOpacity = _settings.BackgroundBlur == AppSettings.BlurMode.Default
+            ? _settings.WindowOpacity
+            : 1.0;
+
+        var titleBarOpacity = windowOpacity <= 0.9
+            ? Math.Clamp(windowOpacity + 0.1, 0, 1)
+            : windowOpacity;
 
         var isDark = _settings.Theme == AppSettings.ThemeMode.Dark ||
                      (_settings.Theme == AppSettings.ThemeMode.FollowSystem && IsSystemDark());
@@ -382,9 +446,9 @@ internal sealed class SettingsWindow : Window
             default: themeFollowRadio.IsChecked = true; break;
         }
 
-        themeFollowRadio.Checked += (_, _) => { _settings.Theme = AppSettings.ThemeMode.FollowSystem; ApplyAppearance(); };
-        themeLightRadio.Checked += (_, _) => { _settings.Theme = AppSettings.ThemeMode.Light; ApplyAppearance(); };
-        themeDarkRadio.Checked += (_, _) => { _settings.Theme = AppSettings.ThemeMode.Dark; ApplyAppearance(); };
+        themeFollowRadio.Checked += (_, _) => { _settings.Theme = AppSettings.ThemeMode.FollowSystem; MarkDirty(); };
+        themeLightRadio.Checked += (_, _) => { _settings.Theme = AppSettings.ThemeMode.Light; MarkDirty(); };
+        themeDarkRadio.Checked += (_, _) => { _settings.Theme = AppSettings.ThemeMode.Dark; MarkDirty(); };
 
         panel.RegisterUnsubscribe(() => themeFollowRadio.Checked -= (_, _) => { });
         panel.RegisterUnsubscribe(() => themeLightRadio.Checked -= (_, _) => { });
@@ -396,11 +460,27 @@ internal sealed class SettingsWindow : Window
         panel.Children.Add(themePanel);
 
         // Window opacity: Slider + TextBox + buttons
-        var opacityLabel = new TextBlock { Text = $"窗口不透明度: {_settings.WindowOpacity:P0}", FontWeight = FontWeights.SemiBold };
+        var opacityLabel = new TextBlock { FontWeight = FontWeights.SemiBold };
         panel.Children.Add(opacityLabel);
-        panel.Children.Add(BuildSliderWithTextBox("窗口不透明度", _settings.WindowOpacity, 0.3, 1.0,
-            v => { _settings.WindowOpacity = v; opacityLabel.Text = $"窗口不透明度: {v:P0}"; ApplyOnly(); },
-            step: 0.05, format: "0%"));
+        var opacityRow = BuildSliderWithTextBox("窗口不透明度", _settings.WindowOpacity, 0.3, 1.0,
+            v => { _settings.WindowOpacity = v; opacityLabel.Text = $"窗口不透明度: {v:P0}"; MarkDirty(); },
+            step: 0.05, format: "0%");
+        panel.Children.Add(opacityRow);
+
+        // Mica/Acrylic own the window surface, so the slider is locked at 100%
+        // there; only 默认 (no backdrop) lets the user dim the window.
+        void UpdateOpacityRow()
+        {
+            var locked = _settings.BackgroundBlur != AppSettings.BlurMode.Default;
+            foreach (var child in opacityRow.Children)
+            {
+                if (child is Control control) control.IsEnabled = !locked;
+            }
+            opacityLabel.Text = locked
+                ? "窗口不透明度: 100%（云母/亚克力模式固定）"
+                : $"窗口不透明度: {_settings.WindowOpacity:P0}";
+        }
+        UpdateOpacityRow();
 
         // Background blur type
         panel.Children.Add(new TextBlock { Text = "背景效果", FontWeight = FontWeights.SemiBold });
@@ -417,9 +497,9 @@ internal sealed class SettingsWindow : Window
             default: blurDefaultRadio.IsChecked = true; break;
         }
 
-        blurDefaultRadio.Checked += (_, _) => { _settings.BackgroundBlur = AppSettings.BlurMode.Default; ApplyAppearance(); };
-        blurMicaRadio.Checked += (_, _) => { _settings.BackgroundBlur = AppSettings.BlurMode.Mica; ApplyAppearance(); };
-        blurAcrylicRadio.Checked += (_, _) => { _settings.BackgroundBlur = AppSettings.BlurMode.Acrylic; ApplyAppearance(); };
+        blurDefaultRadio.Checked += (_, _) => { _settings.BackgroundBlur = AppSettings.BlurMode.Default; UpdateOpacityRow(); MarkDirty(); };
+        blurMicaRadio.Checked += (_, _) => { _settings.BackgroundBlur = AppSettings.BlurMode.Mica; UpdateOpacityRow(); MarkDirty(); };
+        blurAcrylicRadio.Checked += (_, _) => { _settings.BackgroundBlur = AppSettings.BlurMode.Acrylic; UpdateOpacityRow(); MarkDirty(); };
 
         panel.RegisterUnsubscribe(() => blurDefaultRadio.Checked -= (_, _) => { });
         panel.RegisterUnsubscribe(() => blurMicaRadio.Checked -= (_, _) => { });
@@ -434,7 +514,7 @@ internal sealed class SettingsWindow : Window
         var blurRadiusLabel = new TextBlock { Text = $"模糊半径: {_settings.BackgroundBlurRadius}px", FontWeight = FontWeights.SemiBold };
         panel.Children.Add(blurRadiusLabel);
         panel.Children.Add(BuildSliderWithTextBox("模糊半径", _settings.BackgroundBlurRadius, 0, 255,
-            v => { _settings.BackgroundBlurRadius = (int)v; blurRadiusLabel.Text = $"模糊半径: {(int)v}px"; ApplyOnly(); },
+            v => { _settings.BackgroundBlurRadius = (int)v; blurRadiusLabel.Text = $"模糊半径: {(int)v}px"; MarkDirty(); },
             step: 1, format: "0", textMin: 0, textMax: 1024));
 
         if (!IsBlurSupported())
@@ -462,7 +542,7 @@ internal sealed class SettingsWindow : Window
             {
                 _settings.BackgroundImagePath = path;
                 bgPathLabel.Text = Path.GetFileName(path);
-                ApplyAppearance();
+                MarkDirty();
             }
         };
         selectBgBtn.Click += selectHandler;
@@ -473,7 +553,7 @@ internal sealed class SettingsWindow : Window
         {
             _settings.BackgroundImagePath = AppSettings.DefaultBackgroundPath;
             bgPathLabel.Text = Path.GetFileName(AppSettings.DefaultBackgroundPath);
-            ApplyAppearance();
+            MarkDirty();
         };
         clearBgBtn.Click += clearHandler;
         panel.RegisterUnsubscribe(() => clearBgBtn.Click -= clearHandler);
@@ -487,13 +567,69 @@ internal sealed class SettingsWindow : Window
         var bgOpacityLabel = new TextBlock { Text = $"背景图片不透明度: {_settings.BackgroundImageOpacity:P0}", FontWeight = FontWeights.SemiBold };
         panel.Children.Add(bgOpacityLabel);
         panel.Children.Add(BuildSliderWithTextBox("背景图片不透明度", _settings.BackgroundImageOpacity, 0.0, 1.0,
-            v => { _settings.BackgroundImageOpacity = v; bgOpacityLabel.Text = $"背景图片不透明度: {v:P0}"; ApplyOnly(); },
+            v => { _settings.BackgroundImageOpacity = v; bgOpacityLabel.Text = $"背景图片不透明度: {v:P0}"; MarkDirty(); },
             step: 0.05, format: "0%"));
 
         return panel;
     }
 
+    /// <summary>
+    /// Commit every pending edit: mirror the draft onto the engine's live
+    /// settings, let the engine re-apply, refresh the window, then persist.
+    /// </summary>
+    private void ApplyPendingChanges()
+    {
+        _liveSettings?.CopyFrom(_settings);
+
+        // Engine-side side effects that used to run per slider tick.
+        _engine?.ApplyCursorWidth(_settings.CursorWidth);
+        _engine?.ApplyDcSceneTuning();
+        _engine?.RefreshNormalSceneTuning();
+        _engine?.SetTapSoundEnabled(_settings.TapSoundEnabled);
+        _engine?.SetHoverSoundEnabled(_settings.HoverSoundEnabled);
+
+        ApplyAppearanceCore();
+
+        _settings.Save();
+        _applied = _settings.Clone();
+        HideApplyBar();
+        AppLog.Log("Settings applied by user");
+    }
+
+    /// <summary>Roll every pending edit back to the last applied state.</summary>
+    private void CancelPendingChanges()
+    {
+        _settings.CopyFrom(_applied);
+        HideApplyBar();
+        // Rebuild so every control shows the restored value again.
+        RebuildCurrentPage();
+        AppLog.Log("Pending settings changes discarded");
+    }
+
+    /// <summary>Mark the draft dirty and reveal the 应用 / 取消更改 bar.</summary>
+    private void MarkDirty()
+    {
+        if (_dirty) return;
+        _dirty = true;
+        if (_applyBar != null) _applyBar.Visibility = Visibility.Visible;
+    }
+
+    private void HideApplyBar()
+    {
+        _dirty = false;
+        if (_applyBar != null) _applyBar.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>Apply appearance from the draft to the window (no disk write).</summary>
     private void ApplyAppearance()
+    {
+        ApplyAppearanceCore();
+        _settings.Save();
+        _applied = _settings.Clone();
+        HideApplyBar();
+    }
+
+    private void ApplyAppearanceCore()
     {
         AppearanceManager.ApplyAll(this, _settings);
 
@@ -510,7 +646,12 @@ internal sealed class SettingsWindow : Window
         // Sidebar background must follow theme changes too
         SyncSidebarBackground();
 
-        // Force rebuild current page to sync theme colors on all controls
+        // Rebuild the current page so theme colors / labels stay in sync
+        RebuildCurrentPage();
+    }
+
+    private void RebuildCurrentPage()
+    {
         if (_currentTag != null && _currentPage != null)
         {
             CacheScrollPosition();
@@ -522,17 +663,6 @@ internal sealed class SettingsWindow : Window
             _currentPage = newPage;
             RestoreScrollPosition(_currentTag, newPage);
         }
-
-        _settings.Save();
-    }
-
-    /// <summary>
-    /// Apply settings without rebuilding the page (for slider drag operations).
-    /// </summary>
-    private void ApplyOnly()
-    {
-        // v1.0.0: just call ApplyAppearance (no async, no page rebuild skip)
-        ApplyAppearance();
     }
 
     private string? ShowImagePicker()
@@ -610,7 +740,7 @@ internal sealed class SettingsWindow : Window
     /// The Slider provides quick drag adjustment within sliderMin/sliderMax.
     /// TextBox allows precise input within textMin/textMax (can exceed slider range).
     /// </summary>
-    private FrameworkElement BuildSliderWithTextBox(string label, double value, double sliderMin, double sliderMax, Action<double> apply, double step = 1.0, string format = "0.##", double? textMin = null, double? textMax = null)
+    private Grid BuildSliderWithTextBox(string label, double value, double sliderMin, double sliderMax, Action<double> apply, double step = 1.0, string format = "0.##", double? textMin = null, double? textMax = null)
     {
         double tMin = textMin ?? sliderMin;
         double tMax = textMax ?? sliderMax;
@@ -715,7 +845,7 @@ internal sealed class SettingsWindow : Window
         panel.Children.Add(Header("光标外观"));
 
         panel.Children.Add(BuildSliderWithTextBox("光标大小", _settings.CursorWidth, 16, 64,
-            v => { _settings.CursorWidth = v; _settings.Save(); _engine?.ApplyCursorWidth(v); },
+            v => { _settings.CursorWidth = v; MarkDirty(); },
             step: 1, format: "0.#"));
 
         return panel;
@@ -728,18 +858,18 @@ internal sealed class SettingsWindow : Window
 
         panel.Children.Add(new TextBlock { Text = "主窗口场景", FontWeight = FontWeights.SemiBold, Opacity = 0.8 });
         panel.Children.Add(BuildSliderWithTextBox("热点 X", _settings.NormalHotspotX, -64, 64,
-            v => { _settings.NormalHotspotX = v; _settings.Save(); }, step: 0.5));
+            v => { _settings.NormalHotspotX = v; MarkDirty(); }, step: 0.5));
         panel.Children.Add(BuildSliderWithTextBox("热点 Y", _settings.NormalHotspotY, -64, 64,
-            v => { _settings.NormalHotspotY = v; _settings.Save(); }, step: 0.5));
+            v => { _settings.NormalHotspotY = v; MarkDirty(); }, step: 0.5));
 
         panel.Children.Add(new TextBlock { Text = "DC 场景（系统光标）", FontWeight = FontWeights.SemiBold, Opacity = 0.8, Margin = new Thickness(0, 12, 0, 0) });
 
         panel.Children.Add(BuildSliderWithTextBox("光标大小", _settings.DcCursorSize > 0 ? _settings.DcCursorSize : _settings.CursorWidth, 16, 64,
-            v => { _settings.DcCursorSize = v; _settings.Save(); _engine?.ApplyDcSceneTuning(); }, step: 1));
+            v => { _settings.DcCursorSize = v; MarkDirty(); }, step: 1));
         panel.Children.Add(BuildSliderWithTextBox("热点 X", _settings.DcHotspotX, -64, 64,
-            v => { _settings.DcHotspotX = v; _settings.Save(); _engine?.ApplyDcSceneTuning(); }, step: 0.5));
+            v => { _settings.DcHotspotX = v; MarkDirty(); }, step: 0.5));
         panel.Children.Add(BuildSliderWithTextBox("热点 Y", _settings.DcHotspotY, -64, 64,
-            v => { _settings.DcHotspotY = v; _settings.Save(); _engine?.ApplyDcSceneTuning(); }, step: 0.5));
+            v => { _settings.DcHotspotY = v; MarkDirty(); }, step: 0.5));
 
         return panel;
     }
@@ -750,22 +880,22 @@ internal sealed class SettingsWindow : Window
         panel.Children.Add(Header("音效"));
 
         var tapToggle = new ToggleSwitch { Header = "敲击音效", IsOn = _settings.TapSoundEnabled, OnContent = "开", OffContent = "关" };
-        RoutedEventHandler tapHandler = (_, _) => { _settings.TapSoundEnabled = tapToggle.IsOn; _settings.Save(); _engine?.SetTapSoundEnabled(tapToggle.IsOn); };
+        RoutedEventHandler tapHandler = (_, _) => { _settings.TapSoundEnabled = tapToggle.IsOn; MarkDirty(); };
         tapToggle.Toggled += tapHandler;
         panel.RegisterUnsubscribe(() => tapToggle.Toggled -= tapHandler);
         panel.Children.Add(tapToggle);
 
         panel.Children.Add(BuildSliderWithTextBox("敲击音量", _settings.TapSoundVolume * 100, 0, 100,
-            v => { _settings.TapSoundVolume = v / 100.0; _settings.Save(); }, step: 5, format: "0"));
+            v => { _settings.TapSoundVolume = v / 100.0; MarkDirty(); }, step: 5, format: "0"));
 
         var hoverToggle = new ToggleSwitch { Header = "悬停音效", IsOn = _settings.HoverSoundEnabled, OnContent = "开", OffContent = "关" };
-        RoutedEventHandler hoverHandler = (_, _) => { _settings.HoverSoundEnabled = hoverToggle.IsOn; _settings.Save(); _engine?.SetHoverSoundEnabled(hoverToggle.IsOn); };
+        RoutedEventHandler hoverHandler = (_, _) => { _settings.HoverSoundEnabled = hoverToggle.IsOn; MarkDirty(); };
         hoverToggle.Toggled += hoverHandler;
         panel.RegisterUnsubscribe(() => hoverToggle.Toggled -= hoverHandler);
         panel.Children.Add(hoverToggle);
 
         panel.Children.Add(BuildSliderWithTextBox("悬停音量", _settings.HoverSoundVolume * 100, 0, 100,
-            v => { _settings.HoverSoundVolume = v / 100.0; _settings.Save(); }, step: 5, format: "0"));
+            v => { _settings.HoverSoundVolume = v / 100.0; MarkDirty(); }, step: 5, format: "0"));
 
         return panel;
     }
@@ -791,15 +921,14 @@ internal sealed class SettingsWindow : Window
         RoutedEventHandler toggleHandler = (_, _) =>
         {
             if (ServiceManager.IsRunning()) ServiceManager.Stop(); else ServiceManager.Start();
-            _settings.Save();
         };
         toggleServiceBtn.Click += toggleHandler;
         panel.RegisterUnsubscribe(() => toggleServiceBtn.Click -= toggleHandler);
         panel.Children.Add(toggleServiceBtn);
 
         var autoStartCheck = new CheckBox { Content = "开机自启服务", IsChecked = autoStartEnabled, IsEnabled = isInstalled };
-        RoutedEventHandler autoStartCheckedHandler = (_, _) => { if (ServiceManager.SetAutoStart(true)) { _settings.AutoStart = true; _settings.Save(); } };
-        RoutedEventHandler autoStartUncheckedHandler = (_, _) => { if (ServiceManager.SetAutoStart(false)) { _settings.AutoStart = false; _settings.Save(); } };
+        RoutedEventHandler autoStartCheckedHandler = (_, _) => { if (ServiceManager.SetAutoStart(true)) { _settings.AutoStart = true; MarkDirty(); } };
+        RoutedEventHandler autoStartUncheckedHandler = (_, _) => { if (ServiceManager.SetAutoStart(false)) { _settings.AutoStart = false; MarkDirty(); } };
         autoStartCheck.Checked += autoStartCheckedHandler;
         autoStartCheck.Unchecked += autoStartUncheckedHandler;
         panel.RegisterUnsubscribe(() => autoStartCheck.Checked -= autoStartCheckedHandler);

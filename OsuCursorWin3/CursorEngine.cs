@@ -720,11 +720,19 @@ internal sealed class CursorEngine : IDisposable
 
     // ======================== ANIMATION ========================
 
+    /// <summary>
+    /// Global animation speed multiplier.  Every time-based constant below is
+    /// scaled by this factor (accelerations by speed², damping coefficients and
+    /// durations by speed), so the motion keeps its exact original shape and
+    /// only runs faster.  2.0 = twice the original speed.
+    /// </summary>
+    private const double AnimationSpeed = 2.0;
+
     private void StartElasticReturn()
     {
         if (Math.Abs(_angle) < 0.5) return;
         _elasticStartAngle = _angle;
-        _elasticDuration = 0.6 * (1.0 + Math.Abs(_angle / 720.0));
+        _elasticDuration = 0.6 * (1.0 + Math.Abs(_angle / 720.0)) / AnimationSpeed;
         _elasticElapsed = 0.0;
         _elasticReturning = true;
         _angleVelocity = 0.0;
@@ -743,6 +751,11 @@ internal sealed class CursorEngine : IDisposable
 
     private void UpdateAnimation(double dt)
     {
+        // Time scaling: multiply every rate by s (and every acceleration by s²)
+        // so the whole motion completes s× faster with the same trajectory.
+        var s = AnimationSpeed;
+        var s2 = s * s;
+
         double targetScale, targetAdditive;
         if (_mouseDown)
         {
@@ -750,7 +763,7 @@ internal sealed class CursorEngine : IDisposable
             targetScale = 0.9;
             var targetAngle = _dragActive ? CalculateDragAngle() : 0.0;
             var angleDelta = NormalizeAngle(targetAngle - _angle);
-            _angle += angleDelta * Math.Clamp(dt * 8.0, 0.0, 1.0);
+            _angle += angleDelta * Math.Clamp(dt * 8.0 * s, 0.0, 1.0);
         }
         else if (_elasticReturning)
         {
@@ -762,14 +775,14 @@ internal sealed class CursorEngine : IDisposable
         {
             var targetAngle = _pointerHover ? PointerAngle : 0.0;
             var angleDelta = NormalizeAngle(targetAngle - _angle);
-            _angleVelocity += (240.0 * angleDelta - 20.0 * _angleVelocity) * dt;
+            _angleVelocity += (240.0 * s2 * angleDelta - 20.0 * s * _angleVelocity) * dt;
             _angle += _angleVelocity * dt;
             targetAdditive = _pointerHover ? 1.0 : 0.0;
             targetScale = 1.0;
         }
-        _scaleVelocity += (240.0 * (targetScale - _scaleValue) - 20.0 * _scaleVelocity) * dt;
+        _scaleVelocity += (240.0 * s2 * (targetScale - _scaleValue) - 20.0 * s * _scaleVelocity) * dt;
         _scaleValue += _scaleVelocity * dt;
-        _opacityVelocity += (160.0 * (targetAdditive - _additiveOpacity) - 18.0 * _opacityVelocity) * dt;
+        _opacityVelocity += (160.0 * s2 * (targetAdditive - _additiveOpacity) - 18.0 * s * _opacityVelocity) * dt;
         _additiveOpacity += _opacityVelocity * dt;
         _scaleValue = Math.Clamp(_scaleValue, 0.8, 1.1);
         _additiveOpacity = Math.Clamp(_additiveOpacity, 0.0, 1.0);

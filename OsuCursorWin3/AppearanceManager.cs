@@ -88,8 +88,19 @@ internal static class AppearanceManager
                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
         }
 
-        // Set overall window opacity via Win32 layered window
-        var alpha = (byte)Math.Clamp(settings.WindowOpacity * 255, 25, 255);
+        // Set overall window opacity via Win32 layered window.
+        // Mica/Acrylic own the window surface through the composition
+        // backdrop, so the opacity slider is inert there: the window is
+        // pinned to 100% and the WS_EX_LAYERED alpha stays 255.
+        byte alpha;
+        if (settings.BackgroundBlur == AppSettings.BlurMode.Default)
+        {
+            alpha = (byte)Math.Clamp(settings.WindowOpacity * 255, 25, 255);
+        }
+        else
+        {
+            alpha = 255;
+        }
         SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
     }
 
