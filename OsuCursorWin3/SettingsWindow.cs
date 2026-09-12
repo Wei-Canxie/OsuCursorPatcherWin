@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.UI;
 using WinRT.Interop;
@@ -53,6 +54,14 @@ internal sealed class SettingsWindow : Window
     private string? _currentTag;
     private Border? _applyBar;
     private bool _dirty;
+
+    // Sidebar expand/collapse animation: the SplitView snaps its pane column
+    // between these two widths, so the transition is driven by hand.
+    private const double SidebarOpenLength = 200;
+    private const double SidebarCompactLength = 48;
+    private const int SidebarAnimationMs = 180;
+    private bool _paneAnimating;
+    private bool _suppressPaneEvents;
     private readonly Dictionary<string, double> _scrollCache = new();
 
     public SettingsWindow(CursorEngine? engine = null)
@@ -99,11 +108,12 @@ internal sealed class SettingsWindow : Window
             IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed,
             IsSettingsVisible = false,
             PaneDisplayMode = NavigationViewPaneDisplayMode.LeftCompact,
-            OpenPaneLength = 200,
-            CompactPaneLength = 48,
+            OpenPaneLength = SidebarOpenLength,
+            CompactPaneLength = SidebarCompactLength,
             IsPaneOpen = false,
         };
         _nav = nav;
+        HookPaneAnimation();
 
         nav.MenuItems.Add(new NavigationViewItem { Content = "外观", Icon = new SymbolIcon(Symbol.View), Tag = "appearance" });
         nav.MenuItems.Add(new NavigationViewItem { Content = "光标", Icon = new SymbolIcon(Symbol.Target), Tag = "cursor" });
@@ -150,6 +160,96 @@ internal sealed class SettingsWindow : Window
         root.Children.Add(_applyBar);
         Content = root;
     }
+
+    /// <summary>
+    /// Animate the sidebar between the compact strip and the expanded pane.
+    /// WinUI's SplitView switches pane width instantly in both directions, so
+    /// the transition is cancelled and driven here through OpenPaneLength.
+    /// </summary>
+    private void HookPaneAnimation()
+    {
+        var nav = _nav;
+        if (nav == null) return;
+
+        // PaneOpening cannot be cancelled, so the pane is re-opened at its
+        // compact width and grown afterwards.  Closing is cancelled outright and
+        // animated down, which is what the SplitView does not do itself.
+        nav.PaneOpening += (_, _) =>
+        {
+            if (_suppressPaneEvents || _paneAnimating) return;
+            _paneAnimating = true;
+            nav.OpenPaneLength = SidebarCompactLength;
+            DispatcherQueue.TryEnqueue(() => AnimatePaneLength(SidebarCompactLength, SidebarOpenLength, () =>
+            {
+                // The pane can report itself closed while OpenPaneLength was still
+                // at the compact width, so re-assert the open state at the end.
+                WithPaneEventsSuppressed(() => nav.IsPaneOpen = true);
+                _paneAnimating = false;
+            }));
+        };
+
+        nav.PaneClosing += (_, e) =>
+        {
+            if (_suppressPaneEvents) return;
+            e.Cancel = true;
+            if (_paneAnimating) return;
+            _paneAnimating = true;
+            AnimatePaneLength(nav.OpenPaneLength, SidebarCompactLength, () =>
+            {
+                // Already 48 wide, so leaving the open state is invisible;
+                // restore the length afterwards for the next expansion.
+                WithPaneEventsSuppressed(() =>
+                {
+                    nav.IsPaneOpen = false;
+                    nav.OpenPaneLength = SidebarOpenLength;
+                });
+                _paneAnimating = false;
+            });
+        };
+    }
+
+    private void AnimatePaneLength(double from, double to, Action? onCompleted)
+    {
+        var nav = _nav;
+        if (nav == null) return;
+
+        var animation = new DoubleAnimation
+        {
+            From = from,
+            To = to,
+            Duration = new Duration(TimeSpan.FromMilliseconds(SidebarAnimationMs)),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+            // Layout-backed properties are ignored without this flag.
+            EnableDependentAnimation = true
+        };
+        Storyboard.SetTarget(animation, nav);
+        Storyboard.SetTargetProperty(animation, "OpenPaneLength");
+
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(animation);
+        storyboard.Completed += (_, _) =>
+        {
+            try
+            {
+                nav.OpenPaneLength = to;   // identical value: releasing cannot flicker
+                storyboard.Stop();
+            }
+            catch (Exception ex)
+            {
+                AppLog.Log($"Sidebar animation cleanup failed: {ex.Message}");
+            }
+            onCompleted?.Invoke();
+        };
+        storyboard.Begin();
+    }
+
+    private void WithPaneEventsSuppressed(Action action)
+    {
+        _suppressPaneEvents = true;
+        try { action(); }
+        finally { _suppressPaneEvents = false; }
+    }
+
 
     /// <summary>
     /// Bottom-right 取消更改 / 应用 bar.  Floats above the page content and
@@ -233,9 +333,10 @@ internal sealed class SettingsWindow : Window
             // 1px bordered host), which left thin slits above and below the
             // sidebar.  Flatten the pane and its pane-side ancestors so the
             // background reaches the title bar bottom and the window bottom.
-            // -1px top/bottom: the template host Border sits 1px inside the pane
-            // column, which would otherwise leave a hairline above and below.
-            pane.Margin = new Thickness(0, -1, 0, -1);
+            // The template host Border already insets the pane by 1px on every
+            // side; that hairline inset is kept (only the extra 3px margin the
+            // pane carried is removed by the flattening below).
+            pane.Margin = new Thickness(0);
             FlattenPaneAncestors(pane, splitView);
 
             // Rounded clip for non-Border panes
@@ -430,6 +531,39 @@ internal sealed class SettingsWindow : Window
             : Color.FromArgb((byte)(titleBarOpacity * 255), 0xF3, 0xF3, 0xF3);
 
         return new SolidColorBrush(color);
+    }
+
+    /// <summary>
+    /// Caption buttons (minimize / maximize / close) must follow the in-app
+    /// theme rather than the system theme, otherwise light mode draws white
+    /// glyphs on a light title bar.
+    /// </summary>
+    private void ApplyCaptionButtonColors()
+    {
+        try
+        {
+            var titleBar = AppWindow.TitleBar;
+            var isDark = IsDarkTheme();
+
+            titleBar.ButtonBackgroundColor = Colors.Transparent;
+            titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
+            titleBar.ButtonForegroundColor = isDark ? Colors.White : Colors.Black;
+            titleBar.ButtonInactiveForegroundColor = isDark
+                ? Color.FromArgb(0xFF, 0x7A, 0x7A, 0x7A)
+                : Color.FromArgb(0xFF, 0x8A, 0x8A, 0x8A);
+            titleBar.ButtonHoverForegroundColor = isDark ? Colors.White : Colors.Black;
+            titleBar.ButtonHoverBackgroundColor = isDark
+                ? Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF)
+                : Color.FromArgb(0x18, 0x00, 0x00, 0x00);
+            titleBar.ButtonPressedForegroundColor = isDark ? Colors.White : Colors.Black;
+            titleBar.ButtonPressedBackgroundColor = isDark
+                ? Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF)
+                : Color.FromArgb(0x10, 0x00, 0x00, 0x00);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Log($"ApplyCaptionButtonColors failed: {ex.Message}");
+        }
     }
 
     /// <summary>Translucent card brush for the floating 应用 / 取消更改 bar.</summary>
@@ -707,6 +841,8 @@ internal sealed class SettingsWindow : Window
         {
             _applyBar.Background = GetFloatingBarBrush();
         }
+
+        ApplyCaptionButtonColors();
 
         // Rebuild the current page so theme colors / labels stay in sync
         RebuildCurrentPage();
