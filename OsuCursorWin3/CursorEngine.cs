@@ -724,9 +724,9 @@ internal sealed class CursorEngine : IDisposable
     /// Global animation speed multiplier.  Every time-based constant below is
     /// scaled by this factor (accelerations by speed², damping coefficients and
     /// durations by speed), so the motion keeps its exact original shape and
-    /// only runs faster.  2.0 = twice the original speed.
+    /// only runs faster.  1.33 = a third faster than the original.
     /// </summary>
-    private const double AnimationSpeed = 2.0;
+    private const double AnimationSpeed = 1.33;
 
     private void StartElasticReturn()
     {

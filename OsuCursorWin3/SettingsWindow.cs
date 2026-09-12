@@ -81,8 +81,6 @@ internal sealed class SettingsWindow : Window
         var root = new Grid();
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        // Reserved strip for the 应用 / 取消更改 bar so showing it never shifts content.
-        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(56) });
 
         _titleBarRoot = new Border { Height = 32, Background = GetTitleBarBrush() };
         _titleBarText = new TextBlock
@@ -138,13 +136,14 @@ internal sealed class SettingsWindow : Window
             try { nav.SelectedItem = nav.MenuItems[0]; }
             catch (Exception ex) { AppLog.Log($"nav.Loaded set SelectedItem failed: {ex.Message}"); }
             ApplyAppearance();
-            // Note: SyncSidebarBackground is called inside ApplyAppearance based on blur mode
         };
 
         Grid.SetRow(nav, 1);
 
+        // Floating apply bar: overlaid on the nav row (bottom-right) so the
+        // sidebar still spans the full window height.
         _applyBar = BuildApplyBar();
-        Grid.SetRow(_applyBar, 2);
+        Grid.SetRow(_applyBar, 1);
 
         root.Children.Add(_titleBarRoot);
         root.Children.Add(nav);
@@ -153,8 +152,8 @@ internal sealed class SettingsWindow : Window
     }
 
     /// <summary>
-    /// Bottom-right 取消更改 / 应用 bar.  Collapsed until a setting is edited;
-    /// because its row is always reserved the layout never jumps.
+    /// Bottom-right 取消更改 / 应用 bar.  Floats above the page content and
+    /// stays collapsed until a setting is edited.
     /// </summary>
     private Border BuildApplyBar()
     {
@@ -185,7 +184,12 @@ internal sealed class SettingsWindow : Window
 
         return new Border
         {
-            Padding = new Thickness(0, 0, 16, 0),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, 24, 16),
+            Padding = new Thickness(10, 8, 10, 8),
+            CornerRadius = new CornerRadius(8),
+            Background = GetFloatingBarBrush(),
             Child = buttons,
             Visibility = Visibility.Collapsed
         };
@@ -225,12 +229,59 @@ internal sealed class SettingsWindow : Window
                 AppLog.Log($"SyncSidebarBackground: pane type {pane.GetType().Name} is not Panel/Border");
             }
 
+            // The NavigationView template insets the pane (4px vertically plus a
+            // 1px bordered host), which left thin slits above and below the
+            // sidebar.  Flatten the pane and its pane-side ancestors so the
+            // background reaches the title bar bottom and the window bottom.
+            // -1px top/bottom: the template host Border sits 1px inside the pane
+            // column, which would otherwise leave a hairline above and below.
+            pane.Margin = new Thickness(0, -1, 0, -1);
+            FlattenPaneAncestors(pane, splitView);
+
             // Rounded clip for non-Border panes
             ApplyRoundedClip(pane);
         }
         catch (Exception ex)
         {
             AppLog.Log($"SyncSidebarBackground failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Remove the template's insets (margin / padding / border / background) from
+    /// the pane's ancestors up to the SplitView, so the sidebar background spans
+    /// the full pane column with no hairline gaps at top or bottom.
+    /// </summary>
+    private static void FlattenPaneAncestors(DependencyObject pane, DependencyObject? stopAt)
+    {
+        try
+        {
+            var parent = VisualTreeHelper.GetParent(pane);
+            while (parent != null && parent != stopAt)
+            {
+                switch (parent)
+                {
+                    case Border border:
+                        border.Margin = new Thickness(0);
+                        border.Padding = new Thickness(0);
+                        border.BorderThickness = new Thickness(0);
+                        border.Background = new SolidColorBrush(Colors.Transparent);
+                        break;
+                    case Panel p:
+                        p.Margin = new Thickness(0);
+                        p.Background = new SolidColorBrush(Colors.Transparent);
+                        break;
+                    case ContentPresenter cp:
+                        cp.Margin = new Thickness(0);
+                        break;
+                }
+
+                parent = VisualTreeHelper.GetParent(parent);
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLog.Log($"FlattenPaneAncestors failed: {ex.Message}");
         }
     }
 
@@ -380,6 +431,12 @@ internal sealed class SettingsWindow : Window
 
         return new SolidColorBrush(color);
     }
+
+    /// <summary>Translucent card brush for the floating 应用 / 取消更改 bar.</summary>
+    private Brush GetFloatingBarBrush() =>
+        IsDarkTheme()
+            ? new SolidColorBrush(Color.FromArgb(0xE6, 0x2D, 0x2D, 0x2D))
+            : new SolidColorBrush(Color.FromArgb(0xF0, 0xFF, 0xFF, 0xFF));
 
     private FrameworkElement BuildPage(string tag)
     {
@@ -645,6 +702,11 @@ internal sealed class SettingsWindow : Window
 
         // Sidebar background must follow theme changes too
         SyncSidebarBackground();
+
+        if (_applyBar != null)
+        {
+            _applyBar.Background = GetFloatingBarBrush();
+        }
 
         // Rebuild the current page so theme colors / labels stay in sync
         RebuildCurrentPage();
