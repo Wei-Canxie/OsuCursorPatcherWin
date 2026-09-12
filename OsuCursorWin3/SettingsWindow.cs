@@ -319,7 +319,7 @@ internal sealed class SettingsWindow : Window
                     var storyboard = new Storyboard();
                     storyboard.Children.Add(BuildSidebarAnimation(
                         pane, "Width", startWidth, splitView.CompactPaneLength,
-                        SidebarAnimationMs, reverseSpline: true));
+                        SidebarAnimationMs));
 
                     storyboard.Completed += (_, _) =>
                     {
@@ -358,18 +358,16 @@ internal sealed class SettingsWindow : Window
         }
     }
 
-    private static DoubleAnimationUsingKeyFrames BuildSidebarAnimation(DependencyObject target, string property, double from, double to, int durationMs, bool reverseSpline = false)
+    private static DoubleAnimationUsingKeyFrames BuildSidebarAnimation(DependencyObject target, string property, double from, double to, int durationMs)
     {
         var animation = new DoubleAnimationUsingKeyFrames { EnableDependentAnimation = true };
         animation.KeyFrames.Add(new DiscreteDoubleKeyFrame { KeyTime = TimeSpan.Zero, Value = from });
         animation.KeyFrames.Add(new SplineDoubleKeyFrame
         {
             KeyTime = TimeSpan.FromMilliseconds(durationMs),
-            // Forward uses the expand animation's own curve; reversed mirrors it,
-            // which is what playing that animation backwards looks like.
-            KeySpline = reverseSpline
-                ? new KeySpline { ControlPoint1 = new(0.8, 0.0), ControlPoint2 = new(0.9, 0.1) }
-                : new KeySpline { ControlPoint1 = SidebarSpline1, ControlPoint2 = SidebarSpline2 },
+            // The same curve the template uses to open: quick off the mark, easing
+            // out.  Collapsing therefore reads as expanding played the other way.
+            KeySpline = new KeySpline { ControlPoint1 = SidebarSpline1, ControlPoint2 = SidebarSpline2 },
             Value = to
         });
         Storyboard.SetTarget(animation, target);
@@ -598,10 +596,17 @@ internal sealed class SettingsWindow : Window
 
     private static void SyncClipBounds(Microsoft.UI.Composition.RectangleClip clip, FrameworkElement pane)
     {
+        // Guard against a collapsed layout: clipping to a zero-sized box hides the
+        // sidebar entirely, which showed up as a few frames of nothing while the
+        // pane's visual states swapped.
+        var width = pane.ActualWidth;
+        var height = pane.ActualHeight;
+        if (!(width > 0) || !(height > 0)) return;
+
         clip.Left = 0f;
         clip.Top = 0f;
-        clip.Right = (float)pane.ActualWidth;
-        clip.Bottom = (float)pane.ActualHeight;
+        clip.Right = (float)width;
+        clip.Bottom = (float)height;
     }
 
     private bool IsDarkTheme() =>
