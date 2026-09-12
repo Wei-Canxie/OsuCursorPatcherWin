@@ -55,17 +55,19 @@ internal sealed class SettingsWindow : Window
     private Border? _applyBar;
     private bool _dirty;
 
-    // Sidebar collapse replays the template's expand animation in reverse.  The
-    // template itself closes in 120ms (vs 350ms to open), which reads as a snap,
-    // so the close transition's animation is taken over by this one.
-    private const int SidebarAnimationMs = 350;
+    // Sidebar collapse.  The template slides the pane's clip window closed in 120ms
+    // and shrinks the pane to the compact strip, but it does both inside that same
+    // 120ms, so the slide itself is invisible.  Fighting that animation (holding its
+    // clip window open frame by frame) is what made the pane flicker, so the pane's
+    // own width is animated with the same timing and curve instead: the two move
+    // together and there is nothing left to fight over.
+    private const int SidebarCloseMs = 120;
     private static readonly Windows.Foundation.Point SidebarSpline1 = new(0.1, 0.9);
     private static readonly Windows.Foundation.Point SidebarSpline2 = new(0.2, 1.0);
     private bool _paneAnimating;
-    private Storyboard? _sidebarCollapse;
-    private Storyboard? _sidebarHold;
-    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _sidebarTimer;
+    private Storyboard? _sidebarAnimation;
     private FrameworkElement? _sidebarPinnedPane;
+
     private readonly Dictionary<string, double> _scrollCache = new();
 
     public SettingsWindow(CursorEngine? engine = null)
@@ -210,44 +212,29 @@ internal sealed class SettingsWindow : Window
     }
 
     /// <summary>
-    /// Collapse the sidebar by replaying the expand animation backwards.  The
-    /// template closes in ~120ms with an extremely front-loaded curve, and it
-    /// shrinks the pane to the compact strip in the process, which leaves nothing
-    /// to animate.  So the pane's clip window is held open and the pane's own
-    /// width plays the expand curve in reverse instead.
+    /// Track the pane opening and closing.  Opening only has to drop the width the
+    /// collapse pinned; closing is animated here, because the SplitView's own close
+    /// shrinks the pane before its slide can be seen.
     /// </summary>
     private void HookSidebarAnimation()
     {
         var nav = _nav;
         if (nav == null) return;
 
-        // The pane can close from the toggle button, the light-dismiss layer or
-        // code, and PaneClosing cannot actually cancel the close, so the property
-        // change is tracked instead.
         nav.RegisterPropertyChangedCallback(NavigationView.IsPaneOpenProperty, (_, _) =>
         {
-            if (nav.IsPaneOpen)
-            {
-                ResetSidebarCollapse();
-                return;
-            }
-
-            if (_paneAnimating) return;
-            _paneAnimating = true;
-            StartSidebarCollapse();
+            if (nav.IsPaneOpen) ResetSidebarWidth();
+            else AnimateSidebarCollapse();
         });
     }
 
-    private void ResetSidebarCollapse()
+    /// <summary>Drop the width the collapse pinned, so the pane can widen again.</summary>
+    private void ResetSidebarWidth()
     {
         _paneAnimating = false;
 
-        try { _sidebarTimer?.Stop(); } catch { }
-        _sidebarTimer = null;
-        try { _sidebarCollapse?.Stop(); } catch { }
-        _sidebarCollapse = null;
-        try { _sidebarHold?.Stop(); } catch { }
-        _sidebarHold = null;
+        try { _sidebarAnimation?.Stop(); } catch { }
+        _sidebarAnimation = null;
 
         if (_sidebarPinnedPane != null)
         {
@@ -256,100 +243,42 @@ internal sealed class SettingsWindow : Window
         }
     }
 
-    private void StartSidebarCollapse()
+    private void AnimateSidebarCollapse()
     {
+        if (_paneAnimating) return;
+        _paneAnimating = true;
+
         try
         {
             var splitView = FindSplitViewPane(_nav);
-            if (splitView?.Pane is not FrameworkElement pane)
+            if (splitView?.Pane is not FrameworkElement pane || splitView.CompactPaneLength <= 0)
             {
                 _paneAnimating = false;
                 return;
             }
 
-            var clip = FindPaneClipTransform(splitView);
-            if (clip == null)
-            {
-                AppLog.Log("Sidebar collapse: pane clip transform not found");
-                _paneAnimating = false;
-                return;
-            }
+            ResetSidebarWidth();
 
-            // Freeze the pane at its expanded width: the closed state collapses it
-            // to the compact strip within one frame, and a 48px wide pane has
-            // nothing left to clip, which is why the template's own slide is not
-            // visible.
             var startWidth = pane.ActualWidth > splitView.CompactPaneLength
                 ? pane.ActualWidth
                 : splitView.OpenPaneLength;
+
+            // Pin the width: the SplitView arranges the pane down to the compact
+            // width the moment the close lands, and only an explicit width — which
+            // the animation then drives — keeps it wide enough to be seen shrinking.
             pane.Width = startWidth;
             _sidebarPinnedPane = pane;
 
-            // The template moves the clip window and the pane width within ~120ms of
-            // the close, most of it in the first frames, and its own animation can
-            // still start after this one.  Re-asserting the hold every frame keeps it
-            // beaten while the pane's width plays the expand curve backwards.
-            var started = false;
-            var timer = DispatcherQueue.CreateTimer();
-            timer.Interval = TimeSpan.FromMilliseconds(16);
-            timer.IsRepeating = true;
-            timer.Tick += (_, _) =>
+            _sidebarAnimation = BuildSidebarAnimation(pane, "Width", startWidth, splitView.CompactPaneLength, SidebarCloseMs);
+            _sidebarAnimation.Completed += (_, _) =>
             {
-                try
-                {
-                    // Hold the clip window open, otherwise the pane is cut back to
-                    // the strip before it gets a chance to move.
-                    var hold = new DoubleAnimation
-                    {
-                        From = 0,
-                        To = 0,
-                        Duration = new Duration(TimeSpan.FromMilliseconds(SidebarAnimationMs)),
-                        EnableDependentAnimation = true
-                    };
-                    Storyboard.SetTarget(hold, clip);
-                    Storyboard.SetTargetProperty(hold, "TranslateX");
-                    var holdStoryboard = new Storyboard();
-                    holdStoryboard.Children.Add(hold);
-                    holdStoryboard.Begin();
-                    _sidebarHold = holdStoryboard;
-
-                    if (started) return;
-                    started = true;
-
-                    var storyboard = new Storyboard();
-                    storyboard.Children.Add(BuildSidebarAnimation(
-                        pane, "Width", startWidth, splitView.CompactPaneLength,
-                        SidebarAnimationMs));
-
-                    storyboard.Completed += (_, _) =>
-                    {
-                        try { storyboard.Stop(); } catch { }
-                        timer.Stop();
-                        try { _sidebarHold?.Stop(); } catch { }
-                        _sidebarHold = null;
-                        _sidebarCollapse = null;
-
-                        // Leave the pane pinned at the compact width: that is exactly
-                        // what the collapsed pane looks like, and it keeps the layout
-                        // from snapping to a half-way value.
-                        pane.Width = splitView.CompactPaneLength;
-                        _paneAnimating = false;
-                        AppLog.Log("Sidebar collapse: done");
-                    };
-
-                    _sidebarCollapse = storyboard;
-                    storyboard.Begin();
-                    AppLog.Log($"Sidebar collapse: width {startWidth:0.#} -> {splitView.CompactPaneLength:0.#} over {SidebarAnimationMs}ms");
-                }
-                catch (Exception ex)
-                {
-                    AppLog.Log($"Sidebar collapse animation failed: {ex.Message}");
-                    timer.Stop();
-                    ResetSidebarCollapse();
-                }
+                try { _sidebarAnimation?.Stop(); } catch { }
+                _sidebarAnimation = null;
+                _paneAnimating = false;
+                AppLog.Log("Sidebar collapse: done");
             };
-            _sidebarTimer = timer;
-            timer.Start();
+            _sidebarAnimation.Begin();
+            AppLog.Log($"Sidebar collapse: width {startWidth:0.#} -> {splitView.CompactPaneLength:0.#} over {SidebarCloseMs}ms");
         }
         catch (Exception ex)
         {
@@ -358,41 +287,23 @@ internal sealed class SettingsWindow : Window
         }
     }
 
-    private static DoubleAnimationUsingKeyFrames BuildSidebarAnimation(DependencyObject target, string property, double from, double to, int durationMs)
+    private static Storyboard BuildSidebarAnimation(DependencyObject target, string property, double from, double to, int durationMs)
     {
         var animation = new DoubleAnimationUsingKeyFrames { EnableDependentAnimation = true };
         animation.KeyFrames.Add(new DiscreteDoubleKeyFrame { KeyTime = TimeSpan.Zero, Value = from });
         animation.KeyFrames.Add(new SplineDoubleKeyFrame
         {
             KeyTime = TimeSpan.FromMilliseconds(durationMs),
-            // The same curve the template uses to open: quick off the mark, easing
-            // out.  Collapsing therefore reads as expanding played the other way.
+            // The template's own curve: quick off the mark, easing out.
             KeySpline = new KeySpline { ControlPoint1 = SidebarSpline1, ControlPoint2 = SidebarSpline2 },
             Value = to
         });
         Storyboard.SetTarget(animation, target);
         Storyboard.SetTargetProperty(animation, property);
-        return animation;
-    }
 
-    /// <summary>
-    /// The SplitView clips its pane with a RectangleGeometry whose
-    /// CompositeTransform (TranslateX) is the property its expand animation drives.
-    /// </summary>
-    private static CompositeTransform? FindPaneClipTransform(DependencyObject? root)
-    {
-        if (root == null) return null;
-
-        if (root is FrameworkElement fe && fe.Clip is RectangleGeometry rg && rg.Transform is CompositeTransform ct)
-            return ct;
-
-        int count = VisualTreeHelper.GetChildrenCount(root);
-        for (int i = 0; i < count; i++)
-        {
-            var found = FindPaneClipTransform(VisualTreeHelper.GetChild(root, i));
-            if (found != null) return found;
-        }
-        return null;
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(animation);
+        return storyboard;
     }
 
     /// <summary>
