@@ -6,6 +6,18 @@
 
 Windows 全局 osu! 风格光标替换工具。在普通桌面场景使用半透明 GDI 动画光标覆盖层，在开始菜单、操作中心、音量/剪贴板浮出等 DirectComposition 表面自动切换为 osu! 主题系统光标，实现无缝覆盖。
 
+## 下载
+
+当前版本 **v1.1.0**，三种打包方式任选（功能完全一致，仅运行时打包方式不同）：
+
+| 资产 | 依赖 | 体积 |
+|---|---|---|
+| `OsuCursorWin.exe` | 无（.NET 与 Windows App SDK 全部内置），下载即用 | ~308 MB |
+| `OsuCursorWin-dotnet-only.zip`（推荐） | 仅需 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) | ~55 MB |
+| `OsuCursorWin-full-framework-dependent.zip` | 需 .NET 8 + [Windows App SDK Runtime 2.4](https://aka.ms/windowsappsdk/2.4/latest/windowsappruntimeinstall-x64.exe) | ~29 MB |
+
+下载页：[最新 Release](https://github.com/Wei-Canxie/OsuCursorPatcherWin/releases/latest)。zip 版解压到任意目录后运行其中的 `OsuCursorWin.exe`（程序会自动请求 UAC 提权）。
+
 ## 功能
 
 - **双模式光标架构**：普通场景 → WinForms layered 窗口 + GDI 渲染，半透明、动画（旋转、缩放、发光）；DirectComposition 表面（开始菜单等）→ 自动切换为 osu! 主题系统光标，保证可见性
@@ -50,7 +62,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1
 
 双击 `publish\OsuCursorWin.exe`，程序自动启动 UAC 提权并隐藏到系统托盘。右键托盘图标可打开设置窗口或退出程序。
 
-首次启动会自动创建设置文件到 `%LOCALAPPDATA%\OsuCursorPatcherWin\settings.json`，修改设置实时生效。
+首次启动会自动创建设置文件到 `%LOCALAPPDATA%\OsuCursorPatcherWin\settings.json`。设置改动先进入草稿，点击窗口右下角的「应用」才会写入并生效，「取消更改」可放弃本次改动。
 
 ## 构建
 
@@ -64,6 +76,27 @@ dotnet build -c Release
 ```
 
 构建产物：WinUI 3 主程序位于 `OsuCursorWin3\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\OsuCursorWin.exe`（需 .NET 8 Desktop Runtime；`background-default.jpg` 随 exe 一同输出）。
+
+发布构建（对应 Release 里的三种形态）：
+
+```powershell
+$P = "OsuCursorWin3\OsuCursorWin3.csproj"
+
+# 单文件自包含版（~308 MB，零依赖）
+dotnet publish $P -c Release -p:Platform=x64 -r win-x64 --self-contained true `
+    -p:WindowsAppSDKSelfContained=true -p:PublishSingleFile=true `
+    -p:IncludeAllContentForSelfExtract=true -p:EnableMsixTooling=true -o publish\selfcontained
+
+# 仅需 .NET 版（~55 MB，Windows App SDK 内置）
+dotnet publish $P -c Release -p:Platform=x64 -r win-x64 --self-contained false `
+    -p:WindowsAppSDKSelfContained=true -o publish\dotnet-only
+
+# 完全框架依赖版（~29 MB）
+dotnet publish $P -c Release -p:Platform=x64 -r win-x64 --self-contained false `
+    -p:WindowsAppSDKSelfContained=false -o publish\full-fwdep
+```
+
+> 注：`PublishSingleFile` 需要 `EnableMsixTooling=true`（Windows App SDK 的 SingleFile.targets 要求）；`assets/` 会被 Windows App SDK 映射为 `Assets/`，所以默认背景图放在项目根目录、并从 Content glob 中排除 `assets/**`，否则单文件打包会因重名条目失败。
 
 > 注：`OsuCursorWin/` 为旧版 WPF 实现（保留参考），当前主程序为 `OsuCursorWin3/`（WinUI 3）。
 
@@ -81,6 +114,7 @@ powershell -ExecutionPolicy Bypass -File scripts\restore-cursor.ps1
 OsuCursorPatcherWin/
 ├── OsuCursorWin3/          # 主程序源代码（WinUI 3）
 │   ├── App.xaml.cs         # 应用启动：音效播放器、覆盖层、引擎、设置窗口
+│   ├── AppLog.cs           # 日志输出（%TEMP%\OsuCursorWin.log）
 │   ├── SettingsWindow.cs   # WinUI 3 设置窗口（外观/光标/对齐/音效/系统）
 │   ├── AppearanceManager.cs# 背景/模糊/不透明度应用（Mica/Acrylic/默认）
 │   ├── CursorEngine.cs     # 渲染引擎（鼠标钩子 + 高精度定时器 + 动画 + UIA 悬停检测）
@@ -88,9 +122,11 @@ OsuCursorPatcherWin/
 │   ├── GdiCursorOverlay.cs # 普通场景光标覆盖层（WinForms layered 窗口）
 │   ├── NativeMethods.cs    # Win32 P/Invoke 声明
 │   ├── AppSettings.cs      # 设置持久化
+│   ├── AutoStartManager.cs # 开机自启管理
 │   ├── TapSoundPlayer.cs   # 音效播放（NAudio 低延迟）
 │   ├── TrayIcon.cs         # 系统托盘
 │   ├── ServiceManager.cs   # Windows 服务管理
+│   ├── background-default.jpg  # 默认背景图（随 exe 输出）
 │   └── OsuCursorWin3.csproj# 项目文件（Windows App SDK 2.4.0）
 ├── OsuCursorWin/           # 旧版 WPF 实现（参考）
 ├── assets/                 # 光标资源
@@ -103,7 +139,9 @@ OsuCursorPatcherWin/
 ├── scripts/                # 构建/辅助脚本
 │   ├── build.ps1           # 构建脚本
 │   ├── restore-cursor.ps1  # 恢复系统光标
-│   └── smoke.ps1           # 冒烟测试
+│   ├── smoke.ps1           # 冒烟测试
+│   ├── install-uiaccess.ps1# 安装到 Program Files（UIAccess）
+│   └── stop-running.ps1    # 结束正在运行的实例
 └── README.md               # 本文件
 ```
 

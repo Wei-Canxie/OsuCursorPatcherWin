@@ -6,6 +6,18 @@ English | [中文](README.md)
 
 A Windows global osu!-style cursor replacement tool. It uses a semi-transparent animated GDI cursor overlay in normal desktop scenes, and automatically switches to an osu!-themed system cursor over DirectComposition surfaces (Start menu, Action Center, volume/clipboard flyouts) so the cursor is never lost.
 
+## Download
+
+Current version **v1.1.0**, in three packaging flavours (identical features, only the runtime packaging differs):
+
+| Asset | Dependencies | Size |
+|---|---|---|
+| `OsuCursorWin.exe` | None (.NET and the Windows App SDK are bundled) - download and run | ~308 MB |
+| `OsuCursorWin-dotnet-only.zip` (recommended) | Only the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) | ~55 MB |
+| `OsuCursorWin-full-framework-dependent.zip` | .NET 8 + the [Windows App SDK Runtime 2.4](https://aka.ms/windowsappsdk/2.4/latest/windowsappruntimeinstall-x64.exe) | ~29 MB |
+
+Downloads: [latest release](https://github.com/Wei-Canxie/OsuCursorPatcherWin/releases/latest). For the zips, extract anywhere and run `OsuCursorWin.exe` inside (it requests UAC elevation itself).
+
 ## Features
 
 - **Dual-mode cursor architecture**: normal scenes use a WinForms layered window + GDI rendering with semi-transparency, animation (rotation, scaling, glow); DirectComposition surfaces (Start menu, etc.) automatically switch to the osu!-themed system cursor
@@ -50,7 +62,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1
 
 Double-click `publish\OsuCursorWin.exe`. The program elevates via UAC and hides to the system tray. Right-click the tray icon to open settings or exit.
 
-The settings file is created at `%LOCALAPPDATA%\OsuCursorPatcherWin\settings.json` on first launch; changes apply in real time.
+The settings file is created at `%LOCALAPPDATA%\OsuCursorPatcherWin\settings.json` on first launch. Edits go into a draft: press Apply in the window's bottom-right corner to commit them, or Cancel to drop the change.
 
 ## Build
 
@@ -64,6 +76,27 @@ dotnet build -c Release
 ```
 
 Build output: the WinUI 3 main program is at `OsuCursorWin3\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\OsuCursorWin.exe` (requires .NET 8 Desktop Runtime; `background-default.jpg` is shipped alongside the exe).
+
+Release builds (the three flavours published in each release):
+
+```powershell
+$P = "OsuCursorWin3\OsuCursorWin3.csproj"
+
+# Self-contained single file (~308 MB, no dependencies)
+dotnet publish $P -c Release -p:Platform=x64 -r win-x64 --self-contained true `
+    -p:WindowsAppSDKSelfContained=true -p:PublishSingleFile=true `
+    -p:IncludeAllContentForSelfExtract=true -p:EnableMsixTooling=true -o publish\selfcontained
+
+# .NET-only (~55 MB, Windows App SDK bundled)
+dotnet publish $P -c Release -p:Platform=x64 -r win-x64 --self-contained false `
+    -p:WindowsAppSDKSelfContained=true -o publish\dotnet-only
+
+# Fully framework-dependent (~29 MB)
+dotnet publish $P -c Release -p:Platform=x64 -r win-x64 --self-contained false `
+    -p:WindowsAppSDKSelfContained=false -o publish\full-fwdep
+```
+
+> Note: `PublishSingleFile` requires `EnableMsixTooling=true` (the Windows App SDK's SingleFile.targets insists on it). `assets/` is remapped to `Assets/` by the Windows App SDK, so the default background lives at the project root and `assets/**` is excluded from the Content glob - otherwise single-file bundling fails on duplicate entries.
 
 > Note: `OsuCursorWin/` is the legacy WPF implementation (kept for reference); the current main program is `OsuCursorWin3/` (WinUI 3).
 
@@ -81,6 +114,7 @@ powershell -ExecutionPolicy Bypass -File scripts\restore-cursor.ps1
 OsuCursorPatcherWin/
 ├── OsuCursorWin3/          # Main program source (WinUI 3)
 │   ├── App.xaml.cs         # App startup: sound players, overlay, engine, settings window
+│   ├── AppLog.cs           # Logging (%TEMP%\OsuCursorWin.log)
 │   ├── SettingsWindow.cs   # WinUI 3 settings window (appearance/cursor/align/sound/system)
 │   ├── AppearanceManager.cs# Background/blur/opacity (Mica/Acrylic/default)
 │   ├── CursorEngine.cs     # Rendering engine (mouse hook + high-res timer + animation + UIA hover detection)
@@ -88,9 +122,11 @@ OsuCursorPatcherWin/
 │   ├── GdiCursorOverlay.cs # Normal-scene cursor overlay (WinForms layered window)
 │   ├── NativeMethods.cs    # Win32 P/Invoke declarations
 │   ├── AppSettings.cs      # Settings persistence
+│   ├── AutoStartManager.cs # Auto-start management
 │   ├── TapSoundPlayer.cs   # Sound playback (NAudio low-latency)
 │   ├── TrayIcon.cs         # System tray
 │   ├── ServiceManager.cs   # Windows service management
+│   ├── background-default.jpg  # Default background image (shipped beside the exe)
 │   └── OsuCursorWin3.csproj# Project file (Windows App SDK 2.4.0)
 ├── OsuCursorWin/           # Legacy WPF implementation (reference)
 ├── assets/                 # Cursor resources
@@ -103,7 +139,9 @@ OsuCursorPatcherWin/
 ├── scripts/                # Build/utility scripts
 │   ├── build.ps1           # Build script
 │   ├── restore-cursor.ps1  # Restore system cursor
-│   └── smoke.ps1           # Smoke test
+│   ├── smoke.ps1           # Smoke test
+│   ├── install-uiaccess.ps1# Install into Program Files (UIAccess)
+│   └── stop-running.ps1    # Kill a running instance
 └── README.md               # This file
 ```
 
