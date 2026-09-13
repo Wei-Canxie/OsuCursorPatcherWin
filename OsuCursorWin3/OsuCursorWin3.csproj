@@ -50,6 +50,11 @@
     <Content Include="background-default.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- assets/ is picked up by WindowsAppSDK itself (mapped to Assets/ for PRI
+         and the runtime output).  Excluding it from the SDK's default Content glob
+         stops PublishSingleFile from seeing two bundle entries for every file in
+         there; the cursor images themselves ship as EmbeddedResource items below. -->
+    <Content Remove="assets\**" />
   </ItemGroup>
 
   <!-- Embedded resources (same as original) -->
