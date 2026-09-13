@@ -18,9 +18,13 @@ A Windows global osu!-style cursor replacement tool. It uses a semi-transparent 
 - **Sounds**: independent toggles and volume for tap/hover sounds
 - **System**: Windows service install/uninstall, auto-start on boot
 - **WinUI 3 settings window** (`OsuCursorWin3`):
-  - Appearance: theme (follow system/light/dark), window opacity (0.3–1.0), background image (pick/restore default), background blur radius
+  - Appearance: theme (follow system/light/dark), window opacity (0.3–1.0, pinned to 100% under Mica/Acrylic), background image (pick/restore default), background blur radius
   - Scene alignment: independent hotspot offset tuning for normal and DC scenes
-  - Sidebar: compact mode, theme-following background color, rounded corners, full-height layout
+  - Sidebar: compact mode, theme-following background color, rounded corners, 1px inset, expand/collapse animation (collapse replays the expand curve in reverse)
+  - **Apply on demand**: edits go into a draft first, with floating Cancel / Apply buttons in the window's bottom-right corner; dragging a slider no longer rebuilds the page or interrupts the drag
+  - Caption buttons (minimize/maximize/close) follow the in-app theme (black in light mode)
+- **Mica / Acrylic backgrounds**: WinUI 3 system backdrops, Windows 11 only; the window opacity is pinned to 100% while one is active, since the backdrop owns the window surface
+- **Cursor animation speed**: rotation, scaling, glow and drag-return all run at 1.33x, keeping the original trajectory shape and just speeding it up
 
 ## Requirements
 
