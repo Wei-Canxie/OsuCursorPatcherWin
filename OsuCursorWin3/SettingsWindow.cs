@@ -733,15 +733,20 @@ internal sealed class SettingsWindow : Window
 
         // Background image
         panel.Children.Add(new TextBlock { Text = "背景图片", FontWeight = FontWeights.SemiBold });
-        var bgPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-
         var bgPathLabel = new TextBlock
         {
-            Text = string.IsNullOrEmpty(_settings.BackgroundImagePath) ? "(无)" : Path.GetFileName(_settings.BackgroundImagePath),
             VerticalAlignment = VerticalAlignment.Center,
-            MinWidth = 120,
+            TextWrapping = TextWrapping.NoWrap,
             TextTrimming = TextTrimming.CharacterEllipsis
         };
+
+        void SetBgLabel(string? path)
+        {
+            bgPathLabel.Text = BackgroundImageLabel(path);
+            ToolTipService.SetToolTip(bgPathLabel, string.IsNullOrEmpty(path) ? "(无)" : path);
+        }
+
+        SetBgLabel(_settings.BackgroundImagePath);
 
         var selectBgBtn = new Button { Content = "选择图片" };
         RoutedEventHandler selectHandler = (_, _) =>
@@ -750,7 +755,7 @@ internal sealed class SettingsWindow : Window
             if (!string.IsNullOrEmpty(path))
             {
                 _settings.BackgroundImagePath = path;
-                bgPathLabel.Text = Path.GetFileName(path);
+                SetBgLabel(path);
                 MarkDirty();
             }
         };
@@ -761,15 +766,28 @@ internal sealed class SettingsWindow : Window
         RoutedEventHandler clearHandler = (_, _) =>
         {
             _settings.BackgroundImagePath = AppSettings.DefaultBackgroundPath;
-            bgPathLabel.Text = Path.GetFileName(AppSettings.DefaultBackgroundPath);
+            SetBgLabel(AppSettings.DefaultBackgroundPath);
             MarkDirty();
         };
         clearBgBtn.Click += clearHandler;
         panel.RegisterUnsubscribe(() => clearBgBtn.Click -= clearHandler);
 
+        // A Grid, not a horizontal StackPanel: the panel measures its children at
+        // their full desired width, so TextTrimming never kicks in and a long file
+        // name pushed both buttons clean off the page, where they could not be
+        // clicked. The label now lives in a star column and the buttons in an auto
+        // column, so they always stay in view; the tooltip keeps the full path.
+        var bgButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        bgButtons.Children.Add(selectBgBtn);
+        bgButtons.Children.Add(clearBgBtn);
+
+        var bgPanel = new Grid { ColumnSpacing = 8 };
+        bgPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        bgPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(bgPathLabel, 0);
+        Grid.SetColumn(bgButtons, 1);
         bgPanel.Children.Add(bgPathLabel);
-        bgPanel.Children.Add(selectBgBtn);
-        bgPanel.Children.Add(clearBgBtn);
+        bgPanel.Children.Add(bgButtons);
         panel.Children.Add(bgPanel);
 
         // Background image opacity: Slider + TextBox + buttons
@@ -943,6 +961,13 @@ internal sealed class SettingsWindow : Window
 
     [DllImport("comdlg32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool GetOpenFileName(ref OPENFILENAME ofn);
+
+    /// <summary>
+    /// File name shown in the background-image row; "(无)" when nothing is set.
+    /// Kept short on purpose — the row truncates it and shows the full path in a tooltip.
+    /// </summary>
+    private static string BackgroundImageLabel(string? path) =>
+        string.IsNullOrEmpty(path) ? "(无)" : Path.GetFileName(path);
 
     private static TextBlock Header(string text) => new()
     {
