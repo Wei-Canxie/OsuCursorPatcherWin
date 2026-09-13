@@ -8,7 +8,7 @@ A Windows global osu!-style cursor replacement tool. It uses a semi-transparent 
 
 ## Download
 
-Current version **v1.1.0**, in three packaging flavours (identical features, only the runtime packaging differs):
+Current version **v1.1.1**, in three packaging flavours (identical features, only the runtime packaging differs):
 
 | Asset | Dependencies | Size |
 |---|---|---|
