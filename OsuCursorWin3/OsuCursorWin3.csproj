@@ -42,10 +42,12 @@
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
   </ItemGroup>
 
-  <!-- Ship the default background image next to the exe -->
+  <!-- Ship the default background image next to the exe.  It is referenced from
+       the project root on purpose: the copy under assets/ is mapped to Assets/ by
+       the Windows App SDK, and pointing both at one bundle path makes
+       PublishSingleFile's GenerateBundle fail with duplicate entries. -->
   <ItemGroup>
-    <Content Include="assets\background-default.jpg">
-      <Link>background-default.jpg</Link>
+    <Content Include="background-default.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
